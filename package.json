@@ -1,0 +1,17 @@
+{
+  "name": "tophill-inventory",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": "24.22.0",
+    "pnpm": "9.15.9"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @app/shared build && pnpm --parallel --stream --filter @app/shared --filter @app/web --filter @app/api run dev",
+    "build": "pnpm --filter @app/shared build && pnpm --filter @app/web build && pnpm --filter @app/api build",
+    "lint": "pnpm --recursive --if-present run lint",
+    "typecheck": "pnpm --recursive --if-present run typecheck",
+    "test": "pnpm --recursive --if-present run test"
+  }
+}
