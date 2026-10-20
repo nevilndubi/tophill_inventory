@@ -178,7 +178,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 0.1 Monorepo scaffold (pnpm, apps/web, apps/api, packages/shared)
 - [x] 0.2 Code quality tooling (TS strict, ESLint, Prettier, Husky, lint-staged, commitlint)
 - [x] 0.3 Env management & validation, `.env.example`
-- [ ] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
+- [x] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
 - [ ] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
 - [ ] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build)
 - [ ] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 3 / 71 tasks (4.2%) |
-| Current phase | Phase 0 — Task 0.3 complete |
-| Last updated | 2026-10-20 15:10 EAT |
-| Branch | `phase-0/task-0.3-env-validation` |
-| Last commit | `chore: add validated environment configuration` |
-| Repo state | API and web environment schemas validate at startup; examples and server/public boundaries verified |
-| **Next task** | **0.4 API bootstrap** |
+| Overall progress | 4 / 71 tasks (5.6%) |
+| Current phase | Phase 0 — Task 0.4 complete |
+| Last updated | 2026-10-20 16:10 EAT |
+| Branch | `phase-0/task-0.4-api-bootstrap` |
+| Last commit | `feat(api): bootstrap API foundation` |
+| Repo state | API bootstrap, root health probes, versioned routing, validation, error/response envelopes, request IDs, pino, Swagger and tests verified |
+| **Next task** | **0.5 Web bootstrap** |
 
 ---
 
@@ -319,6 +319,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D10 | 2026-10-20 | Require only `WEB_ORIGIN`, `API_BASE_URL` and `NEXT_PUBLIC_API_URL` now; normalize blank future-service settings to absent and validate them when supplied | The foundation can boot without credentials for services introduced in later phases while still rejecting malformed configuration | Require every eventual production variable immediately; leave future values unvalidated |
 | D11 | 2026-10-20 | Split web configuration into server and public schemas; guard server values with `server-only` and expose only statically named `NEXT_PUBLIC_API_URL` to client code | Prevents accidental client imports and follows Next.js build-time public-variable rules | One shared web env object; expose additional values with `NEXT_PUBLIC_` prefixes now |
 | D12 | 2026-10-20 | Aggregate all Zod environment issues into one application-labelled startup error | Developers can correct every missing or invalid setting in one pass | Fail on the first invalid variable |
+| D13 | 2026-10-20 | Keep `GET /health` and `GET /health/ready` unversioned at the root while all application routes use `/api/v1`; keep OpenAPI at `/api/docs` | Infrastructure probes and API documentation must remain stable when the application API version changes | Put health below `/api/v1`; expose duplicate root and versioned health routes |
+| D14 | 2026-10-20 | Return HTTP 200 readiness with database and Redis marked `not_configured` until their scheduled tasks add real checks | Task 0.4 needs a usable probe without pretending unimplemented dependencies are healthy or prematurely adding integrations | Omit dependency state; report the API as degraded before dependencies exist |
+| D15 | 2026-10-20 | Run Jest through its ESM transform and Node VM-modules mode for the NestJS 12 test suite | NestJS 12 packages are ESM, while the API production compiler remains CommonJS-compatible under the pinned Node runtime | Downgrade NestJS; add a second transpiler; change the production module format in this task |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -398,6 +401,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.4 API bootstrap
 - **Branch / commit:** `phase-0/task-0.3-env-validation` / `chore: add validated environment configuration`
 
+### [2026-10-20 16:10 EAT] — Task(s): 0.4 — API bootstrap
+- **Prompt summary:** Build the NestJS API foundation with validated config, Zod validation, standard envelopes/errors, request IDs, pino, Swagger, root health probes, graceful shutdown and unit/e2e coverage; keep every application route versioned.
+- **What I did:** Added the global ConfigModule, Zod DTO pipe, exception filter, response interceptor/helper, request-ID middleware, structured HTTP logging, Swagger setup, health module, version-prefix configuration, CORS from validated config, graceful shutdown hooks, and Jest/Supertest unit and e2e infrastructure.
+- **How:** Root health probes are explicit prefix exclusions while application controllers remain below `/api/v1` (D13). Readiness exposes future database/Redis checks as `not_configured` (D14). Tests use Jest's ESM mode for NestJS 12 (D15). The e2e validation controller exists only in test code. The starting audit found clean merged `main` at `f1d84a6` while §9 still named the completed Task 0.3 branch; this entry corrects that historical status by trusting Git.
+- **Files touched:** API manifest/config/bootstrap/common infrastructure, health module, Swagger/logger configuration, unit/e2e tests, lockfile, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** none
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed. `pnpm --filter @app/api test:unit` passed 4 tests; `pnpm --filter @app/api test:e2e` passed 6 tests; root `pnpm test` passed all 10 tests in 3 suites. E2e coverage proves both root health endpoints, the absence of versioned health, request-ID generation/propagation, standard Zod 400 errors, successful response envelopes and Swagger HTML/JSON. `pnpm format:check`, `pnpm lint`, `pnpm typecheck` and `pnpm build` passed. A compiled-process smoke test returned 200 from `/health`, `/health/ready` and `/api/docs`, returned the standard 404 envelope from `/api/v1/health`, emitted structured request logs and exited 0 on SIGINT. The first compiled smoke run exposed an invalid transient `PinoLogger` lookup in `main.ts`; switching the startup message to the singleton pino Nest logger resolved it before final verification.
+- **Result:** Task 0.4 ticked complete.
+- **Progress after this session:** 4 / 71 (5.6%)
+- **Left undone / follow-ups:** Database and Redis readiness checks remain intentionally `not_configured` until Tasks 1.1 and 0.7. Auth, Prisma, Redis integration and web bootstrap were not started. Existing pnpm/ESLint warnings remain; Jest emits the tracked VM-modules warning.
+- **Next task:** 0.5 Web bootstrap
+- **Branch / commit:** `phase-0/task-0.4-api-bootstrap` / `feat(api): bootstrap API foundation`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -405,6 +421,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - `pnpm install` under Node 24.22.0 emits a non-fatal `DEP0169` warning from pnpm 9.15.9's use of the legacy `url.parse()` API. Installation and all verification commands still pass; reassess the pnpm pin in a dedicated tooling task rather than changing the approved Task 0.1 baseline.
 - pnpm reports peer-range warnings because transitive `eslint-plugin-import`, `eslint-plugin-react`, and `eslint-plugin-jsx-a11y` metadata does not yet list ESLint 10. Next.js 16.4.2 officially supports ESLint 10, and the repo lint passes; monitor upstream metadata updates.
 - Next.js 16.4.2 development startup can print `Ready` immediately before `next.config.ts` environment validation reports an error. The process still exits with code 1 and lists all invalid variables; this is an output-order quirk, not a bypass of validation.
+- Jest 30 runs the NestJS 12 ESM packages with Node's `--experimental-vm-modules`, so Node 24 prints a non-fatal experimental-feature warning during tests. All unit/e2e tests pass; reassess when Jest's ESM runtime no longer requires the flag.
+- The Task 0.4 test dependency tree currently reports deprecated transitive `glob@10.5.0`. It is not a direct dependency and does not affect the passing test suite; monitor upstream Jest tooling releases.
 
 ---
 
@@ -440,7 +458,16 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Format supported files: `pnpm format`
 - Check formatting: `pnpm format:check`
 - Typecheck workspaces: `pnpm typecheck`
-- Test workspaces: `pnpm test` (no suites yet)
+- Test workspaces: `pnpm test`
+- Run API unit tests: `pnpm --filter @app/api test:unit`
+- Run API e2e tests: `pnpm --filter @app/api test:e2e`
+
+**API operational endpoints:**
+- Liveness: `GET /health`
+- Readiness: `GET /health/ready`
+- OpenAPI UI: `GET /api/docs`
+- OpenAPI JSON: `GET /api/docs-json`
+- Application API prefix: `/api/v1`
 
 **Neon branches:** `main` (production), `staging`, `dev`; CI uses ephemeral branches.
 
