@@ -48,3 +48,21 @@ Vitest for component and API-client tests; the API uses Jest for unit and e2e co
 The local web shell reads `NEXT_PUBLIC_API_URL` in the browser and calls the API's root `/health`
 probe. Keep `WEB_ORIGIN` set to the exact web origin (the examples use `http://localhost:3000`) so
 the API permits that browser request through CORS.
+
+## Continuous integration
+
+GitHub Actions runs frozen installation, formatting, linting, typechecking, tests, and the full build
+for pull requests targeting `main` and pushes to `main`. Tests provide their own fixed localhost
+configuration and do not read developer `.env` files. The build step receives only non-secret
+localhost URLs required by environment validation.
+
+After the first workflow run creates the `Quality` status check, protect `main` in the repository
+settings with these rules:
+
+- Require a pull request with at least one approval and resolved conversations before merging.
+- Require the `Quality` status check and require the branch to be up to date before merging.
+- Block force pushes and branch deletion, and do not allow bypasses for routine changes.
+
+The workflow cannot be executed completely outside GitHub Actions. Before enabling the required
+status check, push a task branch, open a pull request into `main`, and confirm that its single
+`Quality` job runs the install, format, lint, typecheck, test, and build steps successfully.
