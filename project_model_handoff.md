@@ -179,7 +179,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 0.2 Code quality tooling (TS strict, ESLint, Prettier, Husky, lint-staged, commitlint)
 - [x] 0.3 Env management & validation, `.env.example`
 - [x] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
-- [ ] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
+- [x] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
 - [ ] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build)
 - [ ] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
 
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 4 / 71 tasks (5.6%) |
-| Current phase | Phase 0 — Task 0.4 complete |
-| Last updated | 2026-10-20 16:10 EAT |
-| Branch | `phase-0/task-0.4-api-bootstrap` |
-| Last commit | `feat(api): bootstrap API foundation` |
-| Repo state | API bootstrap, root health probes, versioned routing, validation, error/response envelopes, request IDs, pino, Swagger and tests verified |
-| **Next task** | **0.5 Web bootstrap** |
+| Overall progress | 5 / 71 tasks (7.0%) |
+| Current phase | Phase 0 — Task 0.5 complete |
+| Last updated | 2026-10-20 16:38 EAT |
+| Branch | `phase-0/task-0.5-web-bootstrap` |
+| Last commit | `feat(web): bootstrap responsive app shell` |
+| Repo state | Responsive web shell, status tokens, TanStack Query, typed API client, browser CORS proof and component tests verified |
+| **Next task** | **0.6 CI pipeline** |
 
 ---
 
@@ -322,6 +322,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D13 | 2026-10-20 | Keep `GET /health` and `GET /health/ready` unversioned at the root while all application routes use `/api/v1`; keep OpenAPI at `/api/docs` | Infrastructure probes and API documentation must remain stable when the application API version changes | Put health below `/api/v1`; expose duplicate root and versioned health routes |
 | D14 | 2026-10-20 | Return HTTP 200 readiness with database and Redis marked `not_configured` until their scheduled tasks add real checks | Task 0.4 needs a usable probe without pretending unimplemented dependencies are healthy or prematurely adding integrations | Omit dependency state; report the API as degraded before dependencies exist |
 | D15 | 2026-10-20 | Run Jest through its ESM transform and Node VM-modules mode for the NestJS 12 test suite | NestJS 12 packages are ESM, while the API production compiler remains CommonJS-compatible under the pinned Node runtime | Downgrade NestJS; add a second transpiler; change the production module format in this task |
+| D16 | 2026-10-20 | Configure the typed web API client with an origin and expose separate root and versioned request paths; `/health` uses the root while application requests prepend `/api/v1` | Infrastructure probes are intentionally unversioned (D13), and separating URL construction prevents accidental `/api/v1/health` calls while keeping one validated origin for browser/server clients | Store two complete base URLs; special-case health outside the client; duplicate the health endpoint below `/api/v1` |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -414,6 +415,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.5 Web bootstrap
 - **Branch / commit:** `phase-0/task-0.4-api-bootstrap` / `feat(api): bootstrap API foundation`
 
+### [2026-10-20 16:38 EAT] — Task(s): 0.5 — Web bootstrap
+- **Prompt summary:** Add the Tailwind/shadcn App Router shell, status theme, TanStack Query, typed API client, global boundaries and tests; prove responsive rendering and a real browser CORS call to root `/health`; do not begin application features.
+- **What I did:** Added Tailwind CSS 4 and shadcn/ui primitives; built the responsive topbar/sidebar/mobile drawer; defined all six machine-status tokens with icon, text and colour; added the Query provider, loading/error boundaries, root placeholder and live health card; created browser/server typed API clients with future auth injection and standard error normalization; added Vitest component/client coverage and saved production screenshots in a gitignored artifact folder.
+- **How:** Root and versioned URL construction are explicit in one API client (D16). The browser client reads only validated `NEXT_PUBLIC_API_URL`; the unused server client is guarded by `server-only` and reads `API_BASE_URL`. Future navigation is disabled until its scheduled tasks. The starting audit found clean merged `main` at `5a0699d` while §9 still named the completed Task 0.4 branch; this entry corrects that historical status by trusting Git.
+- **Files touched:** web manifest/config/styles/App Router boundaries, shell/query/status/UI components, typed API clients and tests; lockfile, README, `.gitignore`, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** none
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed (with the tracked pnpm warning). `pnpm format:check`, `pnpm lint`, and `pnpm typecheck` passed. The first plain `pnpm test` correctly failed because no ignored local environment supplied required API `WEB_ORIGIN`; all 11 web tests passed in that run. With the documented localhost variables supplied, root `pnpm test` passed 21 tests across 6 suites/files (11 web, 10 API), and `pnpm build` passed for shared/web/API. An in-app browser connection was unavailable, so the approved Playwright fallback ran against live production web and API processes: at 360, 768 and 1280px, `/health` returned 200, the page rendered `Connected`, console warnings/errors were empty and horizontal overflow was false. The 360px drawer opened/closed; layouts used 1/2/3 status columns and hidden/80px/256px navigation respectively. A direct Origin request returned `Access-Control-Allow-Origin: http://127.0.0.1:3000`. Clean production screenshots are saved under ignored `apps/web/.artifacts/task-0.5/`.
+- **Result:** Task 0.5 ticked complete.
+- **Progress after this session:** 5 / 71 (7.0%)
+- **Left undone / follow-ups:** Authentication, protected routes, real application pages/data, Prisma, Redis and machine features remain in their scheduled tasks. No new known issue was introduced; existing pnpm/ESLint/Jest warnings remain.
+- **Next task:** 0.6 CI pipeline
+- **Branch / commit:** `phase-0/task-0.5-web-bootstrap` / `feat(web): bootstrap responsive app shell`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -461,6 +475,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Test workspaces: `pnpm test`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
+- Run web unit/component tests: `pnpm --filter @app/web test`
 
 **API operational endpoints:**
 - Liveness: `GET /health`
