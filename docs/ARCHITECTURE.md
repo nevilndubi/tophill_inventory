@@ -279,8 +279,10 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 
 - **Next.js App Router** with route groups: `(auth)/login`, `(app)/dashboard`, `(app)/machines`, `(app)/machines/[id]`, `(app)/status`, `(app)/bookings`, `(app)/service`, `(app)/reports`, `(app)/admin/{users,reference,audit,settings}`, `/scan/[assetTag]` (QR landing).
 - **Data fetching:** TanStack Query against the typed API client; server components for initial page shells; **no business rules in the client**.
+- **API URL handling:** the client is configured with a validated API origin, sends infrastructure checks such as `/health` to that root origin, and prepends `/api/v1` only for application requests. Browser calls use the validated `NEXT_PUBLIC_API_URL`; server-only calls use `API_BASE_URL`. The auth-header provider currently returns no token and is replaced by Supabase integration in Phase 2.
 - **Forms:** React Hook Form + shared Zod schemas.
 - **Auth:** Supabase JS for sign-in; access token attached to API calls; Next middleware protects `(app)` routes; role-aware navigation using the shared permission map.
+- **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.
 - **Calendar:** week/day timeline per machine; drag-to-select slot; conflicts shown inline from the availability endpoint.
 - **Tablet-first for wards;** large tap targets for check-in/out.

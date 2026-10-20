@@ -1,0 +1,102 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #dbe3ec;
+  --muted: #f1f5f9;
+  --muted-foreground: #526177;
+  --primary: #0f9f96;
+  --primary-foreground: #ffffff;
+  --accent: #e8f6f5;
+  --accent-foreground: #0b5e59;
+  --ring: #0f9f96;
+  --sidebar: #0b1f38;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-muted: #c1ccda;
+  --sidebar-accent: #123a59;
+  --sidebar-border: #203b57;
+  --sidebar-ring: #31c7bd;
+
+  --status-available: #087a58;
+  --status-available-bg: #ecfdf5;
+  --status-available-border: #a7e8cf;
+  --status-in-use: #1261a6;
+  --status-in-use-bg: #eff6ff;
+  --status-in-use-border: #b8d8fa;
+  --status-needs-service: #9a5b08;
+  --status-needs-service-bg: #fffbeb;
+  --status-needs-service-border: #f7d588;
+  --status-maintenance: #6d35b5;
+  --status-maintenance-bg: #f7f1ff;
+  --status-maintenance-border: #d8c0f5;
+  --status-out-of-service: #b4232d;
+  --status-out-of-service-bg: #fff1f2;
+  --status-out-of-service-border: #f5b8bd;
+  --status-retired: #526177;
+  --status-retired-bg: #f1f5f9;
+  --status-retired-border: #cbd5e1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-status-available: var(--status-available);
+  --color-status-available-bg: var(--status-available-bg);
+  --color-status-available-border: var(--status-available-border);
+  --color-status-in-use: var(--status-in-use);
+  --color-status-in-use-bg: var(--status-in-use-bg);
+  --color-status-in-use-border: var(--status-in-use-border);
+  --color-status-needs-service: var(--status-needs-service);
+  --color-status-needs-service-bg: var(--status-needs-service-bg);
+  --color-status-needs-service-border: var(--status-needs-service-border);
+  --color-status-maintenance: var(--status-maintenance);
+  --color-status-maintenance-bg: var(--status-maintenance-bg);
+  --color-status-maintenance-border: var(--status-maintenance-border);
+  --color-status-out-of-service: var(--status-out-of-service);
+  --color-status-out-of-service-bg: var(--status-out-of-service-bg);
+  --color-status-out-of-service-border: var(--status-out-of-service-border);
+  --color-status-retired: var(--status-retired);
+  --color-status-retired-bg: var(--status-retired-bg);
+  --color-status-retired-border: var(--status-retired-border);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+[role='button'] {
+  cursor: pointer;
+}

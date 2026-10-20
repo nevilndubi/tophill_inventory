@@ -42,5 +42,9 @@ pnpm test
 ```
 
 TypeScript is strict across every workspace. ESLint and Prettier run repository-wide, and Husky
-checks staged files plus conventional commit messages before a commit is accepted. Test suites are
-added by their dedicated later tasks.
+checks staged files plus conventional commit messages before a commit is accepted. The web app uses
+Vitest for component and API-client tests; the API uses Jest for unit and e2e coverage.
+
+The local web shell reads `NEXT_PUBLIC_API_URL` in the browser and calls the API's root `/health`
+probe. Keep `WEB_ORIGIN` set to the exact web origin (the examples use `http://localhost:3000`) so
+the API permits that browser request through CORS.
