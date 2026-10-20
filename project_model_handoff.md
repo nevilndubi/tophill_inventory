@@ -176,7 +176,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 0 — Foundation & Tooling
 - [x] 0.1 Monorepo scaffold (pnpm, apps/web, apps/api, packages/shared)
-- [ ] 0.2 Code quality tooling (TS strict, ESLint, Prettier, Husky, lint-staged, commitlint)
+- [x] 0.2 Code quality tooling (TS strict, ESLint, Prettier, Husky, lint-staged, commitlint)
 - [ ] 0.3 Env management & validation, `.env.example`
 - [ ] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
 - [ ] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 1 / 71 tasks (1.4%) |
-| Current phase | Phase 0 — Task 0.1 complete |
-| Last updated | 2026-10-20 13:16 EAT |
-| Branch | `phase-0/task-0.1-monorepo-scaffold` |
-| Last commit | `chore: scaffold pnpm monorepo (web, api, shared)` |
-| Repo state | pnpm monorepo scaffolded; web, API and shared package build successfully |
-| **Next task** | **0.2 Code quality tooling** |
+| Overall progress | 2 / 71 tasks (2.8%) |
+| Current phase | Phase 0 — Task 0.2 complete |
+| Last updated | 2026-10-20 14:52 EAT |
+| Branch | `phase-0/task-0.2-code-quality` |
+| Last commit | `chore: add code quality tooling` |
+| Repo state | Code-quality checks and Git hooks configured; lint, typecheck and build pass |
+| **Next task** | **0.3 Env management & validation** |
 
 ---
 
@@ -314,6 +314,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D5 | 2026-10-20 | Prisma as ORM, with raw SQL migrations where needed | Type-safe, good migration workflow | Drizzle, TypeORM |
 | D6 | 2026-10-20 | Pin Node 24.22.0 and pnpm 9.15.9 for the initial workspace | Matches the approved scaffold plan and verified local toolchain | Floating versions; a different Node/pnpm release |
 | D7 | 2026-10-20 | Build `@app/shared` as both ESM and CJS with tsup | Next.js can consume ESM while the NestJS CommonJS build can load the same workspace package | Source-only TS paths; ESM-only output |
+| D8 | 2026-10-20 | Use one root ESLint 10 flat config, with Next.js rules scoped to the web app and TypeScript rules shared across all workspaces | Keeps policy centralized while preventing frontend-only rules from leaking into API/shared code | Per-workspace configs; legacy eslintrc files |
+| D9 | 2026-10-20 | Run ESLint and Prettier through lint-staged at pre-commit, and conventional commitlint at commit-msg | Gives fast staged-file feedback while full repo checks remain available as root commands | Full repo checks on every commit; CI-only enforcement |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -367,11 +369,25 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.2 Code quality tooling
 - **Branch / commit:** `phase-0/task-0.1-monorepo-scaffold` / `chore: scaffold pnpm monorepo (web, api, shared)`
 
+### [2026-10-20 14:52 EAT] — Task(s): 0.2 — Code quality tooling
+- **Prompt summary:** Add strict repository-wide TypeScript and code-quality tooling, prove lint and commit-message hooks reject bad commits, verify all checks, update this handoff and commit the task.
+- **What I did:** Enabled `noUncheckedIndexedAccess`; added shared ESLint and Prettier configuration, EditorConfig, Husky, lint-staged and commitlint; replaced the placeholder lint command; added format/fix commands; formatted the existing scaffold.
+- **How:** Used a root ESLint 10 flat config with framework-specific scoping and staged-file hooks (D8, D9). The starting audit found the clean repo on `main` at `8ad611a` while §9 still named the completed Task 0.1 branch; this status was corrected here by trusting the repo.
+- **Files touched:** root quality-tool configs and hooks; root TypeScript/package/lock/README files; existing TypeScript scaffold files formatted by Prettier; this handoff
+- **Migrations:** none
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed; `pnpm format`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; `pnpm test` exited 0 with no suites configured. Effective configs for web/API/shared all showed `strict: true` and `noUncheckedIndexedAccess: true`. A staged file with unused explicit `any` made the pre-commit hook fail with two ESLint errors and code 1. After removing it, `git commit -m "bad commit message"` passed pre-commit but commitlint rejected it with `subject-empty` and `type-empty`; neither proof created a commit.
+- **Result:** Task 0.2 ticked complete.
+- **Progress after this session:** 2 / 71 (2.8%)
+- **Left undone / follow-ups:** No test suites exist yet. ESLint 10 peer-range warnings from transitive Next.js plugins are tracked in Known Issues; linting itself passes.
+- **Next task:** 0.3 Env management & validation
+- **Branch / commit:** `phase-0/task-0.2-code-quality` / `chore: add code quality tooling`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - `pnpm install` under Node 24.22.0 emits a non-fatal `DEP0169` warning from pnpm 9.15.9's use of the legacy `url.parse()` API. Installation and all verification commands still pass; reassess the pnpm pin in a dedicated tooling task rather than changing the approved Task 0.1 baseline.
+- pnpm reports peer-range warnings because transitive `eslint-plugin-import`, `eslint-plugin-react`, and `eslint-plugin-jsx-a11y` metadata does not yet list ESLint 10. Next.js 16.4.2 officially supports ESLint 10, and the repo lint passes; monitor upstream metadata updates.
 
 ---
 
@@ -397,7 +413,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Install: `pnpm install`
 - Run all workspaces in development: `pnpm dev`
 - Build shared, web and API: `pnpm build`
-- Lint workspaces: `pnpm lint` (aggregator only until Task 0.2)
+- Lint workspaces: `pnpm lint`
+- Fix auto-fixable lint issues: `pnpm lint:fix`
+- Format supported files: `pnpm format`
+- Check formatting: `pnpm format:check`
 - Typecheck workspaces: `pnpm typecheck`
 - Test workspaces: `pnpm test` (no suites yet)
 

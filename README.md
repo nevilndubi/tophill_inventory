@@ -20,8 +20,13 @@ pnpm install
 pnpm dev
 pnpm build
 pnpm lint
+pnpm lint:fix
+pnpm format
+pnpm format:check
 pnpm typecheck
 pnpm test
 ```
 
-Linting rules and test suites are added by their dedicated later tasks.
+TypeScript is strict across every workspace. ESLint and Prettier run repository-wide, and Husky
+checks staged files plus conventional commit messages before a commit is accepted. Test suites are
+added by their dedicated later tasks.

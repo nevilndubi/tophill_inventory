@@ -1,4 +1,4 @@
-import { APP_NAME } from "@app/shared";
+import { APP_NAME } from '@app/shared';
 
 export default function HomePage() {
   return (

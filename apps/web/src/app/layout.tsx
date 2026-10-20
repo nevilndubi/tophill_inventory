@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: "Tophill Inventory",
-  description: "Hospital equipment tracking and booking system",
+  title: 'Tophill Inventory',
+  description: 'Hospital equipment tracking and booking system',
 };
 
 interface RootLayoutProps {

@@ -1,0 +1,9 @@
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+**/next-env.d.ts
+pnpm-lock.yaml
+docs/
+project_model_handoff.md
