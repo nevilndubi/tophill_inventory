@@ -10,8 +10,25 @@
   "scripts": {
     "dev": "pnpm --filter @app/shared build && pnpm --parallel --stream --filter @app/shared --filter @app/web --filter @app/api run dev",
     "build": "pnpm --filter @app/shared build && pnpm --filter @app/web build && pnpm --filter @app/api build",
-    "lint": "pnpm --recursive --if-present run lint",
+    "lint": "eslint apps packages --max-warnings=0",
+    "lint:fix": "eslint apps packages --fix --max-warnings=0",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
     "typecheck": "pnpm --recursive --if-present run typecheck",
-    "test": "pnpm --recursive --if-present run test"
+    "test": "pnpm --recursive --if-present run test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "eslint-config-next": "16.4.2",
+    "eslint-config-prettier": "10.1.8",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0"
   }
 }
