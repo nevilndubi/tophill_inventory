@@ -3,6 +3,7 @@ module.exports = {
   extensionsToTreatAsEsm: ['.ts'],
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
+  setupFiles: ['<rootDir>/test/setup-env.cjs'],
   testEnvironment: 'node',
   testRegex: '.*(?:\\.spec|\\.e2e-spec)\\.ts$',
   transform: {

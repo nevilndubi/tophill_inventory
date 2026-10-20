@@ -180,7 +180,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 0.3 Env management & validation, `.env.example`
 - [x] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
 - [x] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
-- [ ] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build)
+- [~] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build) — implementation locally verified; first GitHub-hosted run pending
 - [ ] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
 
 ### Phase 1 — Database & Schema
@@ -278,12 +278,12 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 5 / 71 tasks (7.0%) |
-| Current phase | Phase 0 — Task 0.5 complete |
-| Last updated | 2026-10-20 16:38 EAT |
-| Branch | `phase-0/task-0.5-web-bootstrap` |
-| Last commit | `feat(web): bootstrap responsive app shell` |
-| Repo state | Responsive web shell, status tokens, TanStack Query, typed API client, browser CORS proof and component tests verified |
-| **Next task** | **0.6 CI pipeline** |
+| Current phase | Phase 0 — Task 0.6 implementation complete; first GitHub-hosted CI run pending |
+| Last updated | 2026-10-20 16:48 EAT |
+| Branch | `phase-0/task-0.6-ci-pipeline` |
+| Last commit | `ci: add repository quality workflow` |
+| Repo state | CI workflow, dependency updates, PR template and self-contained clean-clone tests verified locally; GitHub `Quality` run awaits branch push/PR |
+| **Next task** | **0.6 verification: push branch, open PR to `main`, and confirm the GitHub `Quality` job is green** |
 
 ---
 
@@ -323,6 +323,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D14 | 2026-10-20 | Return HTTP 200 readiness with database and Redis marked `not_configured` until their scheduled tasks add real checks | Task 0.4 needs a usable probe without pretending unimplemented dependencies are healthy or prematurely adding integrations | Omit dependency state; report the API as degraded before dependencies exist |
 | D15 | 2026-10-20 | Run Jest through its ESM transform and Node VM-modules mode for the NestJS 12 test suite | NestJS 12 packages are ESM, while the API production compiler remains CommonJS-compatible under the pinned Node runtime | Downgrade NestJS; add a second transpiler; change the production module format in this task |
 | D16 | 2026-10-20 | Configure the typed web API client with an origin and expose separate root and versioned request paths; `/health` uses the root while application requests prepend `/api/v1` | Infrastructure probes are intentionally unversioned (D13), and separating URL construction prevents accidental `/api/v1/health` calls while keeping one validated origin for browser/server clients | Store two complete base URLs; special-case health outside the client; duplicate the health endpoint below `/api/v1` |
+| D17 | 2026-10-20 | Make `pnpm test` self-contained: Jest and Vitest override required variables with fixed localhost test values, and the root test command builds `@app/shared` before running suites | Fresh clones and CI must not depend on developer `.env` files or ignored build output; only the CI build step needs explicit validation URLs | Set job-wide CI environment values; load `.env.example` in tests; map `@app/shared` directly to source; rely on an existing `dist` directory |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -428,6 +429,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.6 CI pipeline
 - **Branch / commit:** `phase-0/task-0.5-web-bootstrap` / `feat(web): bootstrap responsive app shell`
 
+### [2026-10-20 16:48 EAT] — Task(s): 0.6 — CI pipeline implementation
+- **Prompt summary:** Add GitHub Actions quality gates, Dependabot, a pull-request template and branch-protection guidance; make tests clean-clone safe without `.env`; validate the workflow locally and prove lint failures stop CI without starting Task 0.7.
+- **What I did:** Added the `Quality` workflow for pull requests and `main`, pinned Node/pnpm with pnpm caching and frozen installs, added weekly npm/Actions Dependabot updates, added the repository PR checklist and branch-protection instructions, and made the Jest/Vitest test environments deterministic. Updated the root test command to build the shared package before running suites.
+- **How:** Test-owned safe localhost values and shared-package prebuilds make `pnpm test` independent of developer files and ignored output (D17). CI exposes localhost URLs only to the build step. The starting audit found clean merged `main` at `0b25176` while §9 still named the completed Task 0.5 branch; this entry corrects that historical status by trusting Git.
+- **Files touched:** `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.github/pull_request_template.md`, Jest/Vitest setup, root package scripts, README, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** none
+- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, plain `pnpm test` with `WEB_ORIGIN`, `API_BASE_URL` and `NEXT_PUBLIC_API_URL` explicitly unset, and build with safe localhost URLs all passed; 21 tests passed (11 web, 10 API). `actionlint` v1.7.12 (official release checksum verified) reported zero errors for the workflow. A temporary unused explicit `any` made the same `pnpm lint` command used by CI exit 1 with two ESLint errors; the fixture was removed. In the first staged-tree export, tests exposed reliance on ignored `@app/shared` build output; after adding the shared prebuild, a second clean export containing no `.env` files installed with `--frozen-lockfile` and passed all tests. GitHub Actions itself cannot be run locally.
+- **Result:** Task 0.6 marked partial: implementation and local acceptance evidence are complete, but the phase guide requires a real pull-request run to be green before the task can be ticked complete.
+- **Progress after this session:** 5 / 71 (7.0%)
+- **Left undone / follow-ups:** Push this branch, open a pull request into `main`, and confirm the single `Quality` job completes all six operational steps: install, format, lint, typecheck, test and build. Then require that check in branch protection and mark 0.6 complete. Task 0.7 was not started.
+- **Next task:** 0.6 verification — first GitHub-hosted `Quality` run
+- **Branch / commit:** `phase-0/task-0.6-ci-pipeline` / `ci: add repository quality workflow`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -437,6 +451,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Next.js 16.4.2 development startup can print `Ready` immediately before `next.config.ts` environment validation reports an error. The process still exits with code 1 and lists all invalid variables; this is an output-order quirk, not a bypass of validation.
 - Jest 30 runs the NestJS 12 ESM packages with Node's `--experimental-vm-modules`, so Node 24 prints a non-fatal experimental-feature warning during tests. All unit/e2e tests pass; reassess when Jest's ESM runtime no longer requires the flag.
 - The Task 0.4 test dependency tree currently reports deprecated transitive `glob@10.5.0`. It is not a direct dependency and does not affect the passing test suite; monitor upstream Jest tooling releases.
+- **Resolved in Task 0.6:** plain `pnpm test` previously required a developer-provided `WEB_ORIGIN` and could also pass locally only because ignored `@app/shared` output already existed. Test setup now owns safe required URLs, and the root test command builds shared first; a clean staged-tree export passes with no `.env` files.
 
 ---
 
@@ -476,6 +491,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`
+- Validate GitHub Actions workflows: `actionlint .github/workflows/ci.yml` (actionlint must be installed separately)
 
 **API operational endpoints:**
 - Liveness: `GET /health`

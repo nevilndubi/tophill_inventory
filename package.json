@@ -15,7 +15,7 @@
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
     "typecheck": "pnpm --recursive --if-present run typecheck",
-    "test": "pnpm --recursive --if-present run test",
+    "test": "pnpm --filter @app/shared build && pnpm --recursive --if-present run test",
     "prepare": "husky"
   },
   "devDependencies": {

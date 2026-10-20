@@ -303,6 +303,8 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 
 **Health:** unversioned `GET /health` (liveness) and `GET /health/ready` (Neon + Redis) stay at the root so host probes and uptime monitoring do not depend on an application API version. Before those services are introduced, readiness reports their checks as `not_configured`.
 
+**Foundation CI:** pull requests to `main` and pushes to `main` run one required `Quality` job: frozen pnpm install, format check, lint, typecheck, tests, then build. Jest and Vitest provide deterministic localhost test configuration internally, so tests never consume developer environment files. Only the build step receives safe localhost URLs needed by startup validation; later database/Redis phases extend CI with service containers and ephemeral Neon branches.
+
 ---
 
 ## 12. Security & privacy
