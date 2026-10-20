@@ -180,7 +180,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 0.3 Env management & validation, `.env.example`
 - [x] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
 - [x] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
-- [~] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build) — implementation locally verified; first GitHub-hosted run pending
+- [x] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build)
 - [ ] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
 
 ### Phase 1 — Database & Schema
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 5 / 71 tasks (7.0%) |
-| Current phase | Phase 0 — Task 0.6 implementation complete; first GitHub-hosted CI run pending |
-| Last updated | 2026-10-20 16:48 EAT |
-| Branch | `phase-0/task-0.6-ci-pipeline` |
-| Last commit | `ci: add repository quality workflow` |
-| Repo state | CI workflow, dependency updates, PR template and self-contained clean-clone tests verified locally; GitHub `Quality` run awaits branch push/PR |
-| **Next task** | **0.6 verification: push branch, open PR to `main`, and confirm the GitHub `Quality` job is green** |
+| Overall progress | 6 / 71 tasks (8.5%) |
+| Current phase | Phase 0 — Task 0.6 complete |
+| Last updated | 2026-10-20 19:43 EAT |
+| Branch | `main` (Task 0.6 verification recorded via `phase-0/task-0.6-ci-verification`) |
+| Last commit | `docs: complete Task 0.6 CI verification` |
+| Repo state | PR #1 merged at `8b3c907`; its GitHub-hosted `CI / Quality` check passed all repository gates; Task 0.6 is verified complete |
+| **Next task** | **0.7 Local dev services (docker-compose Redis) + Redis module skeleton and health check** |
 
 ---
 
@@ -324,6 +324,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D15 | 2026-10-20 | Run Jest through its ESM transform and Node VM-modules mode for the NestJS 12 test suite | NestJS 12 packages are ESM, while the API production compiler remains CommonJS-compatible under the pinned Node runtime | Downgrade NestJS; add a second transpiler; change the production module format in this task |
 | D16 | 2026-10-20 | Configure the typed web API client with an origin and expose separate root and versioned request paths; `/health` uses the root while application requests prepend `/api/v1` | Infrastructure probes are intentionally unversioned (D13), and separating URL construction prevents accidental `/api/v1/health` calls while keeping one validated origin for browser/server clients | Store two complete base URLs; special-case health outside the client; duplicate the health endpoint below `/api/v1` |
 | D17 | 2026-10-20 | Make `pnpm test` self-contained: Jest and Vitest override required variables with fixed localhost test values, and the root test command builds `@app/shared` before running suites | Fresh clones and CI must not depend on developer `.env` files or ignored build output; only the CI build step needs explicit validation URLs | Set job-wide CI environment values; load `.env.example` in tests; map `@app/shared` directly to source; rely on an existing `dist` directory |
+| D18 | 2026-10-20 | The engineering agent owns the routine Git lifecycle: sync `main`, create task branches, make conventional commits, push, open and update pull requests, monitor required checks, merge with a merge commit when green, and resync local `main` | Keeps implementation and its verification/merge lifecycle together while preserving reviewable branches and CI evidence | Continue requiring manual owner pushes/merges; push task changes directly to `main` |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -442,10 +443,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.6 verification — first GitHub-hosted `Quality` run
 - **Branch / commit:** `phase-0/task-0.6-ci-pipeline` / `ci: add repository quality workflow`
 
+### [2026-10-20 19:43 EAT] — Task(s): 0.6 — Hosted CI verification and version-control handoff
+- **Prompt summary:** Confirm the reported green pull-request checks, complete Task 0.6, and transfer routine version-control operations from the owner to the engineering agent.
+- **What I did:** Independently verified PR #1 and its hosted check, synced the locally stale `main` to the remote merge, marked Task 0.6 complete, and documented the ongoing Git/PR ownership policy.
+- **How:** GitHub reports PR #1 (`phase-0/task-0.6-ci-pipeline` into `main`) as merged at `8b3c907`, with `CI / Quality` concluded `SUCCESS`. Going forward the agent will use task branches, conventional commits, pull requests and green required checks before merge (D18). Force-pushes, history rewrites, destructive branch deletion and other exceptional operations still require explicit owner approval.
+- **Files touched:** this handoff only
+- **Migrations:** none
+- **Verification:** `gh pr view 1 --json state,baseRefName,headRefName,url,statusCheckRollup` reported `MERGED` and `CI / Quality: SUCCESS`; `git fetch origin` showed `origin/main` at merge commit `8b3c907`; `git merge --ff-only origin/main` synchronized local `main`. The hosted workflow is the required real-environment proof and covered frozen installation, format check, lint, typecheck, test and build. `gh api repos/nevilndubi/tophill_inventory/branches/main/protection` returned `HTTP 404`, confirming protection is not configured. No application code changed in this follow-up.
+- **Result:** Task 0.6 ticked complete after its GitHub-hosted acceptance criterion passed.
+- **Progress after this session:** 6 / 71 (8.5%)
+- **Left undone / follow-ups:** GitHub branch protection for `main` is not configured and remains an explicit repository-administration follow-up. Task 0.7 was not started.
+- **Next task:** 0.7 Local dev services and Redis skeleton
+- **Branch / commit:** `phase-0/task-0.6-ci-verification` / `docs: complete Task 0.6 CI verification`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- GitHub reports that `main` has no branch-protection rule. The CI workflow is green and the README documents the intended required `Quality` check, but GitHub does not yet enforce it; configure the rule explicitly after confirming the desired collaborator/merge policy.
 - `pnpm install` under Node 24.22.0 emits a non-fatal `DEP0169` warning from pnpm 9.15.9's use of the legacy `url.parse()` API. Installation and all verification commands still pass; reassess the pnpm pin in a dedicated tooling task rather than changing the approved Task 0.1 baseline.
 - pnpm reports peer-range warnings because transitive `eslint-plugin-import`, `eslint-plugin-react`, and `eslint-plugin-jsx-a11y` metadata does not yet list ESLint 10. Next.js 16.4.2 officially supports ESLint 10, and the repo lint passes; monitor upstream metadata updates.
 - Next.js 16.4.2 development startup can print `Ready` immediately before `next.config.ts` environment validation reports an error. The process still exits with code 1 and lists all invalid variables; this is an output-order quirk, not a bypass of validation.
