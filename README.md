@@ -1,6 +1,6 @@
 # Tophill Inventory
 
-Hospital equipment tracking and booking system. This repository currently contains the Task 0.1 monorepo scaffold only.
+Hospital equipment tracking and booking system.
 
 ## Workspaces
 
@@ -12,6 +12,20 @@ Hospital equipment tracking and booking system. This repository currently contai
 
 - Node.js 24.22.0
 - pnpm 9.15.9
+
+## Environment setup
+
+Copy each application's example before starting the workspace:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+```
+
+The examples contain safe local URLs and blank placeholders only. Variables marked as required are
+validated when an app starts; variables for services introduced in later phases are optional for now
+but are validated when supplied. Keep real credentials in ignored environment files and never commit
+them.
 
 ## Commands
 
