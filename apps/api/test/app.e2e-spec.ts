@@ -1,10 +1,13 @@
 import { Body, Controller, Post, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module';
 import { configureApplication } from '../src/bootstrap/configure-application';
 import { createZodDto } from '../src/common/validation/zod-dto';
+import { REDIS_CLIENT } from '../src/redis/redis.constants';
+import { RedisService } from '../src/redis/redis.service';
 
 class ValidationFixtureDto extends createZodDto(z.object({ name: z.string().min(1) }).strict()) {}
 
@@ -18,12 +21,20 @@ class ValidationFixtureController {
 
 describe('API bootstrap (e2e)', () => {
   let app: INestApplication;
+  const unavailableRedis = {
+    ping: jest.fn(async () => false),
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ValidationFixtureController],
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(REDIS_CLIENT)
+      .useValue({})
+      .overrideProvider(RedisService)
+      .useValue(unavailableRedis)
+      .compile();
 
     app = moduleRef.createNestApplication({ bufferLogs: true });
     configureApplication(app);
@@ -46,18 +57,56 @@ describe('API bootstrap (e2e)', () => {
     });
   });
 
-  it('serves readiness at the root without external dependency checks yet', async () => {
+  it('serves degraded readiness promptly when Redis is unavailable', async () => {
+    const startedAt = Date.now();
     const response = await request(app.getHttpServer()).get('/health/ready').expect(200);
 
     expect(response.body).toMatchObject({
       data: {
         checks: {
           database: 'not_configured',
-          redis: 'not_configured',
+          redis: 'down',
         },
-        status: 'ok',
+        status: 'degraded',
       },
     });
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+    expect(unavailableRedis.ping).toHaveBeenCalled();
+  });
+
+  it('serves ready status with an in-memory connected Redis stand-in', async () => {
+    const connectedRedis = {
+      ping: jest.fn(async () => true),
+    };
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(REDIS_CLIENT)
+      .useValue({})
+      .overrideProvider(RedisService)
+      .useValue(connectedRedis)
+      .compile();
+    const connectedApp = moduleRef.createNestApplication({ bufferLogs: true });
+    configureApplication(connectedApp);
+
+    await connectedApp.init();
+
+    try {
+      const response = await request(connectedApp.getHttpServer()).get('/health/ready').expect(200);
+
+      expect(response.body).toMatchObject({
+        data: {
+          checks: {
+            database: 'not_configured',
+            redis: 'up',
+          },
+          status: 'ok',
+        },
+      });
+      expect(connectedRedis.ping).toHaveBeenCalledTimes(1);
+    } finally {
+      await connectedApp.close();
+    }
   });
 
   it('does not expose health below the versioned API prefix', async () => {

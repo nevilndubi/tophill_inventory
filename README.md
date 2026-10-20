@@ -49,6 +49,25 @@ The local web shell reads `NEXT_PUBLIC_API_URL` in the browser and calls the API
 probe. Keep `WEB_ORIGIN` set to the exact web origin (the examples use `http://localhost:3000`) so
 the API permits that browser request through CORS.
 
+## Local Redis
+
+Start the local Redis service before running the API:
+
+```bash
+docker compose up -d redis
+docker compose ps redis
+```
+
+Development defaults to `redis://127.0.0.1:6379`. Production requires an explicitly configured
+`rediss://` URL. Redis connects in the background: if it is unavailable, the API still boots and
+`GET /health/ready` returns `degraded` promptly. Automated tests use an unreachable port or an
+in-memory stand-in and never require Docker.
+
+```bash
+docker compose stop redis
+docker compose down
+```
+
 ## Continuous integration
 
 GitHub Actions runs frozen installation, formatting, linting, typechecking, tests, and the full build

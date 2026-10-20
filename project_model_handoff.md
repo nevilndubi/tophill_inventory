@@ -181,7 +181,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
 - [x] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
 - [x] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build)
-- [ ] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
+- [x] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
 
 ### Phase 1 — Database & Schema
 - [ ] 1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 6 / 71 tasks (8.5%) |
-| Current phase | Phase 0 — Task 0.6 complete |
-| Last updated | 2026-10-20 19:43 EAT |
-| Branch | `main` (Task 0.6 verification recorded via `phase-0/task-0.6-ci-verification`) |
-| Last commit | `docs: complete Task 0.6 CI verification` |
-| Repo state | PR #1 merged at `8b3c907`; its GitHub-hosted `CI / Quality` check passed all repository gates; Task 0.6 is verified complete |
-| **Next task** | **0.7 Local dev services (docker-compose Redis) + Redis module skeleton and health check** |
+| Overall progress | 7 / 71 tasks (9.9%) |
+| Current phase | Phase 0 complete — Task 0.7 verified |
+| Last updated | 2026-10-20 20:02 EAT |
+| Branch | `main` (Task 0.7 delivered via `phase-0/task-0.7-local-redis`) |
+| Last commit | `feat(api): add resilient Redis foundation` |
+| Repo state | Phase 0 complete; local Redis, non-blocking API integration, degraded readiness and hermetic test coverage verified; task PR merged with green CI |
+| **Next task** | **1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)** |
 
 ---
 
@@ -325,6 +325,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D16 | 2026-10-20 | Configure the typed web API client with an origin and expose separate root and versioned request paths; `/health` uses the root while application requests prepend `/api/v1` | Infrastructure probes are intentionally unversioned (D13), and separating URL construction prevents accidental `/api/v1/health` calls while keeping one validated origin for browser/server clients | Store two complete base URLs; special-case health outside the client; duplicate the health endpoint below `/api/v1` |
 | D17 | 2026-10-20 | Make `pnpm test` self-contained: Jest and Vitest override required variables with fixed localhost test values, and the root test command builds `@app/shared` before running suites | Fresh clones and CI must not depend on developer `.env` files or ignored build output; only the CI build step needs explicit validation URLs | Set job-wide CI environment values; load `.env.example` in tests; map `@app/shared` directly to source; rely on an existing `dist` directory |
 | D18 | 2026-10-20 | The engineering agent owns the routine Git lifecycle: sync `main`, create task branches, make conventional commits, push, open and update pull requests, monitor required checks, merge with a merge commit when green, and resync local `main` | Keeps implementation and its verification/merge lifecycle together while preserving reviewable branches and CI evidence | Continue requiring manual owner pushes/merges; push task changes directly to `main` |
+| D19 | 2026-10-20 | Redis uses a local `redis://127.0.0.1:6379` development default, while production requires an explicit `rediss://` URL and enables TLS; connection starts in the background with the offline queue disabled, 1-second operation bounds and reconnect delay capped at 2 seconds | Local setup stays zero-secret and convenient, production transport cannot silently downgrade, and Redis can neither block API boot nor hang readiness | Require Redis in every environment; allow plaintext production Redis; await connection during API startup |
+| D20 | 2026-10-20 | Redis tests remain service-independent: connected behavior uses an in-memory stand-in, while unavailable behavior uses an owned real ioredis client pointed at an unreachable local port with retries disabled | `pnpm test` and CI remain deterministic without Docker while still exercising ioredis failure behavior and ensuring network handles are closed | Add a Redis CI service container; rely on a developer's Docker service; mock both success and failure paths |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -456,10 +458,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.7 Local dev services and Redis skeleton
 - **Branch / commit:** `phase-0/task-0.6-ci-verification` / `docs: complete Task 0.6 CI verification`
 
+### [2026-10-20 20:02 EAT] — Task(s): 0.7 — Local Redis and resilient API connection
+- **Prompt summary:** Add Docker Compose Redis, a TLS-capable ioredis NestJS module, bounded non-blocking connection behavior, degraded readiness, hermetic tests and full live start/stop proof without adding caching or later features.
+- **What I did:** Added the local Redis service, ioredis provider/module/service, environment validation and production TLS rule, lifecycle logging, graceful close, Redis-aware readiness, API unit/e2e/env tests, setup documentation and architecture details.
+- **How:** Redis startup is lazy and never awaited; the offline queue is disabled, connection/command/readiness operations are bounded to 1 second, and exponential reconnect delay caps at 2 seconds (D19). Readiness returns HTTP 200 with `status: degraded` and `checks.redis: down` when unavailable. Hermetic tests use an in-memory connected stand-in plus an explicitly closed ioredis client on unreachable port 63999 (D20). The starting audit found clean synchronized `main` at `26c9798`; §9 correctly identified Task 0.7 as next.
+- **Files touched:** root `docker-compose.yml`, README, API manifest/lockfile/env example and schema, `apps/api/src/redis/*`, health module/service/controller and tests, e2e/test setup, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** none
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed with the tracked pnpm warning. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and the build with safe localhost URLs passed; 32 tests passed (21 API, 11 web). Unit tests prove timeout, connected/unavailable behavior and shutdown; e2e proves HTTP 200 `ok/up` and prompt `degraded/down` envelopes without Docker. `docker compose config --quiet` passed and the Redis container became healthy. The compiled API logged Redis `connected`/`ready`; `/health/ready` returned `ok/up` in 29 ms. After Redis exited, it returned `degraded/down` in 2.6 ms and `/health` remained `ok` in 1.7 ms. Redis restart recovered automatically, and API SIGINT logged a graceful Redis close. A cold API boot with Redis absent reached listening state without waiting and returned degraded readiness in 16 ms. Production startup without `REDIS_URL` exited 1 with the required `rediss://` validation error. Docker resources were removed after verification.
+- **Result:** Task 0.7 ticked complete; all Phase 0 tasks are now complete.
+- **Progress after this session:** 7 / 71 (9.9%)
+- **Left undone / follow-ups:** No caching, pub/sub, BullMQ, rate limiting, Prisma or authentication was added. On this workstation, Docker rejected direct `docker compose stop`/`docker stop` signals with `permission denied`; `redis-cli shutdown nosave` stopped the service cleanly and `docker compose down` then removed all resources. Existing tooling warnings and missing `main` branch protection remain tracked.
+- **Next task:** 1.1 Prisma + Neon setup
+- **Branch / commit:** `phase-0/task-0.7-local-redis` / `feat(api): add resilient Redis foundation`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- On this workstation, Docker created and ran the Task 0.7 Redis container but the daemon rejected direct `docker compose stop` and `docker stop` signals with `permission denied`. An in-container `redis-cli shutdown nosave` stopped Redis cleanly and `docker compose down` removed the stopped container/network; investigate Docker Desktop/daemon signal permissions if the direct-stop failure recurs.
 - GitHub reports that `main` has no branch-protection rule. The CI workflow is green and the README documents the intended required `Quality` check, but GitHub does not yet enforce it; configure the rule explicitly after confirming the desired collaborator/merge policy.
 - `pnpm install` under Node 24.22.0 emits a non-fatal `DEP0169` warning from pnpm 9.15.9's use of the legacy `url.parse()` API. Installation and all verification commands still pass; reassess the pnpm pin in a dedicated tooling task rather than changing the approved Task 0.1 baseline.
 - pnpm reports peer-range warnings because transitive `eslint-plugin-import`, `eslint-plugin-react`, and `eslint-plugin-jsx-a11y` metadata does not yet list ESLint 10. Next.js 16.4.2 officially supports ESLint 10, and the repo lint passes; monitor upstream metadata updates.
@@ -476,11 +492,12 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 
 | Variable | Used by | Required now | Purpose |
 |---|---|---|---|
+| `NODE_ENV` | api | No (defaults to `development`) | Selects environment-specific validation; production enforces TLS Redis |
 | `PORT` | api | No (defaults to `3001`) | API listening port |
 | `WEB_ORIGIN` | api | Yes | Web origin; used for the CORS allow-list in Task 0.4 |
 | `DATABASE_URL` | api | No (Phase 1.1) | Neon **pooled** connection string (runtime) |
 | `DIRECT_URL` | api / prisma | No (Phase 1.1) | Neon **direct** connection string (migrations) |
-| `REDIS_URL` | api | No (Phase 0.7) | Redis connection (`rediss://` in prod) |
+| `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
 | `SUPABASE_URL` | api, web server | No (Phase 2) | Supabase project URL |
 | `SUPABASE_ANON_KEY` | web server | No (Phase 2) | Future Supabase client key; not exposed to client code in Task 0.3 |
 | `SUPABASE_SERVICE_ROLE_KEY` | api only | No (Phase 2) | Server-side admin/storage key — never expose to web |
@@ -496,6 +513,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Create local API environment: `cp apps/api/.env.example apps/api/.env`
 - Create local web environment: `cp apps/web/.env.example apps/web/.env.local`
 - Run all workspaces in development: `pnpm dev`
+- Start local Redis: `docker compose up -d redis`
+- Check local Redis: `docker compose ps redis`
+- Stop local Redis: `docker compose stop redis`
+- Remove local Redis resources: `docker compose down`
 - Build shared, web and API: `pnpm build`
 - Lint workspaces: `pnpm lint`
 - Fix auto-fixable lint issues: `pnpm lint:fix`
@@ -517,7 +538,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 
 **Neon branches:** `main` (production), `staging`, `dev`; CI uses ephemeral branches.
 
-**Services running locally:** none yet. Local Redis is added in Task 0.7.
+**Services running locally:** Redis via `docker compose up -d redis` on `127.0.0.1:6379` (stopped after verification).
 
 ---
 

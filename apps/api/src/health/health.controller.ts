@@ -17,7 +17,7 @@ export class HealthController {
   @Get('ready')
   @ApiOperation({ summary: 'Readiness probe' })
   @ApiOkResponse({ description: 'The API is ready for its currently configured dependencies.' })
-  getReadiness() {
+  async getReadiness() {
     return this.healthService.getReadiness();
   }
 }

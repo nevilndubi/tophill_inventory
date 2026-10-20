@@ -226,6 +226,8 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 7. Environment prefix (`prod:`, `stg:`) so environments never share keys.
 8. Redis hosting: managed Redis with TLS (Azure Cache for Redis or Redis Cloud). Serverless-priced Redis (e.g. Upstash) is fine for cache-only but gets expensive with BullMQ polling — check before choosing.
 
+**Connection foundation (Task 0.7):** the NestJS Redis module starts its ioredis connection in the background, disables the offline command queue, caps reconnect backoff at 2 seconds, and applies 1-second connection, command and readiness timeouts. Development defaults to `redis://127.0.0.1:6379`; production validation requires an explicit `rediss://` URL and enables TLS. Connection lifecycle events are logged without the URL or credentials. Shutdown attempts `QUIT` when ready and otherwise disconnects immediately. The readiness probe returns HTTP 200 with overall status `degraded` and `checks.redis = down` when Redis cannot answer; liveness and API startup are independent of Redis.
+
 ---
 
 ## 7. Authorization matrix (initial)
