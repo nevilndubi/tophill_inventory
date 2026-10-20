@@ -177,7 +177,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 ### Phase 0 — Foundation & Tooling
 - [x] 0.1 Monorepo scaffold (pnpm, apps/web, apps/api, packages/shared)
 - [x] 0.2 Code quality tooling (TS strict, ESLint, Prettier, Husky, lint-staged, commitlint)
-- [ ] 0.3 Env management & validation, `.env.example`
+- [x] 0.3 Env management & validation, `.env.example`
 - [ ] 0.4 API bootstrap (config, health, Swagger, validation pipe, error filter, logger, request-id)
 - [ ] 0.5 Web bootstrap (App Router, Tailwind, shadcn/ui, layout shell, typed API client)
 - [ ] 0.6 CI pipeline (GitHub Actions: lint, typecheck, test, build)
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 2 / 71 tasks (2.8%) |
-| Current phase | Phase 0 — Task 0.2 complete |
-| Last updated | 2026-10-20 14:52 EAT |
-| Branch | `phase-0/task-0.2-code-quality` |
-| Last commit | `chore: add code quality tooling` |
-| Repo state | Code-quality checks and Git hooks configured; lint, typecheck and build pass |
-| **Next task** | **0.3 Env management & validation** |
+| Overall progress | 3 / 71 tasks (4.2%) |
+| Current phase | Phase 0 — Task 0.3 complete |
+| Last updated | 2026-10-20 15:10 EAT |
+| Branch | `phase-0/task-0.3-env-validation` |
+| Last commit | `chore: add validated environment configuration` |
+| Repo state | API and web environment schemas validate at startup; examples and server/public boundaries verified |
+| **Next task** | **0.4 API bootstrap** |
 
 ---
 
@@ -316,6 +316,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D7 | 2026-10-20 | Build `@app/shared` as both ESM and CJS with tsup | Next.js can consume ESM while the NestJS CommonJS build can load the same workspace package | Source-only TS paths; ESM-only output |
 | D8 | 2026-10-20 | Use one root ESLint 10 flat config, with Next.js rules scoped to the web app and TypeScript rules shared across all workspaces | Keeps policy centralized while preventing frontend-only rules from leaking into API/shared code | Per-workspace configs; legacy eslintrc files |
 | D9 | 2026-10-20 | Run ESLint and Prettier through lint-staged at pre-commit, and conventional commitlint at commit-msg | Gives fast staged-file feedback while full repo checks remain available as root commands | Full repo checks on every commit; CI-only enforcement |
+| D10 | 2026-10-20 | Require only `WEB_ORIGIN`, `API_BASE_URL` and `NEXT_PUBLIC_API_URL` now; normalize blank future-service settings to absent and validate them when supplied | The foundation can boot without credentials for services introduced in later phases while still rejecting malformed configuration | Require every eventual production variable immediately; leave future values unvalidated |
+| D11 | 2026-10-20 | Split web configuration into server and public schemas; guard server values with `server-only` and expose only statically named `NEXT_PUBLIC_API_URL` to client code | Prevents accidental client imports and follows Next.js build-time public-variable rules | One shared web env object; expose additional values with `NEXT_PUBLIC_` prefixes now |
+| D12 | 2026-10-20 | Aggregate all Zod environment issues into one application-labelled startup error | Developers can correct every missing or invalid setting in one pass | Fail on the first invalid variable |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -382,12 +385,26 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 0.3 Env management & validation
 - **Branch / commit:** `phase-0/task-0.2-code-quality` / `chore: add code quality tooling`
 
+### [2026-10-20 15:10 EAT] — Task(s): 0.3 — Environment management and validation
+- **Prompt summary:** Add per-app Zod environment validation, complete safe examples, prove fail-fast startup and keep server secrets out of the web client bundle; verify, document and commit only Task 0.3.
+- **What I did:** Added typed API and web environment modules, required current local URLs, kept later-service values optional, connected validation to both application startup paths, added complete per-app examples, and documented local environment setup.
+- **How:** Aggregated Zod issues into labelled errors (D12), normalized blank optional placeholders to absent (D10), and split web server/public configuration with `server-only` plus a single statically referenced public variable (D11). The starting audit found clean merged `main` at `c5beb97` while §9 still named the completed Task 0.2 branch; this entry corrects that historical status by trusting Git.
+- **Files touched:** API/web package manifests, lockfile, API bootstrap and env module, Next config and web env modules, both `.env.example` files, README, this handoff
+- **Migrations:** none
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed. Missing API `WEB_ORIGIN` exited 1 with `[api] Invalid environment variables`; missing web `API_BASE_URL` and `NEXT_PUBLIC_API_URL` exited 1 and listed both. An API run with invalid port/origin/database URL listed all three issues. A temporary Client Component importing the server env module made `next build` exit 1 with `'server-only' cannot be imported from a Client Component`; the fixture was removed. A sentinel server value was absent from `.next/static`. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (no suites), and `pnpm build` passed with valid local values. Both production apps booted; web returned 200 and API listened on its configured port. Git checks confirmed `.env` variants are ignored and only examples are intended for tracking. A first typecheck after removing the proof fixture encountered its stale generated `.next` route type; the generated cache was moved aside and the full clean-cache sequence passed.
+- **Result:** Task 0.3 ticked complete.
+- **Progress after this session:** 3 / 71 (4.2%)
+- **Left undone / follow-ups:** No test framework or later-service integrations were added. Existing pnpm and ESLint peer warnings remain. Next.js may print `Ready` immediately before reporting a configuration validation failure, but exits nonzero with the complete error.
+- **Next task:** 0.4 API bootstrap
+- **Branch / commit:** `phase-0/task-0.3-env-validation` / `chore: add validated environment configuration`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - `pnpm install` under Node 24.22.0 emits a non-fatal `DEP0169` warning from pnpm 9.15.9's use of the legacy `url.parse()` API. Installation and all verification commands still pass; reassess the pnpm pin in a dedicated tooling task rather than changing the approved Task 0.1 baseline.
 - pnpm reports peer-range warnings because transitive `eslint-plugin-import`, `eslint-plugin-react`, and `eslint-plugin-jsx-a11y` metadata does not yet list ESLint 10. Next.js 16.4.2 officially supports ESLint 10, and the repo lint passes; monitor upstream metadata updates.
+- Next.js 16.4.2 development startup can print `Ready` immediately before `next.config.ts` environment validation reports an error. The process still exits with code 1 and lists all invalid variables; this is an output-order quirk, not a bypass of validation.
 
 ---
 
@@ -395,22 +412,27 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 
 *(Keep current. Never put real secrets here — names and purpose only.)*
 
-| Variable | Used by | Purpose |
-|---|---|---|
-| `DATABASE_URL` | api | Neon **pooled** connection string (runtime) |
-| `DIRECT_URL` | api / prisma | Neon **direct** connection string (migrations) |
-| `REDIS_URL` | api | Redis connection (`rediss://` in prod) |
-| `SUPABASE_URL` | api, web | Supabase project URL |
-| `SUPABASE_ANON_KEY` | web | Public client key |
-| `SUPABASE_SERVICE_ROLE_KEY` | api only | Server-side admin/storage key — never expose to web |
-| `SUPABASE_JWT_ISSUER` / `SUPABASE_JWKS_URL` | api | JWT verification |
-| `API_BASE_URL` / `NEXT_PUBLIC_API_URL` | web | API location |
-| `WEB_ORIGIN` | api | CORS allow-list |
-| `RESEND_API_KEY` | api | Email (Phase 9) |
-| `SENTRY_DSN` | api, web | Error tracking (Phase 11) |
+| Variable | Used by | Required now | Purpose |
+|---|---|---|---|
+| `PORT` | api | No (defaults to `3001`) | API listening port |
+| `WEB_ORIGIN` | api | Yes | Web origin; used for the CORS allow-list in Task 0.4 |
+| `DATABASE_URL` | api | No (Phase 1.1) | Neon **pooled** connection string (runtime) |
+| `DIRECT_URL` | api / prisma | No (Phase 1.1) | Neon **direct** connection string (migrations) |
+| `REDIS_URL` | api | No (Phase 0.7) | Redis connection (`rediss://` in prod) |
+| `SUPABASE_URL` | api, web server | No (Phase 2) | Supabase project URL |
+| `SUPABASE_ANON_KEY` | web server | No (Phase 2) | Future Supabase client key; not exposed to client code in Task 0.3 |
+| `SUPABASE_SERVICE_ROLE_KEY` | api only | No (Phase 2) | Server-side admin/storage key — never expose to web |
+| `SUPABASE_JWT_ISSUER` | api | No (Phase 2) | JWT issuer used during token verification |
+| `SUPABASE_JWKS_URL` | api | No (Phase 2) | JWKS endpoint used during token verification |
+| `API_BASE_URL` | web server | Yes | Server-side API location |
+| `NEXT_PUBLIC_API_URL` | web public | Yes | Browser-visible API location; the only public web environment variable |
+| `RESEND_API_KEY` | api | No (Phase 9) | Email provider key |
+| `SENTRY_DSN` | api, web server | No (Phase 11) | Error tracking destination |
 
 **Commands:**
 - Install: `pnpm install`
+- Create local API environment: `cp apps/api/.env.example apps/api/.env`
+- Create local web environment: `cp apps/web/.env.example apps/web/.env.local`
 - Run all workspaces in development: `pnpm dev`
 - Build shared, web and API: `pnpm build`
 - Lint workspaces: `pnpm lint`
