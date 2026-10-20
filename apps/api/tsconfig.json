@@ -12,8 +12,9 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

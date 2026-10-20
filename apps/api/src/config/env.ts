@@ -16,7 +16,7 @@ const optionalSecret = z.preprocess(
   z.string().min(1, 'must not be empty').optional(),
 );
 
-const apiEnvironmentSchema = z.object({
+export const apiEnvironmentSchema = z.object({
   PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65_535).default(3001)),
   WEB_ORIGIN: requiredUrl,
   DATABASE_URL: optionalUrl,
@@ -29,6 +29,8 @@ const apiEnvironmentSchema = z.object({
   RESEND_API_KEY: optionalSecret,
   SENTRY_DSN: optionalUrl,
 });
+
+export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
 
 const formatEnvironmentError = (error: z.ZodError): string => {
   const details = error.issues

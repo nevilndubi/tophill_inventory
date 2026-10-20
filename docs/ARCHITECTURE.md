@@ -171,7 +171,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 
 ## 5. API design
 
-- **REST, JSON, versioned:** `/api/v1/...`; OpenAPI at `/api/docs` (non-production or Admin-only in production).
+- **REST, JSON, versioned:** application routes use `/api/v1/...`; root-level `/health` and `/health/ready` are explicit exceptions for infrastructure probes. OpenAPI is at `/api/docs` (non-production or Admin-only in production).
 - **Auth:** `Authorization: Bearer <Supabase JWT>`; verified against Supabase JWKS (signature, `iss`, `exp`). On first valid token, a `users` row is provisioned/linked by `supabase_user_id`/email. The user's **role and active flag come from our DB**, cached in Redis for 60s.
 - **Authorization:** `@RequirePermission('machine:update')` etc. Permission map is in `packages/shared`.
 - **Validation:** shared Zod schemas; unknown fields stripped/rejected.
@@ -299,7 +299,7 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 
 **Migrations:** `prisma migrate deploy` runs as a pipeline step *before* the new API version receives traffic; migrations must be backward-compatible with the previous release (expand → migrate → contract).
 
-**Health:** `GET /health` (liveness), `GET /health/ready` (Neon + Redis). Use for host probes and uptime monitoring.
+**Health:** unversioned `GET /health` (liveness) and `GET /health/ready` (Neon + Redis) stay at the root so host probes and uptime monitoring do not depend on an application API version. Before those services are introduced, readiness reports their checks as `not_configured`.
 
 ---
 
