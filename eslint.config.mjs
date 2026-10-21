@@ -6,8 +6,13 @@ import prettier from 'eslint-config-prettier/flat';
 import tseslint from 'typescript-eslint';
 
 const webFiles = ['apps/web/**/*.{js,jsx,ts,tsx}'];
-const nonWebTypeScriptFiles = ['apps/api/**/*.ts', 'packages/shared/**/*.ts'];
-const allTypeScriptFiles = ['apps/**/*.{ts,tsx}', 'packages/**/*.ts'];
+const prismaTypeScriptFiles = ['prisma/**/*.ts', 'prisma7.config.ts'];
+const nonWebTypeScriptFiles = [
+  'apps/api/**/*.ts',
+  'packages/shared/**/*.ts',
+  ...prismaTypeScriptFiles,
+];
+const allTypeScriptFiles = ['apps/**/*.{ts,tsx}', 'packages/**/*.ts', ...prismaTypeScriptFiles];
 
 const scopeConfigs = (configs, files) =>
   configs.map((config) => ({
@@ -22,6 +27,7 @@ export default defineConfig([
     '**/dist/**',
     '**/coverage/**',
     '**/next-env.d.ts',
+    '**/src/generated/prisma/**',
   ]),
   {
     ...js.configs.recommended,
@@ -30,6 +36,15 @@ export default defineConfig([
   ...scopeConfigs(tseslint.configs.recommended, nonWebTypeScriptFiles),
   ...scopeConfigs(nextVitals, webFiles),
   ...scopeConfigs(nextTypeScript, webFiles),
+  {
+    files: prismaTypeScriptFiles,
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
   {
     files: webFiles,
     settings: {

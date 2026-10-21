@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { AppModule } from '../src/app.module';
 import { configureApplication } from '../src/bootstrap/configure-application';
 import { createZodDto } from '../src/common/validation/zod-dto';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { REDIS_CLIENT } from '../src/redis/redis.constants';
 import { RedisService } from '../src/redis/redis.service';
 
@@ -24,6 +25,9 @@ describe('API bootstrap (e2e)', () => {
   const unavailableRedis = {
     ping: jest.fn(async () => false),
   };
+  const availableDatabase = {
+    ping: jest.fn(async () => true),
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -34,6 +38,8 @@ describe('API bootstrap (e2e)', () => {
       .useValue({})
       .overrideProvider(RedisService)
       .useValue(unavailableRedis)
+      .overrideProvider(PrismaService)
+      .useValue(availableDatabase)
       .compile();
 
     app = moduleRef.createNestApplication({ bufferLogs: true });
@@ -64,7 +70,7 @@ describe('API bootstrap (e2e)', () => {
     expect(response.body).toMatchObject({
       data: {
         checks: {
-          database: 'not_configured',
+          database: 'up',
           redis: 'down',
         },
         status: 'degraded',
@@ -72,6 +78,7 @@ describe('API bootstrap (e2e)', () => {
     });
     expect(Date.now() - startedAt).toBeLessThan(2_000);
     expect(unavailableRedis.ping).toHaveBeenCalled();
+    expect(availableDatabase.ping).toHaveBeenCalled();
   });
 
   it('serves ready status with an in-memory connected Redis stand-in', async () => {
@@ -85,6 +92,8 @@ describe('API bootstrap (e2e)', () => {
       .useValue({})
       .overrideProvider(RedisService)
       .useValue(connectedRedis)
+      .overrideProvider(PrismaService)
+      .useValue(availableDatabase)
       .compile();
     const connectedApp = moduleRef.createNestApplication({ bufferLogs: true });
     configureApplication(connectedApp);
@@ -97,7 +106,7 @@ describe('API bootstrap (e2e)', () => {
       expect(response.body).toMatchObject({
         data: {
           checks: {
-            database: 'not_configured',
+            database: 'up',
             redis: 'up',
           },
           status: 'ok',
@@ -106,6 +115,50 @@ describe('API bootstrap (e2e)', () => {
       expect(connectedRedis.ping).toHaveBeenCalledTimes(1);
     } finally {
       await connectedApp.close();
+    }
+  });
+
+  it('returns 503 promptly when the database is unavailable', async () => {
+    const unavailableDatabase = {
+      ping: jest.fn(async () => false),
+    };
+    const connectedRedis = {
+      ping: jest.fn(async () => true),
+    };
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(REDIS_CLIENT)
+      .useValue({})
+      .overrideProvider(RedisService)
+      .useValue(connectedRedis)
+      .overrideProvider(PrismaService)
+      .useValue(unavailableDatabase)
+      .compile();
+    const databaseDownApp = moduleRef.createNestApplication({ bufferLogs: true });
+    configureApplication(databaseDownApp);
+
+    await databaseDownApp.init();
+
+    try {
+      const startedAt = Date.now();
+      const response = await request(databaseDownApp.getHttpServer())
+        .get('/health/ready')
+        .expect(503);
+
+      expect(response.body).toMatchObject({
+        data: {
+          checks: {
+            database: 'down',
+            redis: 'up',
+          },
+          status: 'down',
+        },
+      });
+      expect(Date.now() - startedAt).toBeLessThan(2_000);
+      expect(unavailableDatabase.ping).toHaveBeenCalledTimes(1);
+    } finally {
+      await databaseDownApp.close();
     }
   });
 

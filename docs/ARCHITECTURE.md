@@ -299,13 +299,15 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 | Local | `next dev` | `nest start --watch` | `dev` | docker-compose |
 | Staging | Vercel preview/staging | Azure App Service (staging slot) | `staging` | Staging instance |
 | Production | Vercel production | Azure App Service (+ worker) | `main` | Production instance |
-| CI | build only | tests against ephemeral Neon branch + Redis service container | per-run branch | service container |
+| CI | build only | hermetic by default; explicit integration path uses real services | ephemeral branch for explicit integration only | service container for explicit integration only |
 
 **Migrations:** `prisma migrate deploy` runs as a pipeline step *before* the new API version receives traffic; migrations must be backward-compatible with the previous release (expand → migrate → contract).
 
-**Health:** unversioned `GET /health` (liveness) and `GET /health/ready` (Neon + Redis) stay at the root so host probes and uptime monitoring do not depend on an application API version. Before those services are introduced, readiness reports their checks as `not_configured`.
+**Health:** unversioned `GET /health` (liveness) and `GET /health/ready` (Neon + Redis) stay at the root so host probes and uptime monitoring do not depend on an application API version. Both checks are bounded to about one second. Database failure or timeout returns HTTP 503 with overall status `down` because Neon is the system of record. Redis failure alone returns HTTP 200 with overall status `degraded`; liveness remains independent of both services.
 
-**Foundation CI:** pull requests to `main` and pushes to `main` run one required `Quality` job: frozen pnpm install, format check, lint, typecheck, tests, then build. Jest and Vitest provide deterministic localhost test configuration internally, so tests never consume developer environment files. Only the build step receives safe localhost URLs needed by startup validation; later database/Redis phases extend CI with service containers and ephemeral Neon branches.
+**Database connections:** Prisma 7 uses the `@prisma/adapter-pg` driver adapter with the pooled `DATABASE_URL` for API traffic. `prisma7.config.ts` uses the direct `DIRECT_URL` for migrations and other CLI operations. Prisma connection startup is non-blocking so an outage is represented by readiness instead of preventing liveness; shutdown disconnects the client gracefully. The long-lived Neon branches are `dev`, `staging`, and `main`. Explicit database integration jobs create temporary children of `dev`, apply committed migrations with the direct URL, use the pooled URL at runtime, and remove the branch after the run.
+
+**Foundation CI:** pull requests to `main` and pushes to `main` run one required `Quality` job: frozen pnpm install, format check, lint, typecheck, tests, then build. Jest and Vitest provide deterministic localhost test configuration internally, so the default test suites never consume developer environment files or contact Neon/Redis. Prisma Client generation is automatic before build, typecheck, and test. The build step receives only safe localhost URLs needed by startup validation. Real Neon branches and service containers are reserved for explicitly selected integration paths.
 
 ---
 
@@ -336,7 +338,7 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 | Layer | Tool | What must be covered |
 |---|---|---|
 | Unit | Jest/Vitest | State machines, status derivation, booking rules, permission map |
-| Integration | Jest + real Postgres (Neon branch or Testcontainers) + Redis | Repositories, **exclusion constraint**, transactions, cache invalidation |
+| Integration (explicit) | Jest + ephemeral Neon branch or Testcontainers + Redis | Repositories, **exclusion constraint**, transactions, cache invalidation; never part of the hermetic default suite without an explicit integration path |
 | Concurrency | Jest | N parallel bookings for the same slot ⇒ exactly one succeeds; parallel check-outs ⇒ one succeeds |
 | API e2e | Supertest | Auth, permissions (403s), validation (400s), conflict (409s) |
 | UI e2e | Playwright | Login → find machine → see status → book → check-out → check-in → report fault → technician resolves |

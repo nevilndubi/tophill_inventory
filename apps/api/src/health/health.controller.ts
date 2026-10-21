@@ -1,5 +1,11 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Res } from '@nestjs/common';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
 import { HealthService } from './health.service';
 
 @ApiTags('health')
@@ -16,8 +22,15 @@ export class HealthController {
 
   @Get('ready')
   @ApiOperation({ summary: 'Readiness probe' })
-  @ApiOkResponse({ description: 'The API is ready for its currently configured dependencies.' })
-  async getReadiness() {
-    return this.healthService.getReadiness();
+  @ApiOkResponse({ description: 'The database is ready; optional dependencies may be degraded.' })
+  @ApiServiceUnavailableResponse({ description: 'The system-of-record database is unavailable.' })
+  async getReadiness(@Res({ passthrough: true }) response: Response) {
+    const readiness = await this.healthService.getReadiness();
+
+    if (readiness.status === 'down') {
+      response.status(503);
+    }
+
+    return readiness;
   }
 }

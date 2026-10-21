@@ -1,0 +1,1 @@
+-- Task 1.1 establishes Prisma migration history before domain tables are added.

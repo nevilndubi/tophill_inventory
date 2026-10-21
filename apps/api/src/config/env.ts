@@ -9,6 +9,17 @@ const requiredUrl = z.preprocess(
   z.string().min(1, 'is required').pipe(z.url('must be a valid URL')),
 );
 
+const requiredPostgresUrl = z.preprocess(
+  (value) => value ?? '',
+  z
+    .string()
+    .min(1, 'is required')
+    .pipe(z.url('must be a valid URL'))
+    .refine((value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol), {
+      message: 'must use the postgres:// or postgresql:// protocol',
+    }),
+);
+
 const optionalUrl = z.preprocess(blankToUndefined, z.url('must be a valid URL').optional());
 
 const optionalSecret = z.preprocess(
@@ -31,8 +42,8 @@ export const apiEnvironmentSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65_535).default(3001)),
     WEB_ORIGIN: requiredUrl,
-    DATABASE_URL: optionalUrl,
-    DIRECT_URL: optionalUrl,
+    DATABASE_URL: requiredPostgresUrl,
+    DIRECT_URL: requiredPostgresUrl,
     REDIS_URL: redisUrl,
     SUPABASE_URL: optionalUrl,
     SUPABASE_SERVICE_ROLE_KEY: optionalSecret,

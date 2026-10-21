@@ -1,6 +1,8 @@
 import { parseApiEnvironment } from './env';
 
 const baseEnvironment = {
+  DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/tophill_test',
+  DIRECT_URL: 'postgresql://test:test@127.0.0.1:5432/tophill_test',
   WEB_ORIGIN: 'http://127.0.0.1:3000',
 };
 
@@ -34,5 +36,23 @@ describe('API environment', () => {
         REDIS_URL: 'rediss://redis.example.test:6380',
       }).REDIS_URL,
     ).toBe('rediss://redis.example.test:6380');
+  });
+
+  it('reports both missing database URLs together', () => {
+    expect(() =>
+      parseApiEnvironment({
+        WEB_ORIGIN: baseEnvironment.WEB_ORIGIN,
+      }),
+    ).toThrow(/DATABASE_URL: is required[\s\S]*DIRECT_URL: is required/);
+  });
+
+  it('rejects non-Postgres database URLs', () => {
+    expect(() =>
+      parseApiEnvironment({
+        ...baseEnvironment,
+        DATABASE_URL: 'https://database.example.test',
+        DIRECT_URL: 'redis://127.0.0.1:6379',
+      }),
+    ).toThrow(/DATABASE_URL: must use the postgres:\/\/ or postgresql:\/\/ protocol/);
   });
 });

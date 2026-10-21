@@ -1,0 +1,1 @@
+export const DATABASE_HEALTH_TIMEOUT_MS = 1_000;

@@ -3,6 +3,8 @@ import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 process.env.API_BASE_URL = 'http://127.0.0.1:3001';
+process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/tophill_test';
+process.env.DIRECT_URL = 'postgresql://test:test@127.0.0.1:5432/tophill_test';
 process.env.NEXT_PUBLIC_API_URL = 'http://127.0.0.1:3001';
 
 afterEach(cleanup);

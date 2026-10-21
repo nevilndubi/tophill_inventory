@@ -9,6 +9,7 @@ import { ZodValidationPipe } from './common/validation/zod-validation.pipe';
 import { env } from './config/env';
 import { HealthModule } from './health/health.module';
 import { pinoHttpOptions } from './logging/pino.config';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { pinoHttpOptions } from './logging/pino.config';
       validate: () => env,
     }),
     LoggerModule.forRoot({ pinoHttp: pinoHttpOptions }),
+    PrismaModule,
     HealthModule,
   ],
   providers: [
