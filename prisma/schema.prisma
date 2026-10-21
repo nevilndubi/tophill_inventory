@@ -20,23 +20,26 @@ enum Role {
 }
 
 model User {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supabaseUserId       String                 @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
-  email                String
-  fullName             String                 @map("full_name")
-  role                 Role
-  departmentId         String?                @map("department_id") @db.Uuid
-  phone                String?
-  isActive             Boolean                @default(true) @map("is_active")
-  lastLoginAt          DateTime?              @map("last_login_at") @db.Timestamptz(3)
-  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  department           Department?            @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  managedDepartments   Department[]           @relation("DepartmentManager")
-  machineStatusChanges MachineStatusHistory[] @relation("MachineStatusChangedBy")
-  requestedBookings    Booking[]              @relation("BookingRequester")
-  approvedBookings     Booking[]              @relation("BookingApprover")
-  usageSessions        UsageSession[]         @relation("UsageSessionUser")
+  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supabaseUserId         String                 @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
+  email                  String
+  fullName               String                 @map("full_name")
+  role                   Role
+  departmentId           String?                @map("department_id") @db.Uuid
+  phone                  String?
+  isActive               Boolean                @default(true) @map("is_active")
+  lastLoginAt            DateTime?              @map("last_login_at") @db.Timestamptz(3)
+  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  department             Department?            @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  managedDepartments     Department[]           @relation("DepartmentManager")
+  machineStatusChanges   MachineStatusHistory[] @relation("MachineStatusChangedBy")
+  requestedBookings      Booking[]              @relation("BookingRequester")
+  approvedBookings       Booking[]              @relation("BookingApprover")
+  usageSessions          UsageSession[]         @relation("UsageSessionUser")
+  reportedServiceTickets ServiceTicket[]        @relation("ServiceTicketReporter")
+  assignedServiceTickets ServiceTicket[]        @relation("ServiceTicketAssignee")
+  serviceRecords         ServiceRecord[]        @relation("ServiceRecordPerformer")
 
   @@index([departmentId], map: "users_department_id_idx")
   @@map("users")
@@ -139,6 +142,8 @@ model Machine {
   statusHistory                MachineStatusHistory[] @relation("MachineStatusHistory")
   bookings                     Booking[]
   usageSessions                UsageSession[]
+  serviceTickets               ServiceTicket[]
+  maintenanceSchedules         MaintenanceSchedule[]
 
   @@index([departmentId], map: "machines_department_id_idx")
   @@index([categoryId], map: "machines_category_id_idx")
@@ -162,8 +167,10 @@ model MachineStatusHistory {
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   machine         Machine             @relation("MachineStatusHistory", fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   changedByUser   User                @relation("MachineStatusChangedBy", fields: [changedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ticket          ServiceTicket?      @relation(fields: [ticketId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([machineId, createdAt(sort: Desc)], map: "machine_status_history_machine_id_created_at_idx")
+  @@index([ticketId], map: "machine_status_history_ticket_id_idx")
   @@map("machine_status_history")
 }
 
@@ -222,4 +229,97 @@ model UsageSession {
 
   @@index([userId, startedAt], map: "usage_sessions_user_id_started_at_idx")
   @@map("usage_sessions")
+}
+
+enum ServiceTicketSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("service_ticket_severity")
+}
+
+enum ServiceTicketStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+
+  @@map("service_ticket_status")
+}
+
+enum ServiceTicketType {
+  FAULT
+  PREVENTIVE
+  CALIBRATION
+  INSPECTION
+
+  @@map("service_ticket_type")
+}
+
+model ServiceTicket {
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  machineId               String                 @map("machine_id") @db.Uuid
+  reportedByUserId        String                 @map("reported_by_user_id") @db.Uuid
+  title                   String
+  description             String
+  severity                ServiceTicketSeverity
+  status                  ServiceTicketStatus    @default(OPEN)
+  assignedToUserId        String?                @map("assigned_to_user_id") @db.Uuid
+  type                    ServiceTicketType
+  openedAt                DateTime               @default(now()) @map("opened_at") @db.Timestamptz(3)
+  resolvedAt              DateTime?              @map("resolved_at") @db.Timestamptz(3)
+  closedAt                DateTime?              @map("closed_at") @db.Timestamptz(3)
+  machineOutOfServiceFrom DateTime?              @map("machine_out_of_service_from") @db.Timestamptz(3)
+  machineBackInServiceAt  DateTime?              @map("machine_back_in_service_at") @db.Timestamptz(3)
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  machine                 Machine                @relation(fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reportedByUser          User                   @relation("ServiceTicketReporter", fields: [reportedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignedToUser          User?                  @relation("ServiceTicketAssignee", fields: [assignedToUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  records                 ServiceRecord[]
+  statusHistory           MachineStatusHistory[]
+
+  @@index([machineId, status], map: "service_tickets_machine_id_status_idx")
+  @@index([assignedToUserId, status], map: "service_tickets_assigned_to_user_id_status_idx")
+  @@index([status, severity], map: "service_tickets_status_severity_idx")
+  @@index([machineId, openedAt(sort: Desc)], map: "service_tickets_machine_id_opened_at_idx")
+  @@map("service_tickets")
+}
+
+model ServiceRecord {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId          String        @map("ticket_id") @db.Uuid
+  performedByUserId String        @map("performed_by_user_id") @db.Uuid
+  performedAt       DateTime      @map("performed_at") @db.Timestamptz(3)
+  workDone          String        @map("work_done")
+  partsReplaced     String?       @map("parts_replaced")
+  costAmount        Int?          @map("cost_amount")
+  currency          String        @default("KES")
+  nextDueAt         DateTime?     @map("next_due_at") @db.Timestamptz(3)
+  vendorName        String?       @map("vendor_name")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  ticket            ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  performedByUser   User          @relation("ServiceRecordPerformer", fields: [performedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([ticketId, performedAt], map: "service_records_ticket_id_performed_at_idx")
+  @@map("service_records")
+}
+
+model MaintenanceSchedule {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  machineId    String    @map("machine_id") @db.Uuid
+  intervalDays Int       @map("interval_days")
+  lastDoneAt   DateTime? @map("last_done_at") @db.Timestamptz(3)
+  nextDueAt    DateTime? @map("next_due_at") @db.Timestamptz(3)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  machine      Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("maintenance_schedules")
 }

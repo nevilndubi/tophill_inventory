@@ -108,11 +108,11 @@ use non-cascading `ON DELETE RESTRICT` behavior.
 **machine_status_history** — `id`, `machine_id`, `from_condition`, `to_condition`, `reason`, `changed_by_user_id`, `source` (`MANUAL | SERVICE_TICKET | SCHEDULE | SYSTEM`), `ticket_id` (nullable), `created_at`
 
 The first status-history record may have a null `from_condition`; subsequent records are immutable
-application history. Machine and actor foreign keys use `ON DELETE RESTRICT`. `ticket_id` is a
-nullable UUID without a foreign key until `service_tickets` is introduced in Task 1.5. The current
-owner role must retain migration privileges, so role-level `UPDATE`/`DELETE` revocation for the
-application role is deferred to the least-privilege database-role work in Task 10.1. Until then,
-application code must expose inserts only; the history model intentionally has no `updated_at`.
+application history. Machine, actor and optional service-ticket foreign keys use `ON DELETE
+RESTRICT`; `machine_status_history_ticket_id_idx` supports ticket-history lookup. The current owner
+role must retain migration privileges, so role-level `UPDATE`/`DELETE` revocation for the application
+role is deferred to the least-privilege database-role work in Task 10.1. Until then, application code
+must expose inserts only; the history model intentionally has no `updated_at`.
 
 **usage_sessions** — `id`, `machine_id`, `user_id`, `booking_id` (nullable), `started_at`, `expected_end_at` (nullable), `ended_at` (nullable), `purpose` (free text, ≤200 chars, **no patient data**), `end_note`
 - `usage_sessions_one_open_per_machine`: partial unique index on `machine_id WHERE ended_at IS NULL`
@@ -135,11 +135,22 @@ application code must expose inserts only; the history model intentionally has n
 
 Bookings and usage sessions are records of fact and are never hard-deleted by application code. Every foreign key from these tables to machines, users, or bookings uses `ON DELETE RESTRICT`.
 
-**service_tickets** — `id`, `machine_id`, `reported_by_user_id`, `title`, `description`, `severity` (`LOW | MEDIUM | HIGH | CRITICAL`), `status` (`OPEN | ASSIGNED | IN_PROGRESS | RESOLVED | CLOSED | CANCELLED`), `assigned_to_user_id`, `type` (`FAULT | PREVENTIVE | CALIBRATION | INSPECTION`), `opened_at`, `resolved_at`, `closed_at`, `machine_out_of_service_from`, `machine_back_in_service_at`
+**service_tickets** — `id`, `machine_id`, `reported_by_user_id`, `title`, `description`, `severity` (`LOW | MEDIUM | HIGH | CRITICAL`), `status` (`OPEN | ASSIGNED | IN_PROGRESS | RESOLVED | CLOSED | CANCELLED`, default `OPEN`), `assigned_to_user_id`, `type` (`FAULT | PREVENTIVE | CALIBRATION | INSPECTION`), `opened_at` (default now), `resolved_at`, `closed_at`, `machine_out_of_service_from`, `machine_back_in_service_at`
+- Title length is 1–200 and whitespace-only titles are rejected; descriptions are limited to 4,000 characters. Stable checks: `service_tickets_title_length_check`, `service_tickets_title_not_blank_check`, and `service_tickets_description_length_check`.
+- `RESOLVED`/`CLOSED` require `resolved_at`; `CLOSED` requires `closed_at`; resolution cannot precede opening, closing cannot precede resolution, and return to service cannot precede removal from service. `ASSIGNED`/`IN_PROGRESS` require an assignee. Stable checks use the `service_tickets_*_check` names in the Task 1.5 migration.
+- No unique "open fault per machine" constraint exists: preventive, calibration and fault work may coexist, and Task 6.1 owns duplicate-report handling.
 
-**service_records** — `id`, `ticket_id`, `performed_by_user_id`, `performed_at`, `work_done`, `parts_replaced`, `cost_amount` (nullable, integer minor units), `currency` (default `KES`), `next_due_at`, `vendor_name`
+**service_records** — `id`, `ticket_id`, `performed_by_user_id`, `performed_at`, `work_done`, `parts_replaced`, `cost_amount` (nullable `integer` minor units), `currency` (default `KES`), `next_due_at`, `vendor_name`
+- Tickets may have multiple service records for parts and repeat visits. `service_records_ticket_id_performed_at_idx` preserves ordered retrieval.
+- `service_records_cost_amount_nonnegative_check`, `service_records_next_due_after_performed_check`, and `service_records_currency_format_check` enforce non-negative costs, strictly future next-due timestamps, and three-letter uppercase currency codes. PostgreSQL/Prisma `integer` caps one record at 2,147,483,647 minor units (about KSh 21.47 million), sufficient for individual service work.
 
-**maintenance_schedules** — `id`, `machine_id`, `interval_days`, `last_done_at`, `next_due_at`, `is_active`
+**maintenance_schedules** — `id`, `machine_id`, `interval_days`, `last_done_at`, `next_due_at`, `is_active` (default true)
+- `maintenance_schedules_interval_days_positive_check` and `maintenance_schedules_next_due_not_before_last_done_check` enforce cadence and timestamp ordering.
+- `maintenance_schedules_one_active_per_machine` permits historical inactive schedules but only one active schedule per machine. `maintenance_schedules_active_next_due_at_idx` supports the active due-service sweep.
+
+Tickets, service records and schedules are records of fact. Every relation to machines, users,
+tickets and machine status history uses `ON DELETE RESTRICT`; users are deactivated rather than hard
+deleted.
 
 **attachments** — `id`, `entity_type` (`MACHINE | TICKET`), `entity_id`, `storage_path`, `file_name`, `mime_type`, `size_bytes`, `uploaded_by_user_id`
 
@@ -153,10 +164,12 @@ Bookings and usage sessions are records of fact and are never hard-deleted by ap
 
 ### 3.2 Key indexes
 - `machines (department_id)`, `machines (category_id)`, `machines (condition)`, `machines (next_service_due_at)`; `pg_trgm` GIN indexes with `gin_trgm_ops` on `name`, `asset_tag`, `serial_number`
-- `machine_status_history (machine_id, created_at DESC)`
+- `machine_status_history_machine_id_created_at_idx` on `machine_status_history (machine_id, created_at DESC)`; `machine_status_history_ticket_id_idx` on `(ticket_id)`
 - `bookings_machine_id_starts_at_idx` on `bookings (machine_id, starts_at)`; `bookings_requested_by_user_id_starts_at_idx` on `(requested_by_user_id, starts_at)`; `bookings_status_starts_at_idx` on `(status, starts_at)`
 - `usage_sessions_one_open_per_machine` on `usage_sessions (machine_id) WHERE ended_at IS NULL` (unique); `usage_sessions_one_per_booking` on `(booking_id) WHERE booking_id IS NOT NULL` (unique); `usage_sessions_user_id_started_at_idx` on `(user_id, started_at)`
-- `service_tickets (machine_id, status)`, `service_tickets (assigned_to_user_id, status)`
+- `service_tickets_machine_id_status_idx` on `service_tickets (machine_id, status)`; `service_tickets_assigned_to_user_id_status_idx` on `(assigned_to_user_id, status)`; `service_tickets_status_severity_idx` on `(status, severity)`; `service_tickets_machine_id_opened_at_idx` on `(machine_id, opened_at DESC)`
+- `service_records_ticket_id_performed_at_idx` on `service_records (ticket_id, performed_at)`
+- `maintenance_schedules_one_active_per_machine` on `maintenance_schedules (machine_id) WHERE is_active` (unique); `maintenance_schedules_active_next_due_at_idx` on `(next_due_at) WHERE is_active`
 - `audit_logs (entity_type, entity_id, created_at)`, `notifications (user_id, read_at)`
 
 ---
