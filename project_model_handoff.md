@@ -279,10 +279,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 11 / 71 tasks (15.5%) |
 | Current phase | Phase 1 — Task 1.4 verified |
-| Last updated | 2026-10-21 14:49 EAT |
-| Branch | `phase-1/task-1.4-usage-booking-tables` |
+| Last updated | 2026-10-21 14:52 EAT |
+| Branch | `main` (Task 1.4 delivered via `phase-1/task-1.4-usage-booking-tables`) |
 | Last commit | `feat(db): add usage and booking constraints` |
-| Repo state | Usage/booking schema, reviewed exclusion/check/index migration, Neon `dev` application, zero-drift and disposable-branch concurrency proofs verified |
+| Repo state | Task 1.4 merged by PR #10; usage/booking schema, reviewed migration, Neon `dev`, zero-drift, disposable-branch concurrency and hosted CI verified |
 | **Next task** | **1.5 Service tables: tickets, records and maintenance schedules** |
 
 ---
@@ -552,6 +552,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Left undone / follow-ups:** Booking/usage APIs, state transitions, seed data and Task 1.5 service tables remain out of scope. The API in Task 5.3 must calculate `blocked_until` on every booking creation/update. Existing tooling, Docker, branch-protection and PostgreSQL SSL warnings remain tracked.
 - **Next task:** 1.5 Service tables: tickets, records and maintenance schedules
 - **Branch / commit:** `phase-1/task-1.4-usage-booking-tables` / `feat(db): add usage and booking constraints`
+
+### [2026-10-21 14:52 EAT] — Task(s): 1.4 — Hosted verification and delivery
+- **Prompt summary:** Complete the Task 1.4 Git lifecycle after implementation and live-database verification.
+- **What I did:** Pushed the task branch, opened PR #10, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
+- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
+- **Files touched:** this handoff only in the follow-up; Task 1.4 implementation files were delivered by PR #10
+- **Migrations:** none in this follow-up; `20261021160000_usage_booking_tables` was already verified and delivered
+- **Verification:** GitHub `CI / Quality` completed successfully in 1m05s for PR #10; the PR merged as `4343d1a`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean.
+- **Result:** Task 1.4 remains complete and is now delivered on `main`.
+- **Progress after this session:** 11 / 71 (15.5%)
+- **Left undone / follow-ups:** No change from the Task 1.4 implementation entry.
+- **Next task:** 1.5 Service tables: tickets, records and maintenance schedules
+- **Branch / commit:** `phase-1/task-1.4-handoff-finalize` / `docs: finalize Task 1.4 delivery`
 
 ---
 
