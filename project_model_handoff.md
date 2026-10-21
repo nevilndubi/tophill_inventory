@@ -186,7 +186,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 ### Phase 1 — Database & Schema
 - [x] 1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)
 - [x] 1.2 Core tables: users, departments, locations
-- [ ] 1.3 Machine tables: categories, machines, machine_status_history
+- [x] 1.3 Machine tables: categories, machines, machine_status_history
 - [ ] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
 - [ ] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
 - [ ] 1.6 Support tables: audit_logs, notifications, attachments, app_settings
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 9 / 71 tasks (12.7%) |
-| Current phase | Phase 1 — Task 1.2 verified |
-| Last updated | 2026-10-21 13:37 EAT |
-| Branch | `main` (Task 1.2 delivered via `phase-1/task-1.2-core-tables`) |
-| Last commit | `feat(db): add core user department and location tables` |
-| Repo state | Core users/departments/locations schema, reviewed migration, guarded live integration suite and fresh-branch proof verified |
-| **Next task** | **1.3 Machine tables** |
+| Overall progress | 10 / 71 tasks (14.1%) |
+| Current phase | Phase 1 — Task 1.3 verified |
+| Last updated | 2026-10-21 14:07 EAT |
+| Branch | `phase-1/task-1.3-machine-tables` |
+| Last commit | `feat(db): add machine registry tables` |
+| Repo state | Machine/category/status-history schema, reviewed migration, Neon `dev` application, zero-drift and disposable-branch integration proofs verified |
+| **Next task** | **1.4 Usage & booking tables with overlap constraint** |
 
 ---
 
@@ -291,6 +291,9 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Pending (planned, in the checklist)
 Everything in §8 not yet ticked. Do not duplicate it here — only list *extra* items discovered during work.
+
+- Add the `machine_status_history.ticket_id` foreign key when `service_tickets` is created in Task 1.5.
+- Enforce append-only `machine_status_history` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -333,6 +336,11 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D24 | 2026-10-21 | Core model IDs are PostgreSQL-generated UUIDs using `gen_random_uuid()`; every timestamp uses `timestamptz(3)`, and Prisma `@updatedAt` owns automatic application-write timestamps | Database-generated IDs work consistently for Prisma and direct SQL writers, while one explicit UTC precision avoids timestamp drift | Prisma-generated UUIDs; UUID v7; database update triggers for all timestamps |
 | D25 | 2026-10-21 | Normalize user email to lowercase in a database trigger and enforce uniqueness with an index on `lower(email)`; membership/location foreign keys restrict department deletion and manager deletion sets the manager reference to null | The database guarantees case-insensitive identity and predictable non-cascading deletion regardless of write path | Application-only normalization; `citext`; cascading deletes; nullable membership on department deletion |
 | D26 | 2026-10-21 | Real core-model tests run only through `pnpm test:integration` against a dedicated `ci/`, `test/`, or `ephemeral/` Neon branch; the guard rejects long-lived/equal URLs and tests delete only their own generated records | Default CI remains hermetic and the explicit suite cannot accidentally target `main`, `staging`, `dev`, or the configured application/migration database | Put Neon in the default Jest suite; rely on naming convention without a guard; run against long-lived `dev` |
+| D27 | 2026-10-21 | Require both machine manufacturer and serial number, trim and lowercase them in a database trigger, and keep their case-insensitive pair unique across all rows including soft-deleted machines | A physical serial identity must be unambiguous and must preserve historical continuity; required values avoid PostgreSQL's distinct-null uniqueness behavior | Allow nullable identity with `NULLS NOT DISTINCT`; use a partial unique index so deleted serials can be re-registered; normalize only in application code |
+| D28 | 2026-10-21 | Generate `HM-000001`-style asset tags from a PostgreSQL sequence/function and reserve each tag permanently | Database generation is race-safe for every writer and preserves immutable hospital identifiers after retirement or soft deletion | Generate in Task 3.3 application code; reuse tags after deletion; UUID-only labels |
+| D29 | 2026-10-21 | Keep machine ownership and current location as independent `RESTRICT` foreign keys, allowing a machine to sit in another department's location | Shared hospital equipment can be owned centrally while deployed elsewhere | Composite foreign key forcing location department to equal owner; omit ownership |
+| D30 | 2026-10-21 | Create status-history `ticket_id` as a nullable UUID without an FK until Task 1.5, and defer role-level UPDATE/DELETE revocation to Task 10.1 while exposing history as insert-only in application code | The referenced ticket table and a least-privilege application database role do not exist yet; placeholder tables or revoking the migration owner's privileges would be premature | Create a placeholder ticket table; omit the column; revoke the owner role now |
+| D31 | 2026-10-21 | Use `pg_trgm` GIN indexes for machine name, asset tag and serial search, represented with Prisma raw operator classes as well as reviewed migration SQL | Substring `ILIKE` lookup needs indexed search, and declaring the raw operator classes prevents false Prisma drift reports | B-tree indexes; full-text vectors; raw SQL indexes omitted from the Prisma schema |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -503,10 +511,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.3 Machine tables
 - **Branch / commit:** `phase-1/task-1.2-core-tables` / `feat(db): add core user department and location tables`
 
+### [2026-10-21 14:07 EAT] — Task(s): 1.3 — Machine registry tables
+- **Prompt summary:** Add the documented category, machine and status-history schema; enforce identity, lifecycle, booking/service and deletion invariants; prove the migration, search indexes and concurrency against Neon `dev` and a fresh disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle.
+- **What I did:** Added both machine enums and the mapped `MachineCategory`, `Machine` and `MachineStatusHistory` Prisma models; created the additive machine migration with sequence-backed asset tags, identity normalization, CHECK constraints, explicit non-cascading relations, status-history index, `pg_trgm` extension and three GIN indexes; extended the guarded live integration suite and documented the resulting data rules.
+- **How:** Manufacturer and serial are required, database-normalized and permanently unique as a pair (D27); database sequence tags are immutable and race-safe (D28); department ownership and cross-department placement stay independent (D29); ticket linkage and database-role append-only enforcement are staged for their owning tasks (D30); Prisma raw operator-class declarations keep the reviewed trigram SQL drift-free (D31). Usage remains derived with no `is_in_use` column (D2). The starting audit found clean synchronized `main` at merge `832929c`, matching §9 with Task 1.3 next.
+- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021150000_machine_tables/migration.sql`, `apps/api/test/integration/machine-models.integration-spec.ts`, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** `20261021150000_machine_tables`; reviewed with no destructive SQL or `is_in_use`, three database UUID defaults, eight `TIMESTAMPTZ(3)` columns, five `ON DELETE RESTRICT` foreign keys, zero ticket foreign keys, required CHECK constraints, sequence/function/trigger identity handling, and three trigram GIN indexes
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed with the tracked pnpm warning. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test`, and safe-localhost `pnpm build` passed; the default suite ran 48 tests (37 API, 11 web) without Neon. On a fresh six-hour Neon branch from `main`, `prisma migrate deploy` applied all three migrations in order and `prisma migrate diff` printed `No difference detected.` The guarded `pnpm test:integration` passed 13/13 tests covering every model/enum, all required constraints and relations, null/normalization/soft-delete uniqueness rules, 40 parallel tag inserts, three GIN indexes over 3,000 rows, and cleanup; post-test task rows were zero and the branch was deleted. A separate `EXPLAIN (ANALYZE, BUFFERS)` over 3,000 transaction-scoped rows, with sequential scans disabled to demonstrate index eligibility at this small fixture size, used `Bitmap Index Scan on machines_name_trgm_idx` and rolled back. The migration applied to Neon `dev`; status was current and its drift check also printed `No difference detected.` Initial integration attempts correctly revealed SQLSTATE `23001` for `RESTRICT` and the small-table planner's sequential-scan preference; only test expectations/EXPLAIN setup changed, then the final fresh proof passed.
+- **Result:** Task 1.3 ticked complete.
+- **Progress after this session:** 10 / 71 (14.1%)
+- **Left undone / follow-ups:** Task 1.4 owns usage sessions/bookings and the exclusion constraint. Task 1.5 must add the status-history ticket FK. Task 10.1 must create/use a least-privilege application database role and revoke status-history UPDATE/DELETE. No APIs, seed data, auth, usage, bookings or service tables were added. Existing tooling/Docker/branch-protection/SSL warnings remain tracked.
+- **Next task:** 1.4 Usage & booking tables with overlap constraint
+- **Branch / commit:** `phase-1/task-1.3-machine-tables` / `feat(db): add machine registry tables`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- `machine_status_history` is append-only by schema/API design, but the current Neon owner role can still issue direct UPDATE/DELETE statements. Task 10.1 must introduce/use a least-privilege application role and revoke those privileges; migration ownership must remain separate.
 - On this workstation, Docker created and ran the Task 0.7 Redis container but the daemon rejected direct `docker compose stop` and `docker stop` signals with `permission denied`. An in-container `redis-cli shutdown nosave` stopped Redis cleanly and `docker compose down` removed the stopped container/network; investigate Docker Desktop/daemon signal permissions if the direct-stop failure recurs.
 - GitHub reports that `main` has no branch-protection rule. The CI workflow is green and the README documents the intended required `Quality` check, but GitHub does not yet enforce it; configure the rule explicitly after confirming the desired collaborator/merge policy.
 - `pnpm install` under Node 24.22.0 emits a non-fatal `DEP0169` warning from pnpm 9.15.9's use of the legacy `url.parse()` API. Installation and all verification commands still pass; reassess the pnpm pin in a dedicated tooling task rather than changing the approved Task 0.1 baseline.
@@ -563,6 +585,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Generate Prisma Client: `pnpm prisma:generate`
 - Create/apply a development migration: `pnpm prisma:migrate:dev --name <migration-name>`
 - Apply committed migrations: `pnpm prisma:migrate:deploy`
+- Check database/schema drift: `DIRECT_URL=<dedicated-direct-url> pnpm exec prisma migrate diff --config prisma7.config.ts --from-config-datasource --to-schema prisma/schema.prisma --exit-code`
 - Run the seed command: `pnpm db:seed`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`

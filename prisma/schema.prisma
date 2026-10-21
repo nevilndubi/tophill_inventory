@@ -20,19 +20,20 @@ enum Role {
 }
 
 model User {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supabaseUserId     String       @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
-  email              String
-  fullName           String       @map("full_name")
-  role               Role
-  departmentId       String?      @map("department_id") @db.Uuid
-  phone              String?
-  isActive           Boolean      @default(true) @map("is_active")
-  lastLoginAt        DateTime?    @map("last_login_at") @db.Timestamptz(3)
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  department         Department?  @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  managedDepartments Department[] @relation("DepartmentManager")
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supabaseUserId       String                 @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
+  email                String
+  fullName             String                 @map("full_name")
+  role                 Role
+  departmentId         String?                @map("department_id") @db.Uuid
+  phone                String?
+  isActive             Boolean                @default(true) @map("is_active")
+  lastLoginAt          DateTime?              @map("last_login_at") @db.Timestamptz(3)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  department           Department?            @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  managedDepartments   Department[]           @relation("DepartmentManager")
+  machineStatusChanges MachineStatusHistory[] @relation("MachineStatusChangedBy")
 
   @@index([departmentId], map: "users_department_id_idx")
   @@map("users")
@@ -48,6 +49,7 @@ model Department {
   manager       User?      @relation("DepartmentManager", fields: [managerUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   members       User[]     @relation("DepartmentMembers")
   locations     Location[]
+  machines      Machine[]  @relation("MachineDepartment")
 
   @@index([managerUserId], map: "departments_manager_user_id_idx")
   @@map("departments")
@@ -63,7 +65,99 @@ model Location {
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  machines     Machine[]  @relation("MachineLocation")
 
   @@unique([departmentId, name], map: "locations_department_id_name_key")
   @@map("locations")
+}
+
+enum MachineCondition {
+  OPERATIONAL
+  NEEDS_SERVICE
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+  RETIRED
+
+  @@map("machine_condition")
+}
+
+enum MachineStatusSource {
+  MANUAL
+  SERVICE_TICKET
+  SCHEDULE
+  SYSTEM
+
+  @@map("machine_status_source")
+}
+
+model MachineCategory {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                       String    @unique(map: "machine_categories_name_key")
+  description                String?
+  defaultServiceIntervalDays Int?      @map("default_service_interval_days")
+  defaultMaxBookingMinutes   Int?      @map("default_max_booking_minutes")
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  machines                   Machine[]
+
+  @@map("machine_categories")
+}
+
+model Machine {
+  id                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assetTag                     String                 @unique(map: "machines_asset_tag_key") @default(dbgenerated("next_machine_asset_tag()")) @map("asset_tag")
+  name                         String
+  categoryId                   String                 @map("category_id") @db.Uuid
+  manufacturer                 String
+  model                        String
+  serialNumber                 String                 @map("serial_number")
+  description                  String?
+  departmentId                 String                 @map("department_id") @db.Uuid
+  locationId                   String                 @map("location_id") @db.Uuid
+  purchaseDate                 DateTime?              @map("purchase_date") @db.Date
+  warrantyExpiresOn            DateTime?              @map("warranty_expires_on") @db.Date
+  commissionedOn               DateTime?              @map("commissioned_on") @db.Date
+  retiredOn                    DateTime?              @map("retired_on") @db.Date
+  condition                    MachineCondition       @default(OPERATIONAL)
+  isBookable                   Boolean                @default(true) @map("is_bookable")
+  requiresApproval             Boolean                @default(false) @map("requires_approval")
+  allowBookingWhenNeedsService Boolean                @default(false) @map("allow_booking_when_needs_service")
+  maxBookingMinutes            Int?                   @map("max_booking_minutes")
+  bufferMinutes                Int?                   @map("buffer_minutes")
+  serviceIntervalDays          Int?                   @map("service_interval_days")
+  lastServicedAt               DateTime?              @map("last_serviced_at") @db.Timestamptz(3)
+  nextServiceDueAt             DateTime?              @map("next_service_due_at") @db.Timestamptz(3)
+  deletedAt                    DateTime?              @map("deleted_at") @db.Timestamptz(3)
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  category                     MachineCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department                   Department             @relation("MachineDepartment", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  location                     Location               @relation("MachineLocation", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  statusHistory                MachineStatusHistory[] @relation("MachineStatusHistory")
+
+  @@index([departmentId], map: "machines_department_id_idx")
+  @@index([categoryId], map: "machines_category_id_idx")
+  @@index([condition], map: "machines_condition_idx")
+  @@index([nextServiceDueAt], map: "machines_next_service_due_at_idx")
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "machines_name_trgm_idx")
+  @@index([assetTag(ops: raw("gin_trgm_ops"))], type: Gin, map: "machines_asset_tag_trgm_idx")
+  @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "machines_serial_number_trgm_idx")
+  @@map("machines")
+}
+
+model MachineStatusHistory {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  machineId       String              @map("machine_id") @db.Uuid
+  fromCondition   MachineCondition?   @map("from_condition")
+  toCondition     MachineCondition    @map("to_condition")
+  reason          String
+  changedByUserId String              @map("changed_by_user_id") @db.Uuid
+  source          MachineStatusSource
+  ticketId        String?             @map("ticket_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  machine         Machine             @relation("MachineStatusHistory", fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  changedByUser   User                @relation("MachineStatusChangedBy", fields: [changedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([machineId, createdAt(sort: Desc)], map: "machine_status_history_machine_id_created_at_idx")
+  @@map("machine_status_history")
 }
