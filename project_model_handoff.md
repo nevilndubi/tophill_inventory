@@ -189,7 +189,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 1.3 Machine tables: categories, machines, machine_status_history
 - [x] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
 - [x] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
-- [ ] 1.6 Support tables: audit_logs, notifications, attachments, app_settings
+- [x] 1.6 Support tables: audit_logs, notifications, attachments, app_settings
 - [ ] 1.7 Indexes, seed script (realistic demo data), migration review
 
 ### Phase 2 — Authentication & Authorization
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 12 / 71 tasks (16.9%) |
-| Current phase | Phase 1 — Task 1.5 verified |
-| Last updated | 2026-10-21 15:19 EAT |
-| Branch | `main` (Task 1.5 delivered via `phase-1/task-1.5-service-tables`) |
-| Last commit | `feat(db): add service and maintenance tables` |
-| Repo state | Task 1.5 merged by PR #12; service schema, reviewed migration, Neon `dev`, zero-drift, disposable-branch integration and hosted CI verified |
-| **Next task** | **1.6 Support tables: audit logs, notifications, attachments and app settings** |
+| Overall progress | 13 / 71 tasks (18.3%) |
+| Current phase | Phase 1 — Task 1.6 verified |
+| Last updated | 2026-10-21 15:42 EAT |
+| Branch | `phase-1/task-1.6-support-tables` |
+| Last commit | `feat(db): add support tables and safeguards` |
+| Repo state | Task 1.6 schema, reviewed migration, Neon `dev`, zero-drift and disposable-branch integration verified; commit/PR delivery pending |
+| **Next task** | **1.7 Indexes, seed script and migration review** |
 
 ---
 
@@ -294,7 +294,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 
 - Add a service-ticket comments table in Task 6.2 so lifecycle discussion is introduced with the service API rather than prematurely in the Phase 1 schema.
 - Add a booking `needs_attention` marker/reason migration in Task 6.5 when service outages are coupled to affected bookings.
-- Enforce append-only `machine_status_history` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges.
+- Enforce append-only `machine_status_history` and `audit_logs` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges and can disable the audit trigger.
+- In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -348,6 +349,11 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D35 | 2026-10-21 | Treat tickets, service records and maintenance schedules as records of fact with `ON DELETE RESTRICT`; allow several service records per ticket and store nullable costs as PostgreSQL/Prisma `Int` minor units with default `KES` | History must survive parent deactivation/deletion attempts, repeat visits and parts need separate ordered records, and the 2,147,483,647-minor-unit ceiling (about KSh 21.47 million) is sufficient for one service record | Cascading/set-null relations; one record per ticket; decimal major-unit money; bigint minor units |
 | D36 | 2026-10-21 | Enforce ticket timestamp/assignment consistency and bounded text in named database checks; cap description at 4,000 characters, but deliberately do not enforce one open fault ticket per machine | Database writers cannot create internally inconsistent or unbounded rows, while fault, preventive, calibration and inspection work may legitimately coexist; Task 6.1 will handle duplicate-report UX | API-only consistency; unbounded descriptions; a partial unique open-fault index |
 | D37 | 2026-10-21 | Retain inactive maintenance schedules but allow only one active schedule per machine through `maintenance_schedules_one_active_per_machine`; index active `next_due_at` separately | Schedule history remains available while Task 9.2's due-service sweep gets a selective, deterministic query path | One schedule row per machine; delete/overwrite old schedules; application-only active uniqueness |
+| D38 | 2026-10-21 | Keep audit actions and notification/preference types as checked lowercase text, with the evolving allowed identifiers and Zod enums in `@app/shared`; use a PostgreSQL enum only for the closed `MACHINE | TICKET` attachment target set | Phase 5–10 event identifiers will grow, so application-owned lists remain easy to extend without repeated enum migrations while the database still rejects malformed identifiers | PostgreSQL enums for every type; unconstrained text; duplicate API/web lists |
+| D39 | 2026-10-21 | Store nullable audit actors, text entity IDs, native `inet` client addresses and bounded JSON-object snapshots; make audit rows immediately append-only through a SQLSTATE `55000` UPDATE/DELETE trigger, while deferring least-privilege role grants to Task 10.1 | System jobs have no user, settings use string keys, native IP validation is useful, and the trigger cheaply prevents application bugs now without revoking migration-owner capabilities | Require an actor; UUID-only entities; plain text IPs; documentation-only immutability; revoke owner privileges now |
+| D40 | 2026-10-21 | Use `(user_id, type)` as the notification-preference primary key with both channels enabled by default; keep critical-alert overrides in the Task 9.4 dispatcher | The natural key directly prevents duplicate preferences, defaults are safe and unsurprising, and criticality is evolving business policy rather than row-shape integrity | Surrogate preference ID plus unique index; database check preventing both channels from being disabled |
+| D41 | 2026-10-21 | Keep attachments polymorphic with no `entity_id` FK, a permanent unique storage path, a migration-owned 10 MiB/MIME allow-list, and hard row/object deletion audited separately | PostgreSQL cannot make one FK reference two tables; UUID target IDs plus service validation preserve correctness, and attachment history belongs in the immutable audit log rather than a new soft-delete field | Separate machine/ticket attachment tables; invalid cross-table FK; soft-delete metadata; application-only upload limits |
+| D42 | 2026-10-21 | Seed app settings as plain JSON numbers with stable namespaced keys and `ON CONFLICT DO NOTHING`: 240-minute maximum booking, 15-minute lead, 15-minute no-show grace and 30-minute ad-hoc guard | Conservative defaults make the later booking policy usable, preserve administrator customization on repeat deployment, and leave value-shape/business validation to Task 5.1 | Seed script upsert; overwrite on deploy; typed settings columns; JSON objects for scalar values |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -596,10 +602,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.6 Support tables: audit logs, notifications, attachments and app settings
 - **Branch / commit:** `phase-1/task-1.5-handoff-finalize` / `docs: finalize Task 1.5 delivery`
 
+### [2026-10-21 15:42 EAT] — Task(s): 1.6 — Support tables
+- **Prompt summary:** Add constraint-rich audit, notification, preference, attachment and settings tables; enforce append-only audit history and upload/settings invariants; prove the complete migration chain and idempotent defaults on Neon `dev` and a disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle without starting seed data or application services.
+- **What I did:** Added the closed attachment enum and all five mapped Prisma models/relations; added shared Zod-owned audit/notification identifier lists; created an additive migration with named format/text/JSON/size/time/MIME checks, stable query indexes, restrictive user foreign keys, an append-only audit trigger and four idempotent settings defaults; added guarded live integration coverage and documented the resulting contract.
+- **How:** Open-ended event identifiers remain checked text while `@app/shared` owns allowed Zod enums (D38). Audit rows support system actors and string-key entities, store IPs as `inet`, cap object snapshots at 64 KiB and reject UPDATE/DELETE through a trigger (D39). Preferences use their natural composite key (D40); polymorphic attachments rely on service validation and hard deletion plus audit history (D41); settings use non-overwriting scalar defaults (D42). The starting audit found clean synchronized `main` at merge `cb1f0c2`, matching §9 with Task 1.6 next.
+- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021180000_support_tables/migration.sql`, `apps/api/test/integration/support-models.integration-spec.ts`, `packages/shared` event schemas/manifest, lockfile, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** `20261021180000_support_tables`; reviewed as additive SQL with one enum, five tables, three database UUID defaults, eleven `TIMESTAMPTZ(3)` fields, twenty-one named CHECK constraints, seven stable secondary/unique indexes, four `ON DELETE RESTRICT` foreign keys, one append-only trigger/function, and four `ON CONFLICT DO NOTHING` settings rows
+- **Verification:** On fresh six-hour branch `ci/task-1.6-support-tables-20261021`, all six migrations applied in order, migration status was current, and `prisma migrate diff` printed `No difference detected.` The support suite passed 8/8; the final guarded `pnpm test:integration` passed 39/39 across five suites and proved every support model/enum, JSONB round-tripping, nullable/system audit actors, trigger rejection with `55000`, constraints, indexes, composite uniqueness/defaults, restrictive deletion, attachment polymorphism/no invalid target FK, timestamp precision, and non-overwriting settings replay. Non-audit fixtures cleaned to zero; audit rows/actors remained by design and disappeared with deletion of the disposable branch. The reviewed migration then applied to Neon `dev`; all six migrations were current and drift was empty. `pnpm install`, frozen install, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test` (48 tests: 37 API and 11 web), safe-localhost `pnpm build`, and `git diff --check` passed. The first targeted command placed a Jest option after an extra `--` and found no tests; the corrected first run exposed only the expected PostgreSQL `RESTRICT` SQLSTATE (`23001` rather than generic `23503`), after which the targeted and complete fresh proofs passed.
+- **Result:** Task 1.6 ticked complete.
+- **Progress after this session:** 13 / 71 (18.3%)
+- **Left undone / follow-ups:** Task 1.7 owns seed data and final index/migration review; Tasks 3.5/6.6 own Supabase object lifecycle and polymorphic target validation; Task 5.1 owns setting value semantics; Task 9.4 owns critical preference policy; Task 10.1 owns the least-privilege application role. No seed data, auth, storage integration, delivery, audit interceptor, endpoints or jobs were added. The Neon CLI credential-output incident and existing tooling/Docker/branch-protection/Prisma/SSL warnings remain tracked.
+- **Next task:** 1.7 Indexes, seed script and migration review
+- **Branch / commit:** `phase-1/task-1.6-support-tables` / `feat(db): add support tables and safeguards`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- Neon CLI 8.8.0 printed a full inherited-role connection URI while creating the Task 1.6 disposable branch even with table output. The value was not copied into repository files and the disposable branch was deleted, but the shared Neon role password should be rotated in the Neon console and all legitimate deployment/developer environment copies refreshed. Rotation was not performed automatically because it would invalidate `main`, `staging`, and `dev` clients.
 - Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4/1.5 migrations and live integration tests are authoritative; `Booking.usageSessions` is typed as a list despite database cardinality, and the one-active-maintenance-schedule rule exists only in raw SQL. Later services must continue mapping named database violations rather than relying on Prisma relation cardinality alone.
 - `machine_status_history` is append-only by schema/API design, but the current Neon owner role can still issue direct UPDATE/DELETE statements. Task 10.1 must introduce/use a least-privilege application role and revoke those privileges; migration ownership must remain separate.
 - On this workstation, Docker created and ran the Task 0.7 Redis container but the daemon rejected direct `docker compose stop` and `docker stop` signals with `permission denied`. An in-container `redis-cli shutdown nosave` stopped Redis cleanly and `docker compose down` removed the stopped container/network; investigate Docker Desktop/daemon signal permissions if the direct-stop failure recurs.

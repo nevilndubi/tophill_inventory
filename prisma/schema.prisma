@@ -20,26 +20,30 @@ enum Role {
 }
 
 model User {
-  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supabaseUserId         String                 @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
-  email                  String
-  fullName               String                 @map("full_name")
-  role                   Role
-  departmentId           String?                @map("department_id") @db.Uuid
-  phone                  String?
-  isActive               Boolean                @default(true) @map("is_active")
-  lastLoginAt            DateTime?              @map("last_login_at") @db.Timestamptz(3)
-  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  department             Department?            @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  managedDepartments     Department[]           @relation("DepartmentManager")
-  machineStatusChanges   MachineStatusHistory[] @relation("MachineStatusChangedBy")
-  requestedBookings      Booking[]              @relation("BookingRequester")
-  approvedBookings       Booking[]              @relation("BookingApprover")
-  usageSessions          UsageSession[]         @relation("UsageSessionUser")
-  reportedServiceTickets ServiceTicket[]        @relation("ServiceTicketReporter")
-  assignedServiceTickets ServiceTicket[]        @relation("ServiceTicketAssignee")
-  serviceRecords         ServiceRecord[]        @relation("ServiceRecordPerformer")
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supabaseUserId          String                   @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
+  email                   String
+  fullName                String                   @map("full_name")
+  role                    Role
+  departmentId            String?                  @map("department_id") @db.Uuid
+  phone                   String?
+  isActive                Boolean                  @default(true) @map("is_active")
+  lastLoginAt             DateTime?                @map("last_login_at") @db.Timestamptz(3)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  department              Department?              @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  managedDepartments      Department[]             @relation("DepartmentManager")
+  machineStatusChanges    MachineStatusHistory[]   @relation("MachineStatusChangedBy")
+  requestedBookings       Booking[]                @relation("BookingRequester")
+  approvedBookings        Booking[]                @relation("BookingApprover")
+  usageSessions           UsageSession[]           @relation("UsageSessionUser")
+  reportedServiceTickets  ServiceTicket[]          @relation("ServiceTicketReporter")
+  assignedServiceTickets  ServiceTicket[]          @relation("ServiceTicketAssignee")
+  serviceRecords          ServiceRecord[]          @relation("ServiceRecordPerformer")
+  auditLogs               AuditLog[]               @relation("AuditLogActor")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  uploadedAttachments     Attachment[]             @relation("AttachmentUploader")
 
   @@index([departmentId], map: "users_department_id_idx")
   @@map("users")
@@ -322,4 +326,87 @@ model MaintenanceSchedule {
   machine      Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("maintenance_schedules")
+}
+
+enum AttachmentEntityType {
+  MACHINE
+  TICKET
+
+  @@map("attachment_entity_type")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  before      Json?    @db.JsonB
+  after       Json?    @db.JsonB
+  ip          String?  @db.Inet
+  requestId   String   @map("request_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actorUser   User?    @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([entityType, entityId, createdAt(sort: Desc)], map: "audit_logs_entity_type_entity_id_created_at_idx")
+  @@index([actorUserId, createdAt(sort: Desc)], map: "audit_logs_actor_user_id_created_at_idx")
+  @@index([createdAt(sort: Desc)], map: "audit_logs_created_at_idx")
+  @@map("audit_logs")
+}
+
+model Notification {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  type       String
+  title      String
+  body       String
+  entityType String?   @map("entity_type")
+  entityId   String?   @map("entity_id")
+  readAt     DateTime? @map("read_at") @db.Timestamptz(3)
+  emailedAt  DateTime? @map("emailed_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, readAt], map: "notifications_user_id_read_at_idx")
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  inApp     Boolean  @default(true) @map("in_app")
+  email     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([userId, type], map: "notification_preferences_pkey")
+  @@map("notification_preferences")
+}
+
+model Attachment {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType       AttachmentEntityType @map("entity_type")
+  entityId         String               @map("entity_id") @db.Uuid
+  storagePath      String               @unique(map: "attachments_storage_path_key") @map("storage_path")
+  fileName         String               @map("file_name")
+  mimeType         String               @map("mime_type")
+  sizeBytes        Int                  @map("size_bytes")
+  uploadedByUserId String               @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  uploadedByUser   User                 @relation("AttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([entityType, entityId], map: "attachments_entity_type_entity_id_idx")
+  @@map("attachments")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json     @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("app_settings")
 }
