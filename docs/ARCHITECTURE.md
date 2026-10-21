@@ -71,7 +71,12 @@ Unless a table is explicitly documented with another key/timestamp shape, tables
 
 ### 3.1 Tables
 
-**users** — `id`, `supabase_user_id` (unique), `email` (unique), `full_name`, `role` (enum), `department_id` (nullable FK), `phone`, `is_active`, `last_login_at`
+**users** — `id`, `supabase_user_id` (nullable, unique), `email` (unique), `full_name`, `role` (enum), `department_id` (nullable FK), `phone`, `is_active`, `is_seed_data`, `last_login_at`
+
+Task 1.7 demo users have `is_seed_data = true` and a null `supabase_user_id`, so they cannot sign
+in. A named database check requires every non-seed user to have a Supabase identity and every seed
+user to have none. Task 2.2 replaces or links the six reserved `@example.invalid` placeholders
+during real user provisioning.
 
 **departments** — `id`, `name` (unique), `code` (unique), `manager_user_id` (nullable FK)
 
@@ -185,6 +190,33 @@ deleted.
 - `audit_logs_entity_type_entity_id_created_at_idx` on `(entity_type, entity_id, created_at DESC)`; `audit_logs_actor_user_id_created_at_idx` on `(actor_user_id, created_at DESC)`; `audit_logs_created_at_idx` on `(created_at DESC)`
 - `notifications_user_id_read_at_idx` on `(user_id, read_at)`; `notifications_unread_user_id_created_at_idx` on `(user_id, created_at DESC) WHERE read_at IS NULL`
 - `attachments_entity_type_entity_id_idx` on `(entity_type, entity_id)`; `attachments_storage_path_key` unique on `(storage_path)`
+
+### 3.3 Seed dataset and index review
+
+`prisma/seed.ts` owns deterministic, idempotent demonstration data: 5 Kenyan hospital departments,
+20 locations, 8 equipment categories, 60 machines, 6 non-authenticating placeholder users, and
+representative bookings, usage sessions, condition history, service tickets, service records, and
+maintenance schedules. Fixed IDs and natural-key upserts make reruns update instead of duplicate.
+Dates are refreshed relative to the run, purpose text is generic and contains no patient data, and
+the machine mix is 45 operational (9 currently in use), 6 needing service, 5 under maintenance, 2
+out of service, and 2 retired. Every non-operational machine has matching history and an open
+ticket. Explicit `HM-000001`–`HM-000060` tags are followed by a guarded `setval` call that never
+moves `machine_asset_tag_seq` backwards.
+
+Seeding requires an explicitly allowed branch and exact host, plus a list of protected `main` and
+`staging` hosts. It is disabled in CI. The guarded live path allows `dev` and disposable
+`ci/`, `test/`, `ephemeral/`, or `demo/` branches only. `prisma migrate reset` is destructive and
+development-only; it must never target `main` or `staging`.
+
+Task 1.7 reviewed the complete migration chain and the five main future query shapes with
+`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` on both the 60-machine seed and a transaction-scoped
+3,000-machine fixture. On the large fixture, machine list and status board queries used
+`machines_department_id_idx` (the board also used `usage_sessions_one_open_per_machine`),
+availability used `bookings_no_overlap` plus machine identity lookup, My Bookings used
+`bookings_requested_by_user_id_starts_at_idx`, and the technician board used
+`service_tickets_assigned_to_user_id_status_idx`. The realistic fixture produced no sequential
+scan of the primary queried tables, so no speculative index was added. Small seeded tables may use
+sequential scans when the planner correctly estimates that cheaper.
 
 ---
 

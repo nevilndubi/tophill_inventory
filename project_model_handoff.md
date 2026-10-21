@@ -126,6 +126,7 @@ Open decisions are tracked in §11 (Decision Log). If you believe a stack choice
 16. **Accessibility & responsiveness:** every screen works on a hospital-ward tablet (≥768px) and phone (≥360px); semantic HTML, keyboard reachable, colour never the only status signal (use icon + text + colour).
 17. **Do not refactor unrelated code** or "improve" things outside the current task. Note them in Pending/Backlog instead.
 18. **Do not leave the repo broken.** At the end of every prompt: install, lint, typecheck, tests and build must pass for what you touched. If something can't pass, say exactly what and why in the log.
+19. **Never print, log, or echo a database connection string or password.** Neon CLI output that may contain credentials must be captured to a permission-restricted temporary file or in-memory value and discarded; when JSON output is needed, expose only non-secret branch identifiers or hosts. Redact database errors and command evidence so credentials never enter terminals, logs, CI output, the repository, or the handoff.
 
 ---
 
@@ -190,7 +191,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
 - [x] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
 - [x] 1.6 Support tables: audit_logs, notifications, attachments, app_settings
-- [ ] 1.7 Indexes, seed script (realistic demo data), migration review
+- [x] 1.7 Indexes, seed script (realistic demo data), migration review
 
 ### Phase 2 — Authentication & Authorization
 - [ ] 2.1 Supabase Auth project setup & config
@@ -277,13 +278,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 13 / 71 tasks (18.3%) |
-| Current phase | Phase 1 — Task 1.6 verified |
-| Last updated | 2026-10-21 15:46 EAT |
-| Branch | `main` (Task 1.6 delivered via `phase-1/task-1.6-support-tables`) |
-| Last commit | `feat(db): add support tables and safeguards` |
-| Repo state | Task 1.6 merged by PR #14; support schema, reviewed migration, Neon `dev`, zero-drift, disposable-branch integration and hosted CI verified |
-| **Next task** | **1.7 Indexes, seed script and migration review** |
+| Overall progress | 14 / 71 tasks (19.7%) |
+| Current phase | Phase 1 — Task 1.7 verified |
+| Last updated | 2026-10-21 16:29 EAT |
+| Branch | `phase-1/task-1.7-indexes-seed-review` |
+| Last commit | `feat(db): add deterministic demo seed and index review` |
+| Repo state | Task 1.7 implementation, complete seven-migration fresh-branch proof, repeat seed, index plans, 39-test Neon integration, `dev` migration/seed and zero drift verified locally; commit/PR/hosted CI pending |
+| **Next task** | **2.1 Supabase Auth project setup and config** |
 
 ---
 
@@ -296,6 +297,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Add a booking `needs_attention` marker/reason migration in Task 6.5 when service outages are coupled to affected bookings.
 - Enforce append-only `machine_status_history` and `audit_logs` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges and can disable the audit trigger.
 - In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
+- In Task 2.2, replace or link the six `@example.invalid` seed placeholders during real Supabase provisioning; until then their null Supabase identities and seed-data check keep them unable to sign in.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -354,6 +356,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D40 | 2026-10-21 | Use `(user_id, type)` as the notification-preference primary key with both channels enabled by default; keep critical-alert overrides in the Task 9.4 dispatcher | The natural key directly prevents duplicate preferences, defaults are safe and unsurprising, and criticality is evolving business policy rather than row-shape integrity | Surrogate preference ID plus unique index; database check preventing both channels from being disabled |
 | D41 | 2026-10-21 | Keep attachments polymorphic with no `entity_id` FK, a permanent unique storage path, a migration-owned 10 MiB/MIME allow-list, and hard row/object deletion audited separately | PostgreSQL cannot make one FK reference two tables; UUID target IDs plus service validation preserve correctness, and attachment history belongs in the immutable audit log rather than a new soft-delete field | Separate machine/ticket attachment tables; invalid cross-table FK; soft-delete metadata; application-only upload limits |
 | D42 | 2026-10-21 | Seed app settings as plain JSON numbers with stable namespaced keys and `ON CONFLICT DO NOTHING`: 240-minute maximum booking, 15-minute lead, 15-minute no-show grace and 30-minute ad-hoc guard | Conservative defaults make the later booking policy usable, preserve administrator customization on repeat deployment, and leave value-shape/business validation to Task 5.1 | Seed script upsert; overwrite on deploy; typed settings columns; JSON objects for scalar values |
+| D43 | 2026-10-21 | Never print, log or echo database connection strings/passwords; Neon automation must create branches with `--no-secrets`, capture connection output in memory or a restricted disposable file, redact errors and emit only safe branch metadata/hosts | The Task 1.6 CLI incident showed that normal command output can expose inherited-role credentials even when repository files remain clean | Rely on operator care; print then redact logs; pass URLs in command arguments |
+| D44 | 2026-10-21 | Seed deterministic demonstration data with fixed hash-derived UUIDs, natural-key/id upserts, relative dates and explicit `HM-000001`–`HM-000060` tags; require branch+host confirmation, protected-host denial and a hard CI refusal | Reruns must refresh a coherent demo world without duplicates, touching production targets, or colliding with the database-owned asset-tag sequence | Truncate-and-reinsert; random IDs; fixture SQL; allow seed in CI |
+| D45 | 2026-10-21 | Make Supabase identity nullable only for rows flagged `is_seed_data`, enforced by `users_seed_identity_consistency_check`; six `@example.invalid` placeholders have no identity and Task 2.2 replaces/links them | Task 1.7 requires one placeholder per role that cannot authenticate, while all real users must retain a Supabase identity | Fake Supabase UUIDs; routable emails; defer role examples until auth |
+| D46 | 2026-10-21 | Keep the Task 1.1–1.6 index set unchanged after EXPLAIN review: the realistic 3,000-machine fixture used an intended existing index for all five primary query shapes | An initial all-in-one-department fixture caused an artificial sequential scan; distributing equipment realistically removed it, so adding an index would be speculative | Add a composite machine-list index based on the unrealistic fixture; force index use |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -379,228 +385,29 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 
 ### Log
 
-### [2026-10-20 — EAT] — Task(s): planning — Handoff, architecture and phase guide created
-- **Prompt summary:** Owner requested a phase-by-phase build plan, architecture (with Redis), and this handoff file for a hospital machine-tracking and booking system.
-- **What I did:** Authored `project_model_handoff.md`, `docs/ARCHITECTURE.md`, `docs/PHASE_GUIDE.md`.
-- **How:** Scope derived from owner's brief (machines only; in-use vs available; fine vs needs service; booking).
-- **Files touched:** the three documents above (no code yet).
-- **Migrations:** none
-- **Verification:** n/a (documentation only)
-- **Result:** no checklist items ticked
-- **Progress after this session:** 0 / 71 (0%)
-- **Left undone / follow-ups:** Owner to provide Neon, Supabase and Redis credentials when Phase 0.3 / 1.1 / 2.1 are reached.
-- **Next task:** 0.1 Monorepo scaffold
-- **Branch / commit:** — / —
+### Historical summary — Phase 0 — Foundation and tooling
 
-*(Add new entries below this line.)*
+Across Tasks 0.1–0.7, the repository progressed from its planning documents to a pinned pnpm monorepo with Next.js, NestJS and shared TypeScript; strict ESLint/Prettier/Husky/commitlint; validated server/public environment boundaries; the versioned API bootstrap and stable root health probes; responsive Tailwind/shadcn web shell and typed client; hermetic GitHub Actions; and resilient local Redis integration. Each task was verified with the applicable clean install, format, lint, typecheck, test, build, negative-hook/env/CORS/browser/CI evidence, committed conventionally, and delivered through the recorded Git workflow. All seven Phase 0 checklist items, D6–D20, and the still-open tooling, Docker and branch-protection issues elsewhere in this handoff remain unchanged.
 
-### [2026-10-20 13:16 EAT] — Task(s): 0.1 — Monorepo scaffold
-- **Prompt summary:** Create the pnpm monorepo foundation with Next.js, NestJS and a shared TypeScript package; verify it from a clean state, update this handoff and commit it.
-- **What I did:** Created the root workspace and scripts, a minimal Next.js App Router app, a minimal NestJS app, and a dual-format shared package. Both apps import and use `APP_NAME` from `@app/shared`. Moved the architecture and phase guide into `docs/`.
-- **How:** Pinned Node/pnpm, used explicit workspace dependencies, built shared code with tsup before each app, and kept linting, tests, Tailwind, Prisma, Redis, auth and later bootstrap work out of scope (D6, D7).
-- **Files touched:** root workspace/config/README files; `apps/web`; `apps/api`; `packages/shared`; `docs/ARCHITECTURE.md`; `docs/PHASE_GUIDE.md`; this handoff
-- **Migrations:** none
-- **Verification:** In a clean staged-tree export: `pnpm install --frozen-lockfile` passed; `pnpm build` passed for shared/web/API; `pnpm typecheck` passed for all three workspaces; `pnpm lint` exited 0 with no lint scripts configured yet; `pnpm test` exited 0 with no test suites configured yet. Direct CJS (API) and ESM (web) imports both returned `Tophill Inventory`; `git diff --check` passed.
-- **Result:** Task 0.1 ticked complete.
-- **Progress after this session:** 1 / 71 (1.4%)
-- **Left undone / follow-ups:** Code-quality tooling and real lint scripts belong to Task 0.2. No test suites exist yet. pnpm emits Node's `DEP0169` warning during install (tracked in Known Issues).
-- **Next task:** 0.2 Code quality tooling
-- **Branch / commit:** `phase-0/task-0.1-monorepo-scaffold` / `chore: scaffold pnpm monorepo (web, api, shared)`
+### Historical summary — Task 1.1 — Prisma and Neon foundation
 
-### [2026-10-20 14:52 EAT] — Task(s): 0.2 — Code quality tooling
-- **Prompt summary:** Add strict repository-wide TypeScript and code-quality tooling, prove lint and commit-message hooks reject bad commits, verify all checks, update this handoff and commit the task.
-- **What I did:** Enabled `noUncheckedIndexedAccess`; added shared ESLint and Prettier configuration, EditorConfig, Husky, lint-staged and commitlint; replaced the placeholder lint command; added format/fix commands; formatted the existing scaffold.
-- **How:** Used a root ESLint 10 flat config with framework-specific scoping and staged-file hooks (D8, D9). The starting audit found the clean repo on `main` at `8ad611a` while §9 still named the completed Task 0.1 branch; this status was corrected here by trusting the repo.
-- **Files touched:** root quality-tool configs and hooks; root TypeScript/package/lock/README files; existing TypeScript scaffold files formatted by Prettier; this handoff
-- **Migrations:** none
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed; `pnpm format`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed; `pnpm test` exited 0 with no suites configured. Effective configs for web/API/shared all showed `strict: true` and `noUncheckedIndexedAccess: true`. A staged file with unused explicit `any` made the pre-commit hook fail with two ESLint errors and code 1. After removing it, `git commit -m "bad commit message"` passed pre-commit but commitlint rejected it with `subject-empty` and `type-empty`; neither proof created a commit.
-- **Result:** Task 0.2 ticked complete.
-- **Progress after this session:** 2 / 71 (2.8%)
-- **Left undone / follow-ups:** No test suites exist yet. ESLint 10 peer-range warnings from transitive Next.js plugins are tracked in Known Issues; linting itself passes.
-- **Next task:** 0.3 Env management & validation
-- **Branch / commit:** `phase-0/task-0.2-code-quality` / `chore: add code quality tooling`
+Task 1.1 pinned Prisma 7.10.1 with the PostgreSQL driver adapter, pooled runtime and direct migration URLs, generated CommonJS client, global Nest lifecycle integration, bounded readiness behavior, an empty initial migration, automatic client generation, hermetic mocks and documented Neon branch workflow. The migration and live readiness were verified on Neon dev, default checks passed without a database, and the task was delivered conventionally; D21–D23 and all remaining Prisma/SSL issues remain authoritative.
 
-### [2026-10-20 15:10 EAT] — Task(s): 0.3 — Environment management and validation
-- **Prompt summary:** Add per-app Zod environment validation, complete safe examples, prove fail-fast startup and keep server secrets out of the web client bundle; verify, document and commit only Task 0.3.
-- **What I did:** Added typed API and web environment modules, required current local URLs, kept later-service values optional, connected validation to both application startup paths, added complete per-app examples, and documented local environment setup.
-- **How:** Aggregated Zod issues into labelled errors (D12), normalized blank optional placeholders to absent (D10), and split web server/public configuration with `server-only` plus a single statically referenced public variable (D11). The starting audit found clean merged `main` at `c5beb97` while §9 still named the completed Task 0.2 branch; this entry corrects that historical status by trusting Git.
-- **Files touched:** API/web package manifests, lockfile, API bootstrap and env module, Next config and web env modules, both `.env.example` files, README, this handoff
-- **Migrations:** none
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed. Missing API `WEB_ORIGIN` exited 1 with `[api] Invalid environment variables`; missing web `API_BASE_URL` and `NEXT_PUBLIC_API_URL` exited 1 and listed both. An API run with invalid port/origin/database URL listed all three issues. A temporary Client Component importing the server env module made `next build` exit 1 with `'server-only' cannot be imported from a Client Component`; the fixture was removed. A sentinel server value was absent from `.next/static`. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (no suites), and `pnpm build` passed with valid local values. Both production apps booted; web returned 200 and API listened on its configured port. Git checks confirmed `.env` variants are ignored and only examples are intended for tracking. A first typecheck after removing the proof fixture encountered its stale generated `.next` route type; the generated cache was moved aside and the full clean-cache sequence passed.
-- **Result:** Task 0.3 ticked complete.
-- **Progress after this session:** 3 / 71 (4.2%)
-- **Left undone / follow-ups:** No test framework or later-service integrations were added. Existing pnpm and ESLint peer warnings remain. Next.js may print `Ready` immediately before reporting a configuration validation failure, but exits nonzero with the complete error.
-- **Next task:** 0.4 API bootstrap
-- **Branch / commit:** `phase-0/task-0.3-env-validation` / `chore: add validated environment configuration`
+### Historical summary — Task 1.2 — Core users, departments and locations
 
-### [2026-10-20 16:10 EAT] — Task(s): 0.4 — API bootstrap
-- **Prompt summary:** Build the NestJS API foundation with validated config, Zod validation, standard envelopes/errors, request IDs, pino, Swagger, root health probes, graceful shutdown and unit/e2e coverage; keep every application route versioned.
-- **What I did:** Added the global ConfigModule, Zod DTO pipe, exception filter, response interceptor/helper, request-ID middleware, structured HTTP logging, Swagger setup, health module, version-prefix configuration, CORS from validated config, graceful shutdown hooks, and Jest/Supertest unit and e2e infrastructure.
-- **How:** Root health probes are explicit prefix exclusions while application controllers remain below `/api/v1` (D13). Readiness exposes future database/Redis checks as `not_configured` (D14). Tests use Jest's ESM mode for NestJS 12 (D15). The e2e validation controller exists only in test code. The starting audit found clean merged `main` at `f1d84a6` while §9 still named the completed Task 0.3 branch; this entry corrects that historical status by trusting Git.
-- **Files touched:** API manifest/config/bootstrap/common infrastructure, health module, Swagger/logger configuration, unit/e2e tests, lockfile, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** none
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed. `pnpm --filter @app/api test:unit` passed 4 tests; `pnpm --filter @app/api test:e2e` passed 6 tests; root `pnpm test` passed all 10 tests in 3 suites. E2e coverage proves both root health endpoints, the absence of versioned health, request-ID generation/propagation, standard Zod 400 errors, successful response envelopes and Swagger HTML/JSON. `pnpm format:check`, `pnpm lint`, `pnpm typecheck` and `pnpm build` passed. A compiled-process smoke test returned 200 from `/health`, `/health/ready` and `/api/docs`, returned the standard 404 envelope from `/api/v1/health`, emitted structured request logs and exited 0 on SIGINT. The first compiled smoke run exposed an invalid transient `PinoLogger` lookup in `main.ts`; switching the startup message to the singleton pino Nest logger resolved it before final verification.
-- **Result:** Task 0.4 ticked complete.
-- **Progress after this session:** 4 / 71 (5.6%)
-- **Left undone / follow-ups:** Database and Redis readiness checks remain intentionally `not_configured` until Tasks 1.1 and 0.7. Auth, Prisma, Redis integration and web bootstrap were not started. Existing pnpm/ESLint warnings remain; Jest emits the tracked VM-modules warning.
-- **Next task:** 0.5 Web bootstrap
-- **Branch / commit:** `phase-0/task-0.4-api-bootstrap` / `feat(api): bootstrap API foundation`
+Task 1.2 added mapped Role/User/Department/Location models and the additive core migration with database UUIDs, timestamptz precision, lowercased case-insensitive email uniqueness, named manager/member relations and explicit RESTRICT/SET NULL behavior. A fresh disposable Neon branch applied the chain and passed guarded integration coverage for reads, constraints, timestamps and deletion semantics before dev migration and delivery; D24–D26 remain authoritative.
 
-### [2026-10-20 16:38 EAT] — Task(s): 0.5 — Web bootstrap
-- **Prompt summary:** Add the Tailwind/shadcn App Router shell, status theme, TanStack Query, typed API client, global boundaries and tests; prove responsive rendering and a real browser CORS call to root `/health`; do not begin application features.
-- **What I did:** Added Tailwind CSS 4 and shadcn/ui primitives; built the responsive topbar/sidebar/mobile drawer; defined all six machine-status tokens with icon, text and colour; added the Query provider, loading/error boundaries, root placeholder and live health card; created browser/server typed API clients with future auth injection and standard error normalization; added Vitest component/client coverage and saved production screenshots in a gitignored artifact folder.
-- **How:** Root and versioned URL construction are explicit in one API client (D16). The browser client reads only validated `NEXT_PUBLIC_API_URL`; the unused server client is guarded by `server-only` and reads `API_BASE_URL`. Future navigation is disabled until its scheduled tasks. The starting audit found clean merged `main` at `5a0699d` while §9 still named the completed Task 0.4 branch; this entry corrects that historical status by trusting Git.
-- **Files touched:** web manifest/config/styles/App Router boundaries, shell/query/status/UI components, typed API clients and tests; lockfile, README, `.gitignore`, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** none
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed (with the tracked pnpm warning). `pnpm format:check`, `pnpm lint`, and `pnpm typecheck` passed. The first plain `pnpm test` correctly failed because no ignored local environment supplied required API `WEB_ORIGIN`; all 11 web tests passed in that run. With the documented localhost variables supplied, root `pnpm test` passed 21 tests across 6 suites/files (11 web, 10 API), and `pnpm build` passed for shared/web/API. An in-app browser connection was unavailable, so the approved Playwright fallback ran against live production web and API processes: at 360, 768 and 1280px, `/health` returned 200, the page rendered `Connected`, console warnings/errors were empty and horizontal overflow was false. The 360px drawer opened/closed; layouts used 1/2/3 status columns and hidden/80px/256px navigation respectively. A direct Origin request returned `Access-Control-Allow-Origin: http://127.0.0.1:3000`. Clean production screenshots are saved under ignored `apps/web/.artifacts/task-0.5/`.
-- **Result:** Task 0.5 ticked complete.
-- **Progress after this session:** 5 / 71 (7.0%)
-- **Left undone / follow-ups:** Authentication, protected routes, real application pages/data, Prisma, Redis and machine features remain in their scheduled tasks. No new known issue was introduced; existing pnpm/ESLint/Jest warnings remain.
-- **Next task:** 0.6 CI pipeline
-- **Branch / commit:** `phase-0/task-0.5-web-bootstrap` / `feat(web): bootstrap responsive app shell`
+### Historical summary — Task 1.3 — Machine registry tables
 
-### [2026-10-20 16:48 EAT] — Task(s): 0.6 — CI pipeline implementation
-- **Prompt summary:** Add GitHub Actions quality gates, Dependabot, a pull-request template and branch-protection guidance; make tests clean-clone safe without `.env`; validate the workflow locally and prove lint failures stop CI without starting Task 0.7.
-- **What I did:** Added the `Quality` workflow for pull requests and `main`, pinned Node/pnpm with pnpm caching and frozen installs, added weekly npm/Actions Dependabot updates, added the repository PR checklist and branch-protection instructions, and made the Jest/Vitest test environments deterministic. Updated the root test command to build the shared package before running suites.
-- **How:** Test-owned safe localhost values and shared-package prebuilds make `pnpm test` independent of developer files and ignored output (D17). CI exposes localhost URLs only to the build step. The starting audit found clean merged `main` at `0b25176` while §9 still named the completed Task 0.5 branch; this entry corrects that historical status by trusting Git.
-- **Files touched:** `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.github/pull_request_template.md`, Jest/Vitest setup, root package scripts, README, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** none
-- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, plain `pnpm test` with `WEB_ORIGIN`, `API_BASE_URL` and `NEXT_PUBLIC_API_URL` explicitly unset, and build with safe localhost URLs all passed; 21 tests passed (11 web, 10 API). `actionlint` v1.7.12 (official release checksum verified) reported zero errors for the workflow. A temporary unused explicit `any` made the same `pnpm lint` command used by CI exit 1 with two ESLint errors; the fixture was removed. In the first staged-tree export, tests exposed reliance on ignored `@app/shared` build output; after adding the shared prebuild, a second clean export containing no `.env` files installed with `--frozen-lockfile` and passed all tests. GitHub Actions itself cannot be run locally.
-- **Result:** Task 0.6 marked partial: implementation and local acceptance evidence are complete, but the phase guide requires a real pull-request run to be green before the task can be ticked complete.
-- **Progress after this session:** 5 / 71 (7.0%)
-- **Left undone / follow-ups:** Push this branch, open a pull request into `main`, and confirm the single `Quality` job completes all six operational steps: install, format, lint, typecheck, test and build. Then require that check in branch protection and mark 0.6 complete. Task 0.7 was not started.
-- **Next task:** 0.6 verification — first GitHub-hosted `Quality` run
-- **Branch / commit:** `phase-0/task-0.6-ci-pipeline` / `ci: add repository quality workflow`
+Task 1.3 added category, machine and status-history enums/models plus the reviewed machine migration: normalized permanent identity, race-safe HM asset-tag sequence, lifecycle/booking/service checks, independent ownership/location relations, restrictive history, pg_trgm and stable indexes. Fresh-branch and dev migration/drift checks, 13 live integration tests, parallel tag generation and 3,000-row trigram EXPLAIN evidence passed before hosted delivery; deferred ticket FK and least-privilege append-only work remained assigned to Tasks 1.5/10.1. D27–D31 remain authoritative.
 
-### [2026-10-20 19:43 EAT] — Task(s): 0.6 — Hosted CI verification and version-control handoff
-- **Prompt summary:** Confirm the reported green pull-request checks, complete Task 0.6, and transfer routine version-control operations from the owner to the engineering agent.
-- **What I did:** Independently verified PR #1 and its hosted check, synced the locally stale `main` to the remote merge, marked Task 0.6 complete, and documented the ongoing Git/PR ownership policy.
-- **How:** GitHub reports PR #1 (`phase-0/task-0.6-ci-pipeline` into `main`) as merged at `8b3c907`, with `CI / Quality` concluded `SUCCESS`. Going forward the agent will use task branches, conventional commits, pull requests and green required checks before merge (D18). Force-pushes, history rewrites, destructive branch deletion and other exceptional operations still require explicit owner approval.
-- **Files touched:** this handoff only
-- **Migrations:** none
-- **Verification:** `gh pr view 1 --json state,baseRefName,headRefName,url,statusCheckRollup` reported `MERGED` and `CI / Quality: SUCCESS`; `git fetch origin` showed `origin/main` at merge commit `8b3c907`; `git merge --ff-only origin/main` synchronized local `main`. The hosted workflow is the required real-environment proof and covered frozen installation, format check, lint, typecheck, test and build. `gh api repos/nevilndubi/tophill_inventory/branches/main/protection` returned `HTTP 404`, confirming protection is not configured. No application code changed in this follow-up.
-- **Result:** Task 0.6 ticked complete after its GitHub-hosted acceptance criterion passed.
-- **Progress after this session:** 6 / 71 (8.5%)
-- **Left undone / follow-ups:** GitHub branch protection for `main` is not configured and remains an explicit repository-administration follow-up. Task 0.7 was not started.
-- **Next task:** 0.7 Local dev services and Redis skeleton
-- **Branch / commit:** `phase-0/task-0.6-ci-verification` / `docs: complete Task 0.6 CI verification`
+### Historical summary — Task 1.4 — Usage and booking tables
 
-### [2026-10-20 20:02 EAT] — Task(s): 0.7 — Local Redis and resilient API connection
-- **Prompt summary:** Add Docker Compose Redis, a TLS-capable ioredis NestJS module, bounded non-blocking connection behavior, degraded readiness, hermetic tests and full live start/stop proof without adding caching or later features.
-- **What I did:** Added the local Redis service, ioredis provider/module/service, environment validation and production TLS rule, lifecycle logging, graceful close, Redis-aware readiness, API unit/e2e/env tests, setup documentation and architecture details.
-- **How:** Redis startup is lazy and never awaited; the offline queue is disabled, connection/command/readiness operations are bounded to 1 second, and exponential reconnect delay caps at 2 seconds (D19). Readiness returns HTTP 200 with `status: degraded` and `checks.redis: down` when unavailable. Hermetic tests use an in-memory connected stand-in plus an explicitly closed ioredis client on unreachable port 63999 (D20). The starting audit found clean synchronized `main` at `26c9798`; §9 correctly identified Task 0.7 as next.
-- **Files touched:** root `docker-compose.yml`, README, API manifest/lockfile/env example and schema, `apps/api/src/redis/*`, health module/service/controller and tests, e2e/test setup, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** none
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed with the tracked pnpm warning. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and the build with safe localhost URLs passed; 32 tests passed (21 API, 11 web). Unit tests prove timeout, connected/unavailable behavior and shutdown; e2e proves HTTP 200 `ok/up` and prompt `degraded/down` envelopes without Docker. `docker compose config --quiet` passed and the Redis container became healthy. The compiled API logged Redis `connected`/`ready`; `/health/ready` returned `ok/up` in 29 ms. After Redis exited, it returned `degraded/down` in 2.6 ms and `/health` remained `ok` in 1.7 ms. Redis restart recovered automatically, and API SIGINT logged a graceful Redis close. A cold API boot with Redis absent reached listening state without waiting and returned degraded readiness in 16 ms. Production startup without `REDIS_URL` exited 1 with the required `rediss://` validation error. Docker resources were removed after verification.
-- **Result:** Task 0.7 ticked complete; all Phase 0 tasks are now complete.
-- **Progress after this session:** 7 / 71 (9.9%)
-- **Left undone / follow-ups:** No caching, pub/sub, BullMQ, rate limiting, Prisma or authentication was added. On this workstation, Docker rejected direct `docker compose stop`/`docker stop` signals with `permission denied`; `redis-cli shutdown nosave` stopped the service cleanly and `docker compose down` then removed all resources. Existing tooling warnings and missing `main` branch protection remain tracked.
-- **Next task:** 1.1 Prisma + Neon setup
-- **Branch / commit:** `phase-0/task-0.7-local-redis` / `feat(api): add resilient Redis foundation`
+Task 1.4 added bookings and usage sessions with half-open buffered ranges, named time/text checks, factual RESTRICT relations, one-open-session/one-session-per-booking partial uniqueness and the btree_gist bookings_no_overlap exclusion constraint. Fresh-chain/dev drift verification and the guarded live suite proved boundary, status, update and 20-way concurrency behavior (23P01/23505) before hosted delivery; D32–D34 remain authoritative.
 
-### [2026-10-21 13:13 EAT] — Task(s): 1.1 — Prisma and Neon foundation
-- **Prompt summary:** Add the supported current Prisma/Neon setup, global Nest lifecycle integration, an empty migration, bounded database readiness, hermetic tests, branch documentation, live Neon proof and the complete Git/PR lifecycle without starting the domain schema.
-- **What I did:** Added Prisma 7.10.1 configuration/schema/empty migration/no-op seed, a global `PrismaModule` and `PrismaService`, required pooled/direct database environment variables, automatic client generation, database-aware readiness and unit/e2e coverage. Renamed the Neon default branch to `main`, created `dev` and `staging`, and documented long-lived plus ephemeral CI branch use.
-- **How:** Prisma Client uses `@prisma/adapter-pg` and pooled `DATABASE_URL`; Prisma CLI uses direct `DIRECT_URL` (D21). Connection startup is non-blocking, the query/pool bounds are one second, and database failure returns HTTP 503 `down` without affecting liveness (D22). Tests override Prisma and use localhost placeholders; generation runs before build/typecheck/test (D23). The starting audit found clean synchronized `main` at `ccb3e7d`, matching §9 with Task 1.1 next.
-- **Files touched:** root Prisma config/schema/migration/seed, root scripts/config/lockfile, API Prisma module/service/tests, health controller/service/tests, environment examples/schema/test setup, CI build environment, README, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** `20261021131500_initial` (empty foundation migration), applied successfully to the Neon `dev` branch; Prisma migration status reported up to date
-- **Verification:** Official Prisma 7 and Neon guidance was checked before installation. `pnpm install` and `pnpm install --frozen-lockfile` passed. `pnpm prisma:generate` generated Prisma Client 7.10.1; removing the ignored generated directory and running `pnpm typecheck` recreated it automatically and passed. The full `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, plain `pnpm test`, and localhost-env `pnpm build` sequence passed; 40 tests passed (29 API, 11 web). `pnpm db:seed` ran the intentional no-op seed. Against live Neon `dev` plus Docker Redis, compiled `/health/ready` returned HTTP 200 in 0.981s with database/Redis `up`; with an unreachable database it returned HTTP 503 in 0.013s with database `down`, while `/health` stayed 200. Git ignore/tracking and credential scans found no real connection values; `git diff --check` passed. Local `actionlint` was unavailable; the hosted workflow result remains the final workflow proof.
-- **Result:** Task 1.1 ticked complete after the migration, live readiness, resilience and repository checks passed.
-- **Progress after this session:** 8 / 71 (11.3%)
-- **Left undone / follow-ups:** Task 1.2 owns the first domain tables and enums. No domain models, real seed records, auth, repositories or application features were added. Existing tooling warnings, Docker direct-stop behavior and missing `main` branch protection remain tracked.
-- **Next task:** 1.2 Core tables: users, departments, locations
-- **Branch / commit:** `phase-1/task-1.1-prisma-neon` / `feat(api): add Prisma and Neon foundation`
+### Historical summary — Task 1.5 — Service tables
 
-### [2026-10-21 13:37 EAT] — Task(s): 1.2 — Core users, departments and locations
-- **Prompt summary:** Add the first domain schema and reviewed migration, prove its constraints and relations against Neon `dev` and a fresh disposable branch, preserve hermetic defaults, and complete the Git/PR lifecycle without starting machine tables.
-- **What I did:** Added the `Role` enum and mapped `User`, `Department`, and `Location` Prisma models; added the first domain migration, lowercase-email trigger/index, explicit integration command/configuration, safety guard and live constraint/relation tests. Updated architecture, setup examples and commands.
-- **How:** IDs are database-generated UUIDs and all timestamps use `timestamptz(3)` with Prisma-managed `updated_at` (D24). Database email normalization plus a functional unique index makes email identity case-insensitive; named relations use `RESTRICT` for membership/locations and `SET NULL` for managers (D25). Live tests require a disposable Neon target distinct from all long-lived URLs and clean up their run-scoped rows (D26). The starting audit found clean synchronized `main` at `b6b30fa`, matching §9 with Task 1.2 next.
-- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021140000_core_tables/migration.sql`, root/API package scripts, API integration Jest config/guard/tests, API env example, README, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** `20261021140000_core_tables`; reviewed with no destructive SQL, three `gen_random_uuid()` defaults, seven `TIMESTAMPTZ(3)` fields, explicit `RESTRICT`/`SET NULL` actions, and applied after `20261021131500_initial`
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed with the tracked pnpm warning. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test`, and the safe-localhost `pnpm build` passed; the default suite ran 48 tests (37 API, 11 web) without Neon. On a fresh six-hour Neon branch created from `main`, `prisma migrate deploy` applied `initial` then `core_tables`, migration status was current, and `pnpm test:integration` passed all five live tests covering reads, `updated_at`, every unique constraint, lowercase/case-insensitive email, named relations and required delete behavior. Post-test counts were zero and the branch was deleted. The reviewed domain migration then applied to `dev`, whose migration table reports both migrations complete. A negative integration invocation exited 1 before connecting because its URL equalled `DATABASE_URL`. The first disposable attempt exposed migration-directory ordering and the default five-second Jest timeout; that branch was deleted, the timestamp/explicit timeout were corrected, and the full fresh proof was rerun successfully.
-- **Result:** Task 1.2 ticked complete.
-- **Progress after this session:** 9 / 71 (12.7%)
-- **Left undone / follow-ups:** Machine/category/history tables remain exclusively in Task 1.3. No auth, provisioning, CRUD endpoints or seed data was added. Existing tooling/Docker/branch-protection issues remain; the integration-only PostgreSQL SSL warning is now tracked.
-- **Next task:** 1.3 Machine tables
-- **Branch / commit:** `phase-1/task-1.2-core-tables` / `feat(db): add core user department and location tables`
-
-### [2026-10-21 14:07 EAT] — Task(s): 1.3 — Machine registry tables
-- **Prompt summary:** Add the documented category, machine and status-history schema; enforce identity, lifecycle, booking/service and deletion invariants; prove the migration, search indexes and concurrency against Neon `dev` and a fresh disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle.
-- **What I did:** Added both machine enums and the mapped `MachineCategory`, `Machine` and `MachineStatusHistory` Prisma models; created the additive machine migration with sequence-backed asset tags, identity normalization, CHECK constraints, explicit non-cascading relations, status-history index, `pg_trgm` extension and three GIN indexes; extended the guarded live integration suite and documented the resulting data rules.
-- **How:** Manufacturer and serial are required, database-normalized and permanently unique as a pair (D27); database sequence tags are immutable and race-safe (D28); department ownership and cross-department placement stay independent (D29); ticket linkage and database-role append-only enforcement are staged for their owning tasks (D30); Prisma raw operator-class declarations keep the reviewed trigram SQL drift-free (D31). Usage remains derived with no `is_in_use` column (D2). The starting audit found clean synchronized `main` at merge `832929c`, matching §9 with Task 1.3 next.
-- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021150000_machine_tables/migration.sql`, `apps/api/test/integration/machine-models.integration-spec.ts`, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** `20261021150000_machine_tables`; reviewed with no destructive SQL or `is_in_use`, three database UUID defaults, eight `TIMESTAMPTZ(3)` columns, five `ON DELETE RESTRICT` foreign keys, zero ticket foreign keys, required CHECK constraints, sequence/function/trigger identity handling, and three trigram GIN indexes
-- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed with the tracked pnpm warning. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test`, and safe-localhost `pnpm build` passed; the default suite ran 48 tests (37 API, 11 web) without Neon. On a fresh six-hour Neon branch from `main`, `prisma migrate deploy` applied all three migrations in order and `prisma migrate diff` printed `No difference detected.` The guarded `pnpm test:integration` passed 13/13 tests covering every model/enum, all required constraints and relations, null/normalization/soft-delete uniqueness rules, 40 parallel tag inserts, three GIN indexes over 3,000 rows, and cleanup; post-test task rows were zero and the branch was deleted. A separate `EXPLAIN (ANALYZE, BUFFERS)` over 3,000 transaction-scoped rows, with sequential scans disabled to demonstrate index eligibility at this small fixture size, used `Bitmap Index Scan on machines_name_trgm_idx` and rolled back. The migration applied to Neon `dev`; status was current and its drift check also printed `No difference detected.` Initial integration attempts correctly revealed SQLSTATE `23001` for `RESTRICT` and the small-table planner's sequential-scan preference; only test expectations/EXPLAIN setup changed, then the final fresh proof passed.
-- **Result:** Task 1.3 ticked complete.
-- **Progress after this session:** 10 / 71 (14.1%)
-- **Left undone / follow-ups:** Task 1.4 owns usage sessions/bookings and the exclusion constraint. Task 1.5 must add the status-history ticket FK. Task 10.1 must create/use a least-privilege application database role and revoke status-history UPDATE/DELETE. No APIs, seed data, auth, usage, bookings or service tables were added. Existing tooling/Docker/branch-protection/SSL warnings remain tracked.
-- **Next task:** 1.4 Usage & booking tables with overlap constraint
-- **Branch / commit:** `phase-1/task-1.3-machine-tables` / `feat(db): add machine registry tables`
-
-### [2026-10-21 14:10 EAT] — Task(s): 1.3 — Hosted verification and delivery
-- **Prompt summary:** Complete the Task 1.3 Git lifecycle after implementation and live-database verification.
-- **What I did:** Pushed the task branch, opened PR #8, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
-- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
-- **Files touched:** this handoff only in the follow-up; Task 1.3 implementation files were delivered by PR #8
-- **Migrations:** none in this follow-up; `20261021150000_machine_tables` was already verified and delivered
-- **Verification:** GitHub `CI / Quality` completed successfully in 1m00s for PR #8; the PR merged as `5447612`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean.
-- **Result:** Task 1.3 remains complete and is now delivered on `main`.
-- **Progress after this session:** 10 / 71 (14.1%)
-- **Left undone / follow-ups:** No change from the Task 1.3 implementation entry.
-- **Next task:** 1.4 Usage & booking tables with overlap constraint
-- **Branch / commit:** `phase-1/task-1.3-handoff-finalize` / `docs: finalize Task 1.3 delivery`
-
-### [2026-10-21 14:49 EAT] — Task(s): 1.4 — Usage and booking tables
-- **Prompt summary:** Add usage-session and booking models with database-enforced time, buffer, uniqueness, overlap, concurrency and deletion invariants; prove the additive migration on Neon `dev` and a fresh disposable branch while keeping normal tests hermetic; complete the Git/PR lifecycle without adding APIs or later tables.
-- **What I did:** Added `BookingStatus`, `Booking` and `UsageSession` Prisma models and relations; created the additive migration with `btree_gist`, named CHECK constraints, stable indexes, partial unique indexes and `bookings_no_overlap`; added a guarded live integration suite covering data shape, all enum values, relations, time/purpose checks, half-open buffered windows, inactive statuses, update paths, non-cascading deletes and parallel conflicts; documented the exact database contract.
-- **How:** `blocked_until` is a creation-time policy snapshot and the exclusion range is half-open (D32). All parent relations restrict deletion and stable partial/exclusion constraint names are the concurrency authority (D33). Unsupported Prisma constructs remain in reviewed raw SQL and the generated relation stays conservatively plural (D34). The starting audit found clean synchronized `main` at merge `6bd6ede`, matching §9 with Task 1.4 next.
-- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021160000_usage_booking_tables/migration.sql`, `apps/api/test/integration/usage-booking-models.integration-spec.ts`, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** `20261021160000_usage_booking_tables`; reviewed as additive SQL with one enum, two tables, two database UUID defaults, eight `TIMESTAMPTZ(3)` fields, six `ON DELETE RESTRICT` foreign keys, six named CHECK constraints, three booking query indexes, one usage query index, two named partial unique indexes, `btree_gist`, and the named active-booking exclusion constraint
-- **Verification:** The live Neon catalog reported `timestamptz_pl_interval` volatility as `STABLE`, and a transaction-scoped generated-column probe was rejected with `generation expression is not immutable`. On fresh six-hour branch `ci/task-1.4-usage-booking-20261021`, all four migrations applied in order and `prisma migrate diff` printed `No difference detected.` Guarded `pnpm test:integration` passed 23/23 across three suites; separate connections produced exactly 1 success plus 19 `23P01` `bookings_no_overlap` failures and exactly 1 success plus 19 `23505` `usage_sessions_one_open_per_machine` failures. Tests also proved exact-boundary acceptance, one-millisecond overlap rejection, active-status scope, both conflict-producing UPDATE paths, checks/indexes/relations and delete restrictions. Cleanup left zero Task 1.4 rows, then the disposable branch was deleted. The migration applied to Neon `dev`; its four-migration status was current and drift was also empty. `pnpm install`, frozen install, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test` (48 tests: 37 API and 11 web), safe-localhost `pnpm build`, and `git diff --check` passed. An initial live run exposed an invalid zero-buffer fixture because Task 1.3 requires positive values; the fixture was corrected to the documented null/no-override value and the complete fresh proof passed.
-- **Result:** Task 1.4 ticked complete.
-- **Progress after this session:** 11 / 71 (15.5%)
-- **Left undone / follow-ups:** Booking/usage APIs, state transitions, seed data and Task 1.5 service tables remain out of scope. The API in Task 5.3 must calculate `blocked_until` on every booking creation/update. Existing tooling, Docker, branch-protection and PostgreSQL SSL warnings remain tracked.
-- **Next task:** 1.5 Service tables: tickets, records and maintenance schedules
-- **Branch / commit:** `phase-1/task-1.4-usage-booking-tables` / `feat(db): add usage and booking constraints`
-
-### [2026-10-21 14:52 EAT] — Task(s): 1.4 — Hosted verification and delivery
-- **Prompt summary:** Complete the Task 1.4 Git lifecycle after implementation and live-database verification.
-- **What I did:** Pushed the task branch, opened PR #10, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
-- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
-- **Files touched:** this handoff only in the follow-up; Task 1.4 implementation files were delivered by PR #10
-- **Migrations:** none in this follow-up; `20261021160000_usage_booking_tables` was already verified and delivered
-- **Verification:** GitHub `CI / Quality` completed successfully in 1m05s for PR #10; the PR merged as `4343d1a`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean.
-- **Result:** Task 1.4 remains complete and is now delivered on `main`.
-- **Progress after this session:** 11 / 71 (15.5%)
-- **Left undone / follow-ups:** No change from the Task 1.4 implementation entry.
-- **Next task:** 1.5 Service tables: tickets, records and maintenance schedules
-- **Branch / commit:** `phase-1/task-1.4-handoff-finalize` / `docs: finalize Task 1.4 delivery`
-
-### [2026-10-21 15:16 EAT] — Task(s): 1.5 — Service tables
-- **Prompt summary:** Add constraint-rich service tickets, service records and maintenance schedules; connect status history to tickets; prove the complete migration chain and model contract on Neon `dev` and a disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle without adding APIs or support tables.
-- **What I did:** Added all three service enums and mapped Prisma models, relations and defaults; created an additive migration with named lifecycle/text/money/currency/cadence checks, stable technician/history/due-sweep indexes, one-active-schedule partial uniqueness and seven restrictive foreign keys; added the deferred status-history ticket relation; extended live integration coverage and documented the resulting contract.
-- **How:** Service data is non-cascading factual history, tickets accept multiple ordered records, and integer minor-unit cost is sufficient for one service event (D35). Named checks enforce row consistency and a 4,000-character description ceiling without forbidding coexisting fault/preventive work (D36). Inactive schedules retain history while a named partial unique index permits one active policy per machine (D37). The starting audit found clean synchronized `main` at merge `dc04435`, matching §9 with Task 1.5 next.
-- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021170000_service_tables/migration.sql`, API service integration tests plus the Task 1.3 history test, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** `20261021170000_service_tables`; reviewed as additive SQL with three enums, three tables, three database UUID defaults, fifteen `TIMESTAMPTZ(3)` fields, fourteen named CHECK constraints, eight stable indexes (including two partial maintenance indexes), and seven `ON DELETE RESTRICT` foreign keys
-- **Verification:** Before adding the history-ticket FK, live Neon `dev` reported zero non-null `machine_status_history.ticket_id` values. On fresh six-hour branch `ci/task-1.5-service-tables-20261021`, all five migrations applied in order, migration status was current, and `prisma migrate diff` printed `No difference detected.` The new service suite passed 8/8; the final guarded `pnpm test:integration` passed 31/31 across four suites and proved all enums/defaults/relations, every named check, multi-record tickets, the integer cost boundary, coexisting faults, one active schedule, stable indexes, update timestamps and restrictive deletion including a history-referenced ticket. The first full run correctly exposed Task 1.3's former random unconstrained ticket UUID fixture; it was changed to create a real ticket and assert that the FK now exists, after which the full rerun passed. Cleanup left zero service/test rows and the branch was deleted. The reviewed migration then applied to `dev`; all five migrations were current and drift was empty. Both `pnpm install` modes, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test` (48 tests: 37 API and 11 web), safe-localhost `pnpm build`, and `git diff --check` passed.
-- **Result:** Task 1.5 ticked complete.
-- **Progress after this session:** 12 / 71 (16.9%)
-- **Left undone / follow-ups:** Ticket comments remain Task 6.2; booking `needs_attention` remains Task 6.5; Task 10.1 still owns least-privilege append-only enforcement. No service APIs, condition coupling, support tables, seed data, auth, notifications or jobs were added. Existing tooling, Docker, branch-protection, Prisma raw-constraint and PostgreSQL SSL warnings remain tracked.
-- **Next task:** 1.6 Support tables: audit logs, notifications, attachments and app settings
-- **Branch / commit:** `phase-1/task-1.5-service-tables` / `feat(db): add service and maintenance tables`
-
-### [2026-10-21 15:19 EAT] — Task(s): 1.5 — Hosted verification and delivery
-- **Prompt summary:** Complete the Task 1.5 Git lifecycle after implementation and live-database verification.
-- **What I did:** Pushed the task branch, opened PR #12, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
-- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
-- **Files touched:** this handoff only in the follow-up; Task 1.5 implementation files were delivered by PR #12
-- **Migrations:** none in this follow-up; `20261021170000_service_tables` was already verified and delivered
-- **Verification:** GitHub `CI / Quality` completed successfully in 1m04s for PR #12; the PR merged as `2c7ebb0`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean.
-- **Result:** Task 1.5 remains complete and is now delivered on `main`.
-- **Progress after this session:** 12 / 71 (16.9%)
-- **Left undone / follow-ups:** No change from the Task 1.5 implementation entry.
-- **Next task:** 1.6 Support tables: audit logs, notifications, attachments and app settings
-- **Branch / commit:** `phase-1/task-1.5-handoff-finalize` / `docs: finalize Task 1.5 delivery`
+Task 1.5 added all service enums and ticket/record/schedule models, the deferred status-history ticket FK, named lifecycle/text/money/cadence checks, stable board/history/due indexes, one-active-schedule uniqueness and restrictive relations. Preflight data validation, fresh-chain/dev zero-drift verification and 31 guarded integration tests covered every required invariant before hosted delivery; comments, booking-attention and least-privilege work remained deferred to their documented tasks. D35–D37 remain authoritative.
 
 ### [2026-10-21 15:42 EAT] — Task(s): 1.6 — Support tables
 - **Prompt summary:** Add constraint-rich audit, notification, preference, attachment and settings tables; enforce append-only audit history and upload/settings invariants; prove the complete migration chain and idempotent defaults on Neon `dev` and a disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle without starting seed data or application services.
@@ -628,11 +435,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.7 Indexes, seed script and migration review
 - **Branch / commit:** `phase-1/task-1.6-handoff-finalize` / `docs: finalize Task 1.6 delivery`
 
+### [2026-10-21 16:29 EAT] — Task(s): 1.7 — Deterministic seed and migration/index review
+- **Prompt summary:** Secure Neon credential handling, review the complete migration/index chain, add a guarded idempotent hospital demo seed, prove repeatability and representative query plans on a fresh disposable branch, seed `dev`, compact historical session entries, and complete the Git lifecycle without starting authentication.
+- **What I did:** Added handoff rule 19 before implementation; added a credential-capturing `--no-secrets` Neon helper/orchestrator; added six non-authenticating seed-user support fields/checks; implemented deterministic departments, locations, categories, 60 machines, users, bookings, sessions, status history, tickets, records and schedules; advanced the asset sequence safely; added seed guards/tests/catalog/consistency/EXPLAIN verification; documented seed/reset/index behavior and compacted Phase 0/Tasks 1.1–1.5 into one paragraph each while retaining the last three full entries.
+- **How:** Fixed hash-derived IDs plus upserts refresh relative dates without duplication; explicit branch and matching-host confirmation, mandatory protected hosts and a CI refusal prevent unsafe targets (D44). Seed users are flagged, use `@example.invalid`, have no Supabase identity and are constrained against sign-in (D45). Neon commands keep credentials captured and redact errors (D43). The corrected realistic 3,000-machine fixture used existing indexes for all five query shapes, so no speculative index was added (D46).
+- **Files touched:** handoff, README, API env example and seed-safety test; Prisma schema, `20261021190000_seed_user_support`, seed/safety/catalog/Neon verification scripts; root package/lockfile; architecture
+- **Migrations:** `20261021190000_seed_user_support`; reviewed as a safe relaxation of `supabase_user_id`, one non-null boolean default, and named identity-consistency check; the complete seven-migration chain applied from empty on a disposable child of `main`, then the new migration applied to `dev`
+- **Verification:** Credential-safe CLI access saw three branches without displaying a connection value. A protected-host seed attempt exited 1 before connection with `Refusing to seed a protected main or staging database host`. On fresh branch `ci/task-1.7-seed-202610211321`, all seven migrations applied in order; seed and immediate reseed each reported 5 departments, 20 locations, 8 categories, 60 machines and 6 placeholders; verification found 12 bookings, 14 sessions and 15 tickets, exact condition mix and every required scenario/invariant; the next generated tag was 61. All 32 documented indexes existed (catalog check added after this run); seed and 3,000-machine EXPLAINs showed the intended machine, session, exclusion, My Bookings and technician indexes with no large primary-table sequential scan. Guarded `pnpm test:integration` passed 39/39 and drift printed `No difference detected.` The branch was deleted. Neon `dev` applied migration/seed, passed the same counts, reported seven migrations current and zero drift. Both install modes, format check, lint, typecheck, hermetic tests (53 total: 42 API, 11 web), build and `git diff --check` passed. The first disposable review used an unrealistic single-department load fixture and correctly failed on a machine sequential scan; the branch was deleted, distribution was corrected without adding an index, and the full fresh proof passed.
+- **Result:** Task 1.7 ticked complete locally; commit, PR, hosted CI, merge and final main synchronization remain in this turn.
+- **Progress after this session:** 14 / 71 (19.7%)
+- **Left undone / follow-ups:** Task 2.1 owns Supabase Auth setup. Task 2.2 must replace/link the seed placeholders. Existing tooling, Docker, branch-protection, Prisma raw-constraint, least-privilege and PostgreSQL SSL issues remain tracked; the exposed inherited-role password issue is resolved.
+- **Next task:** 2.1 Supabase Auth project setup and config
+- **Branch / commit:** `phase-1/task-1.7-indexes-seed-review` / `feat(db): add deterministic demo seed and index review`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
-- Neon CLI 8.8.0 printed a full inherited-role connection URI while creating the Task 1.6 disposable branch even with table output. The value was not copied into repository files and the disposable branch was deleted, but the shared Neon role password should be rotated in the Neon console and all legitimate deployment/developer environment copies refreshed. Rotation was not performed automatically because it would invalidate `main`, `staging`, and `dev` clients.
+- **Resolved in Task 1.7:** the owner rotated the inherited Neon role password and refreshed legitimate development configuration. Rule 19 and the safe Neon helper now use `--no-secrets`, capture connection output without displaying it, redact database URLs from failures, and emit only safe metadata; both Task 1.7 disposable runs deleted their branches.
 - Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4/1.5 migrations and live integration tests are authoritative; `Booking.usageSessions` is typed as a list despite database cardinality, and the one-active-maintenance-schedule rule exists only in raw SQL. Later services must continue mapping named database violations rather than relying on Prisma relation cardinality alone.
 - `machine_status_history` is append-only by schema/API design, but the current Neon owner role can still issue direct UPDATE/DELETE statements. Task 10.1 must introduce/use a least-privilege application role and revoke those privileges; migration ownership must remain separate.
 - On this workstation, Docker created and ran the Task 0.7 Redis container but the daemon rejected direct `docker compose stop` and `docker stop` signals with `permission denied`. An in-container `redis-cli shutdown nosave` stopped Redis cleanly and `docker compose down` removed the stopped container/network; investigate Docker Desktop/daemon signal permissions if the direct-stop failure recurs.
@@ -660,6 +480,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | `DIRECT_URL` | api / prisma | Yes | Neon **direct** connection string (migrations and CLI operations) |
 | `INTEGRATION_DATABASE_URL` | api integration tests | Explicit suite only | Pooled URL for a dedicated disposable Neon branch; must differ from normal database URLs |
 | `INTEGRATION_DATABASE_BRANCH` | api integration tests | Explicit suite only | Dedicated branch name beginning `ci/`, `test/`, or `ephemeral/`; long-lived branches are rejected |
+| `SEED_ALLOWED_BRANCH` | Prisma seed | Explicit seed only | Must be `dev` or a disposable `ci/`, `test/`, `ephemeral/`, or `demo/` branch; `main`/`staging` are rejected |
+| `SEED_ALLOWED_HOST` | Prisma seed | Explicit seed only | Exact host confirmation that must match the target `DATABASE_URL` host |
+| `SEED_PROTECTED_HOSTS` | Prisma seed | Explicit seed only | Comma-separated production `main` and `staging` hosts that the seed must reject |
+| `NEON_PROJECT_ID` | Task 1.7 verification helper | Explicit live verification only | Non-secret Neon project identifier; connection output remains captured |
 | `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
 | `SUPABASE_URL` | api, web server | No (Phase 2) | Supabase project URL |
 | `SUPABASE_ANON_KEY` | web server | No (Phase 2) | Future Supabase client key; not exposed to client code in Task 0.3 |
@@ -693,6 +517,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Apply committed migrations: `pnpm prisma:migrate:deploy`
 - Check database/schema drift: `DIRECT_URL=<dedicated-direct-url> pnpm exec prisma migrate diff --config prisma7.config.ts --from-config-datasource --to-schema prisma/schema.prisma --exit-code`
 - Run the seed command: `pnpm db:seed`
+- Verify deterministic seed counts/relations: `pnpm db:seed:verify`
+- Review seed sequence and five EXPLAIN query shapes: `pnpm db:index-review`
+- Run the credential-safe Task 1.7 disposable/dev proof: `NEON_PROJECT_ID=<project-id> pnpm verify:neon:task-1.7`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`

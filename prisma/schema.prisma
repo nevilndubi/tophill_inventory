@@ -21,13 +21,14 @@ enum Role {
 
 model User {
   id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supabaseUserId          String                   @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
+  supabaseUserId          String?                  @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
   email                   String
   fullName                String                   @map("full_name")
   role                    Role
   departmentId            String?                  @map("department_id") @db.Uuid
   phone                   String?
   isActive                Boolean                  @default(true) @map("is_active")
+  isSeedData              Boolean                  @default(false) @map("is_seed_data")
   lastLoginAt             DateTime?                @map("last_login_at") @db.Timestamptz(3)
   createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
