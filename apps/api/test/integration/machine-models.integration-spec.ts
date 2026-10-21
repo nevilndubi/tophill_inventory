@@ -8,6 +8,8 @@ import {
   Prisma,
   PrismaClient,
   Role,
+  ServiceTicketSeverity,
+  ServiceTicketType,
 } from '../../src/generated/prisma/client';
 import { assertSafeIntegrationDatabaseEnvironment } from './database-guard';
 
@@ -143,6 +145,9 @@ describe('Machine database integration', () => {
     try {
       await prisma.machineStatusHistory.deleteMany({
         where: { machine: { description: { startsWith: runId } } },
+      });
+      await prisma.serviceTicket.deleteMany({
+        where: { title: { startsWith: runId } },
       });
       await prisma.machine.deleteMany({
         where: { description: { startsWith: runId } },
@@ -405,7 +410,16 @@ describe('Machine database integration', () => {
 
   it('stores append-only history fields and restricts referenced machine and user deletion', async () => {
     const machine = await createMachine('history');
-    const ticketId = randomUUID();
+    const ticket = await prisma.serviceTicket.create({
+      data: {
+        description: `${runId} history relation`,
+        machineId: machine.id,
+        reportedByUserId: actorUserId,
+        severity: ServiceTicketSeverity.LOW,
+        title: `${runId} history ticket`,
+        type: ServiceTicketType.INSPECTION,
+      },
+    });
     const history = await prisma.machineStatusHistory.create({
       data: {
         changedByUserId: actorUserId,
@@ -413,7 +427,7 @@ describe('Machine database integration', () => {
         machineId: machine.id,
         reason: 'Initial status record',
         source: MachineStatusSource.MANUAL,
-        ticketId,
+        ticketId: ticket.id,
         toCondition: MachineCondition.OPERATIONAL,
       },
     });
@@ -423,7 +437,7 @@ describe('Machine database integration', () => {
       where: { id: history.id },
     });
     expect(stored.fromCondition).toBeNull();
-    expect(stored.ticketId).toBe(ticketId);
+    expect(stored.ticketId).toBe(ticket.id);
     expect(stored.changedByUser.id).toBe(actorUserId);
     expect(stored.machine.id).toBe(machine.id);
 
@@ -460,7 +474,7 @@ describe('Machine database integration', () => {
            AND column_record.attname = 'ticket_id'
        ) AS has_ticket_foreign_key`,
     );
-    expect(ticketForeignKey.rows[0]?.has_ticket_foreign_key).toBe(false);
+    expect(ticketForeignKey.rows[0]?.has_ticket_foreign_key).toBe(true);
 
     const historyIndex = await sql.query<{ indexdef: string }>(
       `SELECT indexdef FROM pg_indexes

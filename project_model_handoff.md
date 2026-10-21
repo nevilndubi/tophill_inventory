@@ -188,7 +188,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 1.2 Core tables: users, departments, locations
 - [x] 1.3 Machine tables: categories, machines, machine_status_history
 - [x] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
-- [ ] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
+- [x] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
 - [ ] 1.6 Support tables: audit_logs, notifications, attachments, app_settings
 - [ ] 1.7 Indexes, seed script (realistic demo data), migration review
 
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 11 / 71 tasks (15.5%) |
-| Current phase | Phase 1 — Task 1.4 verified |
-| Last updated | 2026-10-21 14:52 EAT |
-| Branch | `main` (Task 1.4 delivered via `phase-1/task-1.4-usage-booking-tables`) |
-| Last commit | `feat(db): add usage and booking constraints` |
-| Repo state | Task 1.4 merged by PR #10; usage/booking schema, reviewed migration, Neon `dev`, zero-drift, disposable-branch concurrency and hosted CI verified |
-| **Next task** | **1.5 Service tables: tickets, records and maintenance schedules** |
+| Overall progress | 12 / 71 tasks (16.9%) |
+| Current phase | Phase 1 — Task 1.5 verified |
+| Last updated | 2026-10-21 15:16 EAT |
+| Branch | `phase-1/task-1.5-service-tables` |
+| Last commit | `feat(db): add service and maintenance tables` |
+| Repo state | Service ticket/record/schedule schema, reviewed constraints/indexes, history-ticket FK, Neon `dev`, zero-drift and disposable-branch integration proofs verified |
+| **Next task** | **1.6 Support tables: audit logs, notifications, attachments and app settings** |
 
 ---
 
@@ -292,7 +292,8 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 ### Pending (planned, in the checklist)
 Everything in §8 not yet ticked. Do not duplicate it here — only list *extra* items discovered during work.
 
-- Add the `machine_status_history.ticket_id` foreign key when `service_tickets` is created in Task 1.5.
+- Add a service-ticket comments table in Task 6.2 so lifecycle discussion is introduced with the service API rather than prematurely in the Phase 1 schema.
+- Add a booking `needs_attention` marker/reason migration in Task 6.5 when service outages are coupled to affected bookings.
 - Enforce append-only `machine_status_history` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
@@ -344,6 +345,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D32 | 2026-10-21 | Store each booking's `blocked_until` as an API-computed snapshot of `ends_at` plus the machine's effective buffer; store `ends_at` itself when no buffer applies, and constrain overlap over `tstzrange(starts_at, blocked_until, '[)')` | Existing bookings must not change when machine policy changes. PostgreSQL marks `timestamptz + interval` as `STABLE`, while generated-column expressions must be immutable; the live catalog and a rejected generated-column probe confirmed a generated calculation is invalid | Compute the buffer inside the exclusion expression; use a generated column; constrain only through `ends_at` |
 | D33 | 2026-10-21 | Treat bookings and usage sessions as non-deletable records of fact with `ON DELETE RESTRICT` relations; enforce one open session and one session per booking with named partial unique indexes, and enforce active-booking overlap with the named raw-SQL exclusion constraint | Historical records cannot disappear through parent deletion, and stable database names let later APIs map `23505`/`23P01` violations deterministically under concurrency | Cascading/set-null deletion; application-only checks; unnamed database constraints |
 | D34 | 2026-10-21 | Keep unsupported partial unique and exclusion semantics in reviewed migration SQL while Prisma models expose the closest safe relation shape (`Booking.usageSessions` remains a list) | Prisma cannot express these partial/exclusion constraints in its schema, but PostgreSQL remains authoritative and the live drift/integration checks prove the actual contract | Pretend the partial unique is a normal `@unique`; omit the database constraint; add application APIs early |
+| D35 | 2026-10-21 | Treat tickets, service records and maintenance schedules as records of fact with `ON DELETE RESTRICT`; allow several service records per ticket and store nullable costs as PostgreSQL/Prisma `Int` minor units with default `KES` | History must survive parent deactivation/deletion attempts, repeat visits and parts need separate ordered records, and the 2,147,483,647-minor-unit ceiling (about KSh 21.47 million) is sufficient for one service record | Cascading/set-null relations; one record per ticket; decimal major-unit money; bigint minor units |
+| D36 | 2026-10-21 | Enforce ticket timestamp/assignment consistency and bounded text in named database checks; cap description at 4,000 characters, but deliberately do not enforce one open fault ticket per machine | Database writers cannot create internally inconsistent or unbounded rows, while fault, preventive, calibration and inspection work may legitimately coexist; Task 6.1 will handle duplicate-report UX | API-only consistency; unbounded descriptions; a partial unique open-fault index |
+| D37 | 2026-10-21 | Retain inactive maintenance schedules but allow only one active schedule per machine through `maintenance_schedules_one_active_per_machine`; index active `next_due_at` separately | Schedule history remains available while Task 9.2's due-service sweep gets a selective, deterministic query path | One schedule row per machine; delete/overwrite old schedules; application-only active uniqueness |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -566,11 +570,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.5 Service tables: tickets, records and maintenance schedules
 - **Branch / commit:** `phase-1/task-1.4-handoff-finalize` / `docs: finalize Task 1.4 delivery`
 
+### [2026-10-21 15:16 EAT] — Task(s): 1.5 — Service tables
+- **Prompt summary:** Add constraint-rich service tickets, service records and maintenance schedules; connect status history to tickets; prove the complete migration chain and model contract on Neon `dev` and a disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle without adding APIs or support tables.
+- **What I did:** Added all three service enums and mapped Prisma models, relations and defaults; created an additive migration with named lifecycle/text/money/currency/cadence checks, stable technician/history/due-sweep indexes, one-active-schedule partial uniqueness and seven restrictive foreign keys; added the deferred status-history ticket relation; extended live integration coverage and documented the resulting contract.
+- **How:** Service data is non-cascading factual history, tickets accept multiple ordered records, and integer minor-unit cost is sufficient for one service event (D35). Named checks enforce row consistency and a 4,000-character description ceiling without forbidding coexisting fault/preventive work (D36). Inactive schedules retain history while a named partial unique index permits one active policy per machine (D37). The starting audit found clean synchronized `main` at merge `dc04435`, matching §9 with Task 1.5 next.
+- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021170000_service_tables/migration.sql`, API service integration tests plus the Task 1.3 history test, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** `20261021170000_service_tables`; reviewed as additive SQL with three enums, three tables, three database UUID defaults, fifteen `TIMESTAMPTZ(3)` fields, fourteen named CHECK constraints, eight stable indexes (including two partial maintenance indexes), and seven `ON DELETE RESTRICT` foreign keys
+- **Verification:** Before adding the history-ticket FK, live Neon `dev` reported zero non-null `machine_status_history.ticket_id` values. On fresh six-hour branch `ci/task-1.5-service-tables-20261021`, all five migrations applied in order, migration status was current, and `prisma migrate diff` printed `No difference detected.` The new service suite passed 8/8; the final guarded `pnpm test:integration` passed 31/31 across four suites and proved all enums/defaults/relations, every named check, multi-record tickets, the integer cost boundary, coexisting faults, one active schedule, stable indexes, update timestamps and restrictive deletion including a history-referenced ticket. The first full run correctly exposed Task 1.3's former random unconstrained ticket UUID fixture; it was changed to create a real ticket and assert that the FK now exists, after which the full rerun passed. Cleanup left zero service/test rows and the branch was deleted. The reviewed migration then applied to `dev`; all five migrations were current and drift was empty. Both `pnpm install` modes, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test` (48 tests: 37 API and 11 web), safe-localhost `pnpm build`, and `git diff --check` passed.
+- **Result:** Task 1.5 ticked complete.
+- **Progress after this session:** 12 / 71 (16.9%)
+- **Left undone / follow-ups:** Ticket comments remain Task 6.2; booking `needs_attention` remains Task 6.5; Task 10.1 still owns least-privilege append-only enforcement. No service APIs, condition coupling, support tables, seed data, auth, notifications or jobs were added. Existing tooling, Docker, branch-protection, Prisma raw-constraint and PostgreSQL SSL warnings remain tracked.
+- **Next task:** 1.6 Support tables: audit logs, notifications, attachments and app settings
+- **Branch / commit:** `phase-1/task-1.5-service-tables` / `feat(db): add service and maintenance tables`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
-- Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4 migration and live integration tests are authoritative; `Booking.usageSessions` is therefore typed as a list even though the database permits at most one linked session. Task 5 booking/usage services must continue mapping the named database violations rather than relying on Prisma relation cardinality alone.
+- Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4/1.5 migrations and live integration tests are authoritative; `Booking.usageSessions` is typed as a list despite database cardinality, and the one-active-maintenance-schedule rule exists only in raw SQL. Later services must continue mapping named database violations rather than relying on Prisma relation cardinality alone.
 - `machine_status_history` is append-only by schema/API design, but the current Neon owner role can still issue direct UPDATE/DELETE statements. Task 10.1 must introduce/use a least-privilege application role and revoke those privileges; migration ownership must remain separate.
 - On this workstation, Docker created and ran the Task 0.7 Redis container but the daemon rejected direct `docker compose stop` and `docker stop` signals with `permission denied`. An in-container `redis-cli shutdown nosave` stopped Redis cleanly and `docker compose down` removed the stopped container/network; investigate Docker Desktop/daemon signal permissions if the direct-stop failure recurs.
 - GitHub reports that `main` has no branch-protection rule. The CI workflow is green and the README documents the intended required `Quality` check, but GitHub does not yet enforce it; configure the rule explicitly after confirming the desired collaborator/merge policy.
