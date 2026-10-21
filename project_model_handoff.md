@@ -279,8 +279,8 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 10 / 71 tasks (14.1%) |
 | Current phase | Phase 1 — Task 1.3 verified |
-| Last updated | 2026-10-21 14:07 EAT |
-| Branch | `phase-1/task-1.3-machine-tables` |
+| Last updated | 2026-10-21 14:10 EAT |
+| Branch | `main` (Task 1.3 delivered via `phase-1/task-1.3-machine-tables`) |
 | Last commit | `feat(db): add machine registry tables` |
 | Repo state | Machine/category/status-history schema, reviewed migration, Neon `dev` application, zero-drift and disposable-branch integration proofs verified |
 | **Next task** | **1.4 Usage & booking tables with overlap constraint** |
@@ -523,6 +523,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Left undone / follow-ups:** Task 1.4 owns usage sessions/bookings and the exclusion constraint. Task 1.5 must add the status-history ticket FK. Task 10.1 must create/use a least-privilege application database role and revoke status-history UPDATE/DELETE. No APIs, seed data, auth, usage, bookings or service tables were added. Existing tooling/Docker/branch-protection/SSL warnings remain tracked.
 - **Next task:** 1.4 Usage & booking tables with overlap constraint
 - **Branch / commit:** `phase-1/task-1.3-machine-tables` / `feat(db): add machine registry tables`
+
+### [2026-10-21 14:10 EAT] — Task(s): 1.3 — Hosted verification and delivery
+- **Prompt summary:** Complete the Task 1.3 Git lifecycle after implementation and live-database verification.
+- **What I did:** Pushed the task branch, opened PR #8, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
+- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
+- **Files touched:** this handoff only in the follow-up; Task 1.3 implementation files were delivered by PR #8
+- **Migrations:** none in this follow-up; `20261021150000_machine_tables` was already verified and delivered
+- **Verification:** GitHub `CI / Quality` completed successfully in 1m00s for PR #8; the PR merged as `5447612`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean.
+- **Result:** Task 1.3 remains complete and is now delivered on `main`.
+- **Progress after this session:** 10 / 71 (14.1%)
+- **Left undone / follow-ups:** No change from the Task 1.3 implementation entry.
+- **Next task:** 1.4 Usage & booking tables with overlap constraint
+- **Branch / commit:** `phase-1/task-1.3-handoff-finalize` / `docs: finalize Task 1.3 delivery`
 
 ---
 
