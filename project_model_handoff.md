@@ -279,10 +279,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 12 / 71 tasks (16.9%) |
 | Current phase | Phase 1 — Task 1.5 verified |
-| Last updated | 2026-10-21 15:16 EAT |
-| Branch | `phase-1/task-1.5-service-tables` |
+| Last updated | 2026-10-21 15:19 EAT |
+| Branch | `main` (Task 1.5 delivered via `phase-1/task-1.5-service-tables`) |
 | Last commit | `feat(db): add service and maintenance tables` |
-| Repo state | Service ticket/record/schedule schema, reviewed constraints/indexes, history-ticket FK, Neon `dev`, zero-drift and disposable-branch integration proofs verified |
+| Repo state | Task 1.5 merged by PR #12; service schema, reviewed migration, Neon `dev`, zero-drift, disposable-branch integration and hosted CI verified |
 | **Next task** | **1.6 Support tables: audit logs, notifications, attachments and app settings** |
 
 ---
@@ -582,6 +582,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Left undone / follow-ups:** Ticket comments remain Task 6.2; booking `needs_attention` remains Task 6.5; Task 10.1 still owns least-privilege append-only enforcement. No service APIs, condition coupling, support tables, seed data, auth, notifications or jobs were added. Existing tooling, Docker, branch-protection, Prisma raw-constraint and PostgreSQL SSL warnings remain tracked.
 - **Next task:** 1.6 Support tables: audit logs, notifications, attachments and app settings
 - **Branch / commit:** `phase-1/task-1.5-service-tables` / `feat(db): add service and maintenance tables`
+
+### [2026-10-21 15:19 EAT] — Task(s): 1.5 — Hosted verification and delivery
+- **Prompt summary:** Complete the Task 1.5 Git lifecycle after implementation and live-database verification.
+- **What I did:** Pushed the task branch, opened PR #12, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
+- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
+- **Files touched:** this handoff only in the follow-up; Task 1.5 implementation files were delivered by PR #12
+- **Migrations:** none in this follow-up; `20261021170000_service_tables` was already verified and delivered
+- **Verification:** GitHub `CI / Quality` completed successfully in 1m04s for PR #12; the PR merged as `2c7ebb0`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean.
+- **Result:** Task 1.5 remains complete and is now delivered on `main`.
+- **Progress after this session:** 12 / 71 (16.9%)
+- **Left undone / follow-ups:** No change from the Task 1.5 implementation entry.
+- **Next task:** 1.6 Support tables: audit logs, notifications, attachments and app settings
+- **Branch / commit:** `phase-1/task-1.5-handoff-finalize` / `docs: finalize Task 1.5 delivery`
 
 ---
 
