@@ -280,10 +280,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 14 / 71 tasks (19.7%) |
 | Current phase | Phase 1 — Task 1.7 verified |
-| Last updated | 2026-10-21 16:29 EAT |
-| Branch | `phase-1/task-1.7-indexes-seed-review` |
+| Last updated | 2026-10-21 16:34 EAT |
+| Branch | `main` (Task 1.7 delivered via `phase-1/task-1.7-indexes-seed-review`) |
 | Last commit | `feat(db): add deterministic demo seed and index review` |
-| Repo state | Task 1.7 implementation, complete seven-migration fresh-branch proof, repeat seed, index plans, 39-test Neon integration, `dev` migration/seed and zero drift verified locally; commit/PR/hosted CI pending |
+| Repo state | Task 1.7 merged by PR #16; seven-migration fresh-branch proof, repeat seed, index plans, 39-test Neon integration, `dev` migration/seed, zero drift and hosted CI verified |
 | **Next task** | **2.1 Supabase Auth project setup and config** |
 
 ---
@@ -409,18 +409,9 @@ Task 1.4 added bookings and usage sessions with half-open buffered ranges, named
 
 Task 1.5 added all service enums and ticket/record/schedule models, the deferred status-history ticket FK, named lifecycle/text/money/cadence checks, stable board/history/due indexes, one-active-schedule uniqueness and restrictive relations. Preflight data validation, fresh-chain/dev zero-drift verification and 31 guarded integration tests covered every required invariant before hosted delivery; comments, booking-attention and least-privilege work remained deferred to their documented tasks. D35–D37 remain authoritative.
 
-### [2026-10-21 15:42 EAT] — Task(s): 1.6 — Support tables
-- **Prompt summary:** Add constraint-rich audit, notification, preference, attachment and settings tables; enforce append-only audit history and upload/settings invariants; prove the complete migration chain and idempotent defaults on Neon `dev` and a disposable branch; preserve hermetic defaults and complete the Git/PR lifecycle without starting seed data or application services.
-- **What I did:** Added the closed attachment enum and all five mapped Prisma models/relations; added shared Zod-owned audit/notification identifier lists; created an additive migration with named format/text/JSON/size/time/MIME checks, stable query indexes, restrictive user foreign keys, an append-only audit trigger and four idempotent settings defaults; added guarded live integration coverage and documented the resulting contract.
-- **How:** Open-ended event identifiers remain checked text while `@app/shared` owns allowed Zod enums (D38). Audit rows support system actors and string-key entities, store IPs as `inet`, cap object snapshots at 64 KiB and reject UPDATE/DELETE through a trigger (D39). Preferences use their natural composite key (D40); polymorphic attachments rely on service validation and hard deletion plus audit history (D41); settings use non-overwriting scalar defaults (D42). The starting audit found clean synchronized `main` at merge `cb1f0c2`, matching §9 with Task 1.6 next.
-- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021180000_support_tables/migration.sql`, `apps/api/test/integration/support-models.integration-spec.ts`, `packages/shared` event schemas/manifest, lockfile, `docs/ARCHITECTURE.md`, this handoff
-- **Migrations:** `20261021180000_support_tables`; reviewed as additive SQL with one enum, five tables, three database UUID defaults, eleven `TIMESTAMPTZ(3)` fields, twenty-one named CHECK constraints, seven stable secondary/unique indexes, four `ON DELETE RESTRICT` foreign keys, one append-only trigger/function, and four `ON CONFLICT DO NOTHING` settings rows
-- **Verification:** On fresh six-hour branch `ci/task-1.6-support-tables-20261021`, all six migrations applied in order, migration status was current, and `prisma migrate diff` printed `No difference detected.` The support suite passed 8/8; the final guarded `pnpm test:integration` passed 39/39 across five suites and proved every support model/enum, JSONB round-tripping, nullable/system audit actors, trigger rejection with `55000`, constraints, indexes, composite uniqueness/defaults, restrictive deletion, attachment polymorphism/no invalid target FK, timestamp precision, and non-overwriting settings replay. Non-audit fixtures cleaned to zero; audit rows/actors remained by design and disappeared with deletion of the disposable branch. The reviewed migration then applied to Neon `dev`; all six migrations were current and drift was empty. `pnpm install`, frozen install, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test` (48 tests: 37 API and 11 web), safe-localhost `pnpm build`, and `git diff --check` passed. The first targeted command placed a Jest option after an extra `--` and found no tests; the corrected first run exposed only the expected PostgreSQL `RESTRICT` SQLSTATE (`23001` rather than generic `23503`), after which the targeted and complete fresh proofs passed.
-- **Result:** Task 1.6 ticked complete.
-- **Progress after this session:** 13 / 71 (18.3%)
-- **Left undone / follow-ups:** Task 1.7 owns seed data and final index/migration review; Tasks 3.5/6.6 own Supabase object lifecycle and polymorphic target validation; Task 5.1 owns setting value semantics; Task 9.4 owns critical preference policy; Task 10.1 owns the least-privilege application role. No seed data, auth, storage integration, delivery, audit interceptor, endpoints or jobs were added. The Neon CLI credential-output incident and existing tooling/Docker/branch-protection/Prisma/SSL warnings remain tracked.
-- **Next task:** 1.7 Indexes, seed script and migration review
-- **Branch / commit:** `phase-1/task-1.6-support-tables` / `feat(db): add support tables and safeguards`
+### Historical summary — Task 1.6 — Support tables
+
+Task 1.6 added the closed attachment enum and mapped audit, notification, preference, attachment and app-settings models plus shared event schemas. Its additive migration enforced checked evolving identifiers, bounded JSON/inet audit data, an immediate append-only trigger, preference defaults/composite identity, polymorphic attachment safeguards, stable indexes, restrictive user relations and four non-overwriting settings defaults. A fresh disposable branch and Neon dev applied the six-migration chain with zero drift; 39 guarded integration tests plus all hermetic quality gates passed before PR #14 delivery. D38–D42, the object-lifecycle/least-privilege follow-ups and existing known issues remain authoritative.
 
 ### [2026-10-21 15:46 EAT] — Task(s): 1.6 — Hosted verification and delivery
 - **Prompt summary:** Complete the Task 1.6 Git lifecycle after implementation and live-database verification.
@@ -447,6 +438,19 @@ Task 1.5 added all service enums and ticket/record/schedule models, the deferred
 - **Left undone / follow-ups:** Task 2.1 owns Supabase Auth setup. Task 2.2 must replace/link the seed placeholders. Existing tooling, Docker, branch-protection, Prisma raw-constraint, least-privilege and PostgreSQL SSL issues remain tracked; the exposed inherited-role password issue is resolved.
 - **Next task:** 2.1 Supabase Auth project setup and config
 - **Branch / commit:** `phase-1/task-1.7-indexes-seed-review` / `feat(db): add deterministic demo seed and index review`
+
+### [2026-10-21 16:34 EAT] — Task(s): 1.7 — Hosted verification and delivery
+- **Prompt summary:** Complete the Task 1.7 Git lifecycle after implementation, live migration/seed verification and the owner-requested session-log compaction.
+- **What I did:** Pushed the task branch, opened PR #16, monitored the hosted quality workflow, merged with a merge commit only after it passed, synchronized local `main`, corrected §9 to the delivered state, and summarized the now-older Task 1.6 implementation entry so exactly the last three session entries remain in full.
+- **How:** Followed the repository Git ownership policy in D18 and credential-output policy in D43; application/schema scope did not change after the verified implementation commit.
+- **Files touched:** this handoff only in the delivery follow-up; Task 1.7 implementation files were delivered by PR #16
+- **Migrations:** none in this follow-up; `20261021190000_seed_user_support` was already verified and delivered
+- **Verification:** GitHub `CI / Quality` completed successfully in 1m00s for PR #16; the PR merged as `febab56`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean before this handoff-only update.
+- **Result:** Task 1.7 remains complete and is delivered on `main`; Phase 1 schema/seed work is complete.
+- **Progress after this session:** 14 / 71 (19.7%)
+- **Left undone / follow-ups:** No change from the Task 1.7 implementation entry. Task 2.1 is next; Task 2.2 owns replacement/linkage of seed placeholders.
+- **Next task:** 2.1 Supabase Auth project setup and config
+- **Branch / commit:** `phase-1/task-1.7-handoff-finalize` / `docs: finalize Task 1.7 delivery`
 
 ---
 
