@@ -34,6 +34,9 @@ model User {
   department           Department?            @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   managedDepartments   Department[]           @relation("DepartmentManager")
   machineStatusChanges MachineStatusHistory[] @relation("MachineStatusChangedBy")
+  requestedBookings    Booking[]              @relation("BookingRequester")
+  approvedBookings     Booking[]              @relation("BookingApprover")
+  usageSessions        UsageSession[]         @relation("UsageSessionUser")
 
   @@index([departmentId], map: "users_department_id_idx")
   @@map("users")
@@ -134,6 +137,8 @@ model Machine {
   department                   Department             @relation("MachineDepartment", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   location                     Location               @relation("MachineLocation", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   statusHistory                MachineStatusHistory[] @relation("MachineStatusHistory")
+  bookings                     Booking[]
+  usageSessions                UsageSession[]
 
   @@index([departmentId], map: "machines_department_id_idx")
   @@index([categoryId], map: "machines_category_id_idx")
@@ -160,4 +165,61 @@ model MachineStatusHistory {
 
   @@index([machineId, createdAt(sort: Desc)], map: "machine_status_history_machine_id_created_at_idx")
   @@map("machine_status_history")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+  NO_SHOW
+
+  @@map("booking_status")
+}
+
+model Booking {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  machineId         String         @map("machine_id") @db.Uuid
+  requestedByUserId String         @map("requested_by_user_id") @db.Uuid
+  startsAt          DateTime       @map("starts_at") @db.Timestamptz(3)
+  endsAt            DateTime       @map("ends_at") @db.Timestamptz(3)
+  blockedUntil      DateTime       @map("blocked_until") @db.Timestamptz(3)
+  status            BookingStatus
+  purpose           String
+  approvedByUserId  String?        @map("approved_by_user_id") @db.Uuid
+  decisionNote      String?        @map("decision_note")
+  cancelledReason   String?        @map("cancelled_reason")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  machine           Machine        @relation(fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requestedByUser   User           @relation("BookingRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  approvedByUser    User?          @relation("BookingApprover", fields: [approvedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  usageSessions     UsageSession[]
+
+  @@index([machineId, startsAt], map: "bookings_machine_id_starts_at_idx")
+  @@index([requestedByUserId, startsAt], map: "bookings_requested_by_user_id_starts_at_idx")
+  @@index([status, startsAt], map: "bookings_status_starts_at_idx")
+  @@map("bookings")
+}
+
+model UsageSession {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  machineId     String    @map("machine_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  bookingId     String?   @map("booking_id") @db.Uuid
+  startedAt     DateTime  @map("started_at") @db.Timestamptz(3)
+  expectedEndAt DateTime? @map("expected_end_at") @db.Timestamptz(3)
+  endedAt       DateTime? @map("ended_at") @db.Timestamptz(3)
+  purpose       String
+  endNote       String?   @map("end_note")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  machine       Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user          User      @relation("UsageSessionUser", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  booking       Booking?  @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, startedAt], map: "usage_sessions_user_id_started_at_idx")
+  @@map("usage_sessions")
 }

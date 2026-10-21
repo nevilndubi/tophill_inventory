@@ -115,9 +115,12 @@ application role is deferred to the least-privilege database-role work in Task 1
 application code must expose inserts only; the history model intentionally has no `updated_at`.
 
 **usage_sessions** — `id`, `machine_id`, `user_id`, `booking_id` (nullable), `started_at`, `expected_end_at` (nullable), `ended_at` (nullable), `purpose` (free text, ≤200 chars, **no patient data**), `end_note`
-- Partial unique index: **one open session per machine** → `UNIQUE (machine_id) WHERE ended_at IS NULL`
+- `usage_sessions_one_open_per_machine`: partial unique index on `machine_id WHERE ended_at IS NULL`
+- `usage_sessions_one_per_booking`: partial unique index on `booking_id WHERE booking_id IS NOT NULL`
+- Named checks: `usage_sessions_ended_at_not_before_started_at_check`, `usage_sessions_expected_end_after_started_at_check`, and `usage_sessions_purpose_length_check`
 
-**bookings** — `id`, `machine_id`, `requested_by_user_id`, `starts_at`, `ends_at`, `status` enum (`PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | REJECTED | NO_SHOW`), `purpose`, `approved_by_user_id`, `decision_note`, `cancelled_reason`, constraint `ends_at > starts_at`
+**bookings** — `id`, `machine_id`, `requested_by_user_id`, `starts_at`, `ends_at`, `blocked_until`, `status` enum (`PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | REJECTED | NO_SHOW`), `purpose`, `approved_by_user_id`, `decision_note`, `cancelled_reason`
+- Named checks: `bookings_ends_after_starts_check`, `bookings_blocked_until_not_before_ends_check`, and `bookings_purpose_length_check`
 - **Overlap guard (raw SQL migration; requires `btree_gist`):**
   ```sql
   CREATE EXTENSION IF NOT EXISTS btree_gist;
@@ -125,10 +128,12 @@ application code must expose inserts only; the history model intentionally has n
     ADD CONSTRAINT bookings_no_overlap
     EXCLUDE USING gist (
       machine_id WITH =,
-      tstzrange(starts_at, ends_at, '[)') WITH &&
+      tstzrange(starts_at, blocked_until, '[)') WITH &&
     ) WHERE (status IN ('PENDING','CONFIRMED','IN_PROGRESS'));
   ```
-  The API catches Postgres error `23P01` (exclusion violation) and returns `409 BOOKING_CONFLICT` with the conflicting window. Buffer minutes are applied by storing `ends_at` + buffer in a separate `blocked_until` column **or** by extending the range used in the constraint (choose one in Task 1.4 and log the decision).
+  The API catches Postgres error `23P01` (exclusion violation) and returns `409 BOOKING_CONFLICT` with the conflicting window. At creation, the API stores `blocked_until = ends_at + the machine's effective buffer`; no buffer stores `blocked_until = ends_at`. This is a snapshot, so later machine-policy changes cannot retroactively create conflicts among existing bookings. It is deliberately a stored value rather than a generated expression: PostgreSQL marks `timestamptz + interval` as `STABLE`, and generated expressions require immutable functions. Task 1.4 confirmed this in the live catalog and with a rejected generated-column probe. The half-open `[)` range permits a following booking exactly at `blocked_until`.
+
+Bookings and usage sessions are records of fact and are never hard-deleted by application code. Every foreign key from these tables to machines, users, or bookings uses `ON DELETE RESTRICT`.
 
 **service_tickets** — `id`, `machine_id`, `reported_by_user_id`, `title`, `description`, `severity` (`LOW | MEDIUM | HIGH | CRITICAL`), `status` (`OPEN | ASSIGNED | IN_PROGRESS | RESOLVED | CLOSED | CANCELLED`), `assigned_to_user_id`, `type` (`FAULT | PREVENTIVE | CALIBRATION | INSPECTION`), `opened_at`, `resolved_at`, `closed_at`, `machine_out_of_service_from`, `machine_back_in_service_at`
 
@@ -149,8 +154,8 @@ application code must expose inserts only; the history model intentionally has n
 ### 3.2 Key indexes
 - `machines (department_id)`, `machines (category_id)`, `machines (condition)`, `machines (next_service_due_at)`; `pg_trgm` GIN indexes with `gin_trgm_ops` on `name`, `asset_tag`, `serial_number`
 - `machine_status_history (machine_id, created_at DESC)`
-- `bookings (machine_id, starts_at)`, `bookings (requested_by_user_id, starts_at)`, `bookings (status, starts_at)`
-- `usage_sessions (machine_id) WHERE ended_at IS NULL` (unique), `usage_sessions (user_id, started_at)`
+- `bookings_machine_id_starts_at_idx` on `bookings (machine_id, starts_at)`; `bookings_requested_by_user_id_starts_at_idx` on `(requested_by_user_id, starts_at)`; `bookings_status_starts_at_idx` on `(status, starts_at)`
+- `usage_sessions_one_open_per_machine` on `usage_sessions (machine_id) WHERE ended_at IS NULL` (unique); `usage_sessions_one_per_booking` on `(booking_id) WHERE booking_id IS NOT NULL` (unique); `usage_sessions_user_id_started_at_idx` on `(user_id, started_at)`
 - `service_tickets (machine_id, status)`, `service_tickets (assigned_to_user_id, status)`
 - `audit_logs (entity_type, entity_id, created_at)`, `notifications (user_id, read_at)`
 

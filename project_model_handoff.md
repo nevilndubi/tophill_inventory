@@ -187,7 +187,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)
 - [x] 1.2 Core tables: users, departments, locations
 - [x] 1.3 Machine tables: categories, machines, machine_status_history
-- [ ] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
+- [x] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
 - [ ] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
 - [ ] 1.6 Support tables: audit_logs, notifications, attachments, app_settings
 - [ ] 1.7 Indexes, seed script (realistic demo data), migration review
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 10 / 71 tasks (14.1%) |
-| Current phase | Phase 1 — Task 1.3 verified |
-| Last updated | 2026-10-21 14:10 EAT |
-| Branch | `main` (Task 1.3 delivered via `phase-1/task-1.3-machine-tables`) |
-| Last commit | `feat(db): add machine registry tables` |
-| Repo state | Machine/category/status-history schema, reviewed migration, Neon `dev` application, zero-drift and disposable-branch integration proofs verified |
-| **Next task** | **1.4 Usage & booking tables with overlap constraint** |
+| Overall progress | 11 / 71 tasks (15.5%) |
+| Current phase | Phase 1 — Task 1.4 verified |
+| Last updated | 2026-10-21 14:49 EAT |
+| Branch | `phase-1/task-1.4-usage-booking-tables` |
+| Last commit | `feat(db): add usage and booking constraints` |
+| Repo state | Usage/booking schema, reviewed exclusion/check/index migration, Neon `dev` application, zero-drift and disposable-branch concurrency proofs verified |
+| **Next task** | **1.5 Service tables: tickets, records and maintenance schedules** |
 
 ---
 
@@ -341,6 +341,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D29 | 2026-10-21 | Keep machine ownership and current location as independent `RESTRICT` foreign keys, allowing a machine to sit in another department's location | Shared hospital equipment can be owned centrally while deployed elsewhere | Composite foreign key forcing location department to equal owner; omit ownership |
 | D30 | 2026-10-21 | Create status-history `ticket_id` as a nullable UUID without an FK until Task 1.5, and defer role-level UPDATE/DELETE revocation to Task 10.1 while exposing history as insert-only in application code | The referenced ticket table and a least-privilege application database role do not exist yet; placeholder tables or revoking the migration owner's privileges would be premature | Create a placeholder ticket table; omit the column; revoke the owner role now |
 | D31 | 2026-10-21 | Use `pg_trgm` GIN indexes for machine name, asset tag and serial search, represented with Prisma raw operator classes as well as reviewed migration SQL | Substring `ILIKE` lookup needs indexed search, and declaring the raw operator classes prevents false Prisma drift reports | B-tree indexes; full-text vectors; raw SQL indexes omitted from the Prisma schema |
+| D32 | 2026-10-21 | Store each booking's `blocked_until` as an API-computed snapshot of `ends_at` plus the machine's effective buffer; store `ends_at` itself when no buffer applies, and constrain overlap over `tstzrange(starts_at, blocked_until, '[)')` | Existing bookings must not change when machine policy changes. PostgreSQL marks `timestamptz + interval` as `STABLE`, while generated-column expressions must be immutable; the live catalog and a rejected generated-column probe confirmed a generated calculation is invalid | Compute the buffer inside the exclusion expression; use a generated column; constrain only through `ends_at` |
+| D33 | 2026-10-21 | Treat bookings and usage sessions as non-deletable records of fact with `ON DELETE RESTRICT` relations; enforce one open session and one session per booking with named partial unique indexes, and enforce active-booking overlap with the named raw-SQL exclusion constraint | Historical records cannot disappear through parent deletion, and stable database names let later APIs map `23505`/`23P01` violations deterministically under concurrency | Cascading/set-null deletion; application-only checks; unnamed database constraints |
+| D34 | 2026-10-21 | Keep unsupported partial unique and exclusion semantics in reviewed migration SQL while Prisma models expose the closest safe relation shape (`Booking.usageSessions` remains a list) | Prisma cannot express these partial/exclusion constraints in its schema, but PostgreSQL remains authoritative and the live drift/integration checks prove the actual contract | Pretend the partial unique is a normal `@unique`; omit the database constraint; add application APIs early |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -537,10 +540,24 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.4 Usage & booking tables with overlap constraint
 - **Branch / commit:** `phase-1/task-1.3-handoff-finalize` / `docs: finalize Task 1.3 delivery`
 
+### [2026-10-21 14:49 EAT] — Task(s): 1.4 — Usage and booking tables
+- **Prompt summary:** Add usage-session and booking models with database-enforced time, buffer, uniqueness, overlap, concurrency and deletion invariants; prove the additive migration on Neon `dev` and a fresh disposable branch while keeping normal tests hermetic; complete the Git/PR lifecycle without adding APIs or later tables.
+- **What I did:** Added `BookingStatus`, `Booking` and `UsageSession` Prisma models and relations; created the additive migration with `btree_gist`, named CHECK constraints, stable indexes, partial unique indexes and `bookings_no_overlap`; added a guarded live integration suite covering data shape, all enum values, relations, time/purpose checks, half-open buffered windows, inactive statuses, update paths, non-cascading deletes and parallel conflicts; documented the exact database contract.
+- **How:** `blocked_until` is a creation-time policy snapshot and the exclusion range is half-open (D32). All parent relations restrict deletion and stable partial/exclusion constraint names are the concurrency authority (D33). Unsupported Prisma constructs remain in reviewed raw SQL and the generated relation stays conservatively plural (D34). The starting audit found clean synchronized `main` at merge `6bd6ede`, matching §9 with Task 1.4 next.
+- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021160000_usage_booking_tables/migration.sql`, `apps/api/test/integration/usage-booking-models.integration-spec.ts`, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** `20261021160000_usage_booking_tables`; reviewed as additive SQL with one enum, two tables, two database UUID defaults, eight `TIMESTAMPTZ(3)` fields, six `ON DELETE RESTRICT` foreign keys, six named CHECK constraints, three booking query indexes, one usage query index, two named partial unique indexes, `btree_gist`, and the named active-booking exclusion constraint
+- **Verification:** The live Neon catalog reported `timestamptz_pl_interval` volatility as `STABLE`, and a transaction-scoped generated-column probe was rejected with `generation expression is not immutable`. On fresh six-hour branch `ci/task-1.4-usage-booking-20261021`, all four migrations applied in order and `prisma migrate diff` printed `No difference detected.` Guarded `pnpm test:integration` passed 23/23 across three suites; separate connections produced exactly 1 success plus 19 `23P01` `bookings_no_overlap` failures and exactly 1 success plus 19 `23505` `usage_sessions_one_open_per_machine` failures. Tests also proved exact-boundary acceptance, one-millisecond overlap rejection, active-status scope, both conflict-producing UPDATE paths, checks/indexes/relations and delete restrictions. Cleanup left zero Task 1.4 rows, then the disposable branch was deleted. The migration applied to Neon `dev`; its four-migration status was current and drift was also empty. `pnpm install`, frozen install, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test` (48 tests: 37 API and 11 web), safe-localhost `pnpm build`, and `git diff --check` passed. An initial live run exposed an invalid zero-buffer fixture because Task 1.3 requires positive values; the fixture was corrected to the documented null/no-override value and the complete fresh proof passed.
+- **Result:** Task 1.4 ticked complete.
+- **Progress after this session:** 11 / 71 (15.5%)
+- **Left undone / follow-ups:** Booking/usage APIs, state transitions, seed data and Task 1.5 service tables remain out of scope. The API in Task 5.3 must calculate `blocked_until` on every booking creation/update. Existing tooling, Docker, branch-protection and PostgreSQL SSL warnings remain tracked.
+- **Next task:** 1.5 Service tables: tickets, records and maintenance schedules
+- **Branch / commit:** `phase-1/task-1.4-usage-booking-tables` / `feat(db): add usage and booking constraints`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4 migration and live integration tests are authoritative; `Booking.usageSessions` is therefore typed as a list even though the database permits at most one linked session. Task 5 booking/usage services must continue mapping the named database violations rather than relying on Prisma relation cardinality alone.
 - `machine_status_history` is append-only by schema/API design, but the current Neon owner role can still issue direct UPDATE/DELETE statements. Task 10.1 must introduce/use a least-privilege application role and revoke those privileges; migration ownership must remain separate.
 - On this workstation, Docker created and ran the Task 0.7 Redis container but the daemon rejected direct `docker compose stop` and `docker stop` signals with `permission denied`. An in-container `redis-cli shutdown nosave` stopped Redis cleanly and `docker compose down` removed the stopped container/network; investigate Docker Desktop/daemon signal permissions if the direct-stop failure recurs.
 - GitHub reports that `main` has no branch-protection rule. The CI workflow is green and the README documents the intended required `Quality` check, but GitHub does not yet enforce it; configure the rule explicitly after confirming the desired collaborator/merge policy.
@@ -594,7 +611,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Check formatting: `pnpm format:check`
 - Typecheck workspaces: `pnpm typecheck`
 - Test workspaces: `pnpm test`
-- Run guarded live database integration tests: `pnpm test:integration`
+- Run guarded live database integration tests (disposable branch only): `pnpm test:integration`
 - Generate Prisma Client: `pnpm prisma:generate`
 - Create/apply a development migration: `pnpm prisma:migrate:dev --name <migration-name>`
 - Apply committed migrations: `pnpm prisma:migrate:deploy`
