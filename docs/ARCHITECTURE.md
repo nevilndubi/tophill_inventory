@@ -95,7 +95,24 @@ or locations.
 - `deleted_at`
 - **No `is_in_use` column.** Usage is derived from `usage_sessions` (D2).
 
+Machine identity is database-owned. `asset_tag` defaults from the `machine_asset_tag_seq` sequence
+through `next_machine_asset_tag()` and is permanently unique, including after soft deletion.
+`manufacturer` and `serial_number` are both required, trimmed and lowercased by a database trigger,
+and their pair is permanently unique; a deleted machine's physical serial identity therefore cannot
+be re-registered. A machine may use a location owned by a different department because shared
+equipment placement is intentional; the department and location foreign keys remain independent.
+Nullable booking and service intervals must be positive, retirement date and condition must agree,
+and warranty expiry cannot precede commissioning when both dates are known. All machine relations
+use non-cascading `ON DELETE RESTRICT` behavior.
+
 **machine_status_history** — `id`, `machine_id`, `from_condition`, `to_condition`, `reason`, `changed_by_user_id`, `source` (`MANUAL | SERVICE_TICKET | SCHEDULE | SYSTEM`), `ticket_id` (nullable), `created_at`
+
+The first status-history record may have a null `from_condition`; subsequent records are immutable
+application history. Machine and actor foreign keys use `ON DELETE RESTRICT`. `ticket_id` is a
+nullable UUID without a foreign key until `service_tickets` is introduced in Task 1.5. The current
+owner role must retain migration privileges, so role-level `UPDATE`/`DELETE` revocation for the
+application role is deferred to the least-privilege database-role work in Task 10.1. Until then,
+application code must expose inserts only; the history model intentionally has no `updated_at`.
 
 **usage_sessions** — `id`, `machine_id`, `user_id`, `booking_id` (nullable), `started_at`, `expected_end_at` (nullable), `ended_at` (nullable), `purpose` (free text, ≤200 chars, **no patient data**), `end_note`
 - Partial unique index: **one open session per machine** → `UNIQUE (machine_id) WHERE ended_at IS NULL`
@@ -130,7 +147,8 @@ or locations.
 **app_settings** — `key` (PK), `value` (jsonb) — global defaults (max booking length, lead time, no-show grace minutes, ad-hoc checkout guard minutes)
 
 ### 3.2 Key indexes
-- `machines (department_id)`, `machines (category_id)`, `machines (condition)`, `machines (next_service_due_at)`, trigram or full-text index on `name`, `asset_tag`, `serial_number`
+- `machines (department_id)`, `machines (category_id)`, `machines (condition)`, `machines (next_service_due_at)`; `pg_trgm` GIN indexes with `gin_trgm_ops` on `name`, `asset_tag`, `serial_number`
+- `machine_status_history (machine_id, created_at DESC)`
 - `bookings (machine_id, starts_at)`, `bookings (requested_by_user_id, starts_at)`, `bookings (status, starts_at)`
 - `usage_sessions (machine_id) WHERE ended_at IS NULL` (unique), `usage_sessions (user_id, started_at)`
 - `service_tickets (machine_id, status)`, `service_tickets (assigned_to_user_id, status)`
