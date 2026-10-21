@@ -279,10 +279,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 13 / 71 tasks (18.3%) |
 | Current phase | Phase 1 — Task 1.6 verified |
-| Last updated | 2026-10-21 15:42 EAT |
-| Branch | `phase-1/task-1.6-support-tables` |
+| Last updated | 2026-10-21 15:46 EAT |
+| Branch | `main` (Task 1.6 delivered via `phase-1/task-1.6-support-tables`) |
 | Last commit | `feat(db): add support tables and safeguards` |
-| Repo state | Task 1.6 schema, reviewed migration, Neon `dev`, zero-drift and disposable-branch integration verified; commit/PR delivery pending |
+| Repo state | Task 1.6 merged by PR #14; support schema, reviewed migration, Neon `dev`, zero-drift, disposable-branch integration and hosted CI verified |
 | **Next task** | **1.7 Indexes, seed script and migration review** |
 
 ---
@@ -614,6 +614,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Left undone / follow-ups:** Task 1.7 owns seed data and final index/migration review; Tasks 3.5/6.6 own Supabase object lifecycle and polymorphic target validation; Task 5.1 owns setting value semantics; Task 9.4 owns critical preference policy; Task 10.1 owns the least-privilege application role. No seed data, auth, storage integration, delivery, audit interceptor, endpoints or jobs were added. The Neon CLI credential-output incident and existing tooling/Docker/branch-protection/Prisma/SSL warnings remain tracked.
 - **Next task:** 1.7 Indexes, seed script and migration review
 - **Branch / commit:** `phase-1/task-1.6-support-tables` / `feat(db): add support tables and safeguards`
+
+### [2026-10-21 15:46 EAT] — Task(s): 1.6 — Hosted verification and delivery
+- **Prompt summary:** Complete the Task 1.6 Git lifecycle after implementation and live-database verification.
+- **What I did:** Pushed the task branch, opened PR #14, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
+- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
+- **Files touched:** this handoff only in the follow-up; Task 1.6 implementation files were delivered by PR #14
+- **Migrations:** none in this follow-up; `20261021180000_support_tables` was already verified and delivered
+- **Verification:** GitHub `CI / Quality` completed successfully in 1m27s for PR #14; the PR merged as `fced378`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean before this append-only status correction.
+- **Result:** Task 1.6 remains complete and is now delivered on `main`.
+- **Progress after this session:** 13 / 71 (18.3%)
+- **Left undone / follow-ups:** No change from the Task 1.6 implementation entry, including the Neon password-rotation follow-up.
+- **Next task:** 1.7 Indexes, seed script and migration review
+- **Branch / commit:** `phase-1/task-1.6-handoff-finalize` / `docs: finalize Task 1.6 delivery`
 
 ---
 
