@@ -41,6 +41,7 @@ pnpm format
 pnpm format:check
 pnpm typecheck
 pnpm test
+pnpm test:integration
 pnpm prisma:generate
 pnpm prisma:migrate:dev
 pnpm prisma:migrate:deploy
@@ -78,8 +79,8 @@ docker compose down
 
 Prisma 7.10.1 generates a CommonJS client into the API source tree before every root build,
 typecheck, and test. Generation is offline; connected migration commands read `DIRECT_URL` from the
-shell or `apps/api/.env`. Task 1.1 intentionally contains no application models or seed records—the
-first migration only establishes Prisma's migration history.
+shell or `apps/api/.env`. The initial migration establishes Prisma's history, and the next migration
+adds the core users, departments, and locations schema.
 
 Use the Neon branches as follows:
 
@@ -93,6 +94,21 @@ Use the Neon branches as follows:
   and direct URL for migrations, apply committed migrations, run the explicit integration suite, and
   delete the branch when the job or pull request finishes. The default unit/e2e suite remains
   hermetic and does not contact Neon.
+
+Run the real-database suite only against a disposable Neon branch:
+
+```bash
+INTEGRATION_DATABASE_BRANCH=ci/<branch-name> \
+INTEGRATION_DATABASE_URL='<pooled ephemeral URL>' \
+DATABASE_URL='<pooled dev URL>' \
+DIRECT_URL='<direct dev URL>' \
+pnpm test:integration
+```
+
+The guard rejects missing values, non-Neon URLs, `main`, `staging`, `dev`, and an integration URL
+equal to either normal application/migration URL. The suite removes every record it creates; branch
+automation must still delete the disposable branch after the run. Never put connection strings in
+tracked files or command logs.
 
 `GET /health/ready` checks both dependencies with short bounds. A database failure returns HTTP 503
 and overall `down` because Postgres is the system of record. Redis failure alone remains HTTP 200 and

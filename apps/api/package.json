@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --testPathPatterns=src",
-    "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --testPathPatterns=test"
+    "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --testPathPatterns=test",
+    "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.integration.config.cjs --runInBand"
   },
   "dependencies": {
     "@app/shared": "workspace:*",
