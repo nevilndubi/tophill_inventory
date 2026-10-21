@@ -22,10 +22,12 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-The examples contain safe local URLs and blank placeholders only. Variables marked as required are
-validated when an app starts; variables for services introduced in later phases are optional for now
-but are validated when supplied. Keep real credentials in ignored environment files and never commit
-them.
+The examples contain safe local URLs and credential-shaped placeholders only. Variables marked as
+required are validated when an app starts; variables for services introduced in later phases remain
+optional but are validated when supplied. Replace both database placeholders with the matching Neon
+`dev` branch URLs: `DATABASE_URL` uses the pooled (`-pooler`) host for API traffic and `DIRECT_URL`
+uses the direct host for Prisma migrations. Keep real credentials in ignored environment files and
+never commit them.
 
 ## Commands
 
@@ -39,6 +41,10 @@ pnpm format
 pnpm format:check
 pnpm typecheck
 pnpm test
+pnpm prisma:generate
+pnpm prisma:migrate:dev
+pnpm prisma:migrate:deploy
+pnpm db:seed
 ```
 
 TypeScript is strict across every workspace. ESLint and Prettier run repository-wide, and Husky
@@ -67,6 +73,30 @@ in-memory stand-in and never require Docker.
 docker compose stop redis
 docker compose down
 ```
+
+## Prisma and Neon
+
+Prisma 7.10.1 generates a CommonJS client into the API source tree before every root build,
+typecheck, and test. Generation is offline; connected migration commands read `DIRECT_URL` from the
+shell or `apps/api/.env`. Task 1.1 intentionally contains no application models or seed records—the
+first migration only establishes Prisma's migration history.
+
+Use the Neon branches as follows:
+
+- `main` is production. Only the deployment pipeline applies reviewed migrations here before new API
+  traffic is switched over.
+- `staging` backs the staging API slot. Apply the same committed migrations with
+  `pnpm prisma:migrate:deploy` before staging verification.
+- `dev` is the long-lived development branch. Create migrations here with
+  `pnpm prisma:migrate:dev -- --name <migration-name>` and commit the generated SQL.
+- CI database integration jobs create an ephemeral branch from `dev`, use its pooled URL for runtime
+  and direct URL for migrations, apply committed migrations, run the explicit integration suite, and
+  delete the branch when the job or pull request finishes. The default unit/e2e suite remains
+  hermetic and does not contact Neon.
+
+`GET /health/ready` checks both dependencies with short bounds. A database failure returns HTTP 503
+and overall `down` because Postgres is the system of record. Redis failure alone remains HTTP 200 and
+`degraded`.
 
 ## Continuous integration
 

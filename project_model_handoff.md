@@ -184,7 +184,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 0.7 Local dev services (docker-compose Redis) + Redis module skeleton & health check
 
 ### Phase 1 — Database & Schema
-- [ ] 1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)
+- [x] 1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)
 - [ ] 1.2 Core tables: users, departments, locations
 - [ ] 1.3 Machine tables: categories, machines, machine_status_history
 - [ ] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 7 / 71 tasks (9.9%) |
-| Current phase | Phase 0 complete — Task 0.7 verified |
-| Last updated | 2026-10-20 20:02 EAT |
-| Branch | `main` (Task 0.7 delivered via `phase-0/task-0.7-local-redis`) |
-| Last commit | `feat(api): add resilient Redis foundation` |
-| Repo state | Phase 0 complete; local Redis, non-blocking API integration, degraded readiness and hermetic test coverage verified; task PR merged with green CI |
-| **Next task** | **1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)** |
+| Overall progress | 8 / 71 tasks (11.3%) |
+| Current phase | Phase 1 — Task 1.1 verified |
+| Last updated | 2026-10-21 13:13 EAT |
+| Branch | `main` (Task 1.1 delivered via `phase-1/task-1.1-prisma-neon`) |
+| Last commit | `feat(api): add Prisma and Neon foundation` |
+| Repo state | Prisma/Neon foundation, empty migration, bounded database readiness and hermetic test coverage verified; task PR merged with green CI |
+| **Next task** | **1.2 Core tables: users, departments, locations** |
 
 ---
 
@@ -327,6 +327,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D18 | 2026-10-20 | The engineering agent owns the routine Git lifecycle: sync `main`, create task branches, make conventional commits, push, open and update pull requests, monitor required checks, merge with a merge commit when green, and resync local `main` | Keeps implementation and its verification/merge lifecycle together while preserving reviewable branches and CI evidence | Continue requiring manual owner pushes/merges; push task changes directly to `main` |
 | D19 | 2026-10-20 | Redis uses a local `redis://127.0.0.1:6379` development default, while production requires an explicit `rediss://` URL and enables TLS; connection starts in the background with the offline queue disabled, 1-second operation bounds and reconnect delay capped at 2 seconds | Local setup stays zero-secret and convenient, production transport cannot silently downgrade, and Redis can neither block API boot nor hang readiness | Require Redis in every environment; allow plaintext production Redis; await connection during API startup |
 | D20 | 2026-10-20 | Redis tests remain service-independent: connected behavior uses an in-memory stand-in, while unavailable behavior uses an owned real ioredis client pointed at an unreachable local port with retries disabled | `pnpm test` and CI remain deterministic without Docker while still exercising ioredis failure behavior and ensuring network handles are closed | Add a Redis CI service container; rely on a developer's Docker service; mock both success and failure paths |
+| D21 | 2026-10-21 | Pin stable Prisma 7.10.1; generate the `prisma-client` output as CommonJS in the API source tree and use `@prisma/adapter-pg`; `prisma7.config.ts` reads `DIRECT_URL` while runtime reads pooled `DATABASE_URL` | Current official Prisma 7 documentation requires a driver adapter and explicit output, supports CommonJS for this Nest build, and Prisma 8 was still a release candidate; separating CLI/runtime URLs preserves the required Neon connection roles | Install the Prisma 8 release candidate; use deprecated `prisma-client-js`; use the pooled URL for migrations; convert the API to ESM |
+| D22 | 2026-10-21 | Database connection starts in the background and health queries are bounded to one second; database failure makes readiness HTTP 503/`down`, while Redis-only failure remains HTTP 200/`degraded` | Neon is the system of record, but an outage must not prevent liveness or make readiness hang; Redis remains optional infrastructure | Block API boot on Postgres; report database failure as degraded; leave readiness HTTP status always 200 |
+| D23 | 2026-10-21 | Keep default Jest/Vitest/CI checks database-free with safe localhost URLs and mocked Prisma health; generate Prisma Client automatically before root build, typecheck and test | Fresh clones remain deterministic without developer credentials or external services, while live migrations and database readiness are verified through an explicit Neon path | Run every test against Neon; commit generated Prisma Client; require manual generation after checkout |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -471,6 +474,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.1 Prisma + Neon setup
 - **Branch / commit:** `phase-0/task-0.7-local-redis` / `feat(api): add resilient Redis foundation`
 
+### [2026-10-21 13:13 EAT] — Task(s): 1.1 — Prisma and Neon foundation
+- **Prompt summary:** Add the supported current Prisma/Neon setup, global Nest lifecycle integration, an empty migration, bounded database readiness, hermetic tests, branch documentation, live Neon proof and the complete Git/PR lifecycle without starting the domain schema.
+- **What I did:** Added Prisma 7.10.1 configuration/schema/empty migration/no-op seed, a global `PrismaModule` and `PrismaService`, required pooled/direct database environment variables, automatic client generation, database-aware readiness and unit/e2e coverage. Renamed the Neon default branch to `main`, created `dev` and `staging`, and documented long-lived plus ephemeral CI branch use.
+- **How:** Prisma Client uses `@prisma/adapter-pg` and pooled `DATABASE_URL`; Prisma CLI uses direct `DIRECT_URL` (D21). Connection startup is non-blocking, the query/pool bounds are one second, and database failure returns HTTP 503 `down` without affecting liveness (D22). Tests override Prisma and use localhost placeholders; generation runs before build/typecheck/test (D23). The starting audit found clean synchronized `main` at `ccb3e7d`, matching §9 with Task 1.1 next.
+- **Files touched:** root Prisma config/schema/migration/seed, root scripts/config/lockfile, API Prisma module/service/tests, health controller/service/tests, environment examples/schema/test setup, CI build environment, README, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** `20261021131500_initial` (empty foundation migration), applied successfully to the Neon `dev` branch; Prisma migration status reported up to date
+- **Verification:** Official Prisma 7 and Neon guidance was checked before installation. `pnpm install` and `pnpm install --frozen-lockfile` passed. `pnpm prisma:generate` generated Prisma Client 7.10.1; removing the ignored generated directory and running `pnpm typecheck` recreated it automatically and passed. The full `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, plain `pnpm test`, and localhost-env `pnpm build` sequence passed; 40 tests passed (29 API, 11 web). `pnpm db:seed` ran the intentional no-op seed. Against live Neon `dev` plus Docker Redis, compiled `/health/ready` returned HTTP 200 in 0.981s with database/Redis `up`; with an unreachable database it returned HTTP 503 in 0.013s with database `down`, while `/health` stayed 200. Git ignore/tracking and credential scans found no real connection values; `git diff --check` passed. Local `actionlint` was unavailable; the hosted workflow result remains the final workflow proof.
+- **Result:** Task 1.1 ticked complete after the migration, live readiness, resilience and repository checks passed.
+- **Progress after this session:** 8 / 71 (11.3%)
+- **Left undone / follow-ups:** Task 1.2 owns the first domain tables and enums. No domain models, real seed records, auth, repositories or application features were added. Existing tooling warnings, Docker direct-stop behavior and missing `main` branch protection remain tracked.
+- **Next task:** 1.2 Core tables: users, departments, locations
+- **Branch / commit:** `phase-1/task-1.1-prisma-neon` / `feat(api): add Prisma and Neon foundation`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -495,8 +511,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | `NODE_ENV` | api | No (defaults to `development`) | Selects environment-specific validation; production enforces TLS Redis |
 | `PORT` | api | No (defaults to `3001`) | API listening port |
 | `WEB_ORIGIN` | api | Yes | Web origin; used for the CORS allow-list in Task 0.4 |
-| `DATABASE_URL` | api | No (Phase 1.1) | Neon **pooled** connection string (runtime) |
-| `DIRECT_URL` | api / prisma | No (Phase 1.1) | Neon **direct** connection string (migrations) |
+| `DATABASE_URL` | api | Yes | Neon **pooled** connection string (runtime and readiness) |
+| `DIRECT_URL` | api / prisma | Yes | Neon **direct** connection string (migrations and CLI operations) |
 | `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
 | `SUPABASE_URL` | api, web server | No (Phase 2) | Supabase project URL |
 | `SUPABASE_ANON_KEY` | web server | No (Phase 2) | Future Supabase client key; not exposed to client code in Task 0.3 |
@@ -524,6 +540,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Check formatting: `pnpm format:check`
 - Typecheck workspaces: `pnpm typecheck`
 - Test workspaces: `pnpm test`
+- Generate Prisma Client: `pnpm prisma:generate`
+- Create/apply a development migration: `pnpm prisma:migrate:dev -- --name <migration-name>`
+- Apply committed migrations: `pnpm prisma:migrate:deploy`
+- Run the seed command: `pnpm db:seed`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`
@@ -536,7 +556,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`
 
-**Neon branches:** `main` (production), `staging`, `dev`; CI uses ephemeral branches.
+**Neon branches:** `main` (production), `staging`, `dev`; explicit database integration jobs create ephemeral branches from `dev` and remove them after the run. Default unit/e2e tests use localhost placeholders and never connect to Neon.
 
 **Services running locally:** Redis via `docker compose up -d redis` on `127.0.0.1:6379` (stopped after verification).
 

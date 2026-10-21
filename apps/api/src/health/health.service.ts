@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 type LivenessStatus = {
@@ -7,17 +8,20 @@ type LivenessStatus = {
 };
 
 type ReadinessStatus = {
-  status: 'ok' | 'degraded';
+  status: 'ok' | 'degraded' | 'down';
   timestamp: string;
   checks: {
-    database: 'not_configured';
+    database: 'up' | 'down';
     redis: 'up' | 'down';
   };
 };
 
 @Injectable()
 export class HealthService {
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly database: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   getLiveness(): LivenessStatus {
     return {
@@ -27,15 +31,20 @@ export class HealthService {
   }
 
   async getReadiness(): Promise<ReadinessStatus> {
-    const redisIsReady = await this.redis.ping();
+    const [databaseIsReady, redisIsReady] = await Promise.all([
+      this.database.ping(),
+      this.redis.ping(),
+    ]);
+
+    const status = !databaseIsReady ? 'down' : redisIsReady ? 'ok' : 'degraded';
 
     return {
       ...this.getLiveness(),
       checks: {
-        database: 'not_configured',
+        database: databaseIsReady ? 'up' : 'down',
         redis: redisIsReady ? 'up' : 'down',
       },
-      status: redisIsReady ? 'ok' : 'degraded',
+      status,
     };
   }
 }

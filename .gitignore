@@ -8,6 +8,7 @@ dist/
 coverage/
 *.tsbuildinfo
 apps/web/.artifacts/
+apps/api/src/generated/prisma/
 
 # Environment files (examples stay tracked)
 .env
