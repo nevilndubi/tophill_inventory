@@ -185,7 +185,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 1 — Database & Schema
 - [x] 1.1 Prisma + Neon setup (pooled runtime URL, direct migration URL, branch strategy)
-- [ ] 1.2 Core tables: users, departments, locations
+- [x] 1.2 Core tables: users, departments, locations
 - [ ] 1.3 Machine tables: categories, machines, machine_status_history
 - [ ] 1.4 Usage & booking tables incl. `EXCLUDE` constraint (raw SQL migration)
 - [ ] 1.5 Service tables: service_tickets, service_records, maintenance_schedules
@@ -277,13 +277,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 8 / 71 tasks (11.3%) |
-| Current phase | Phase 1 — Task 1.1 verified |
-| Last updated | 2026-10-21 13:13 EAT |
-| Branch | `main` (Task 1.1 delivered via `phase-1/task-1.1-prisma-neon`) |
-| Last commit | `feat(api): add Prisma and Neon foundation` |
-| Repo state | Prisma/Neon foundation, empty migration, bounded database readiness and hermetic test coverage verified; task PR merged with green CI |
-| **Next task** | **1.2 Core tables: users, departments, locations** |
+| Overall progress | 9 / 71 tasks (12.7%) |
+| Current phase | Phase 1 — Task 1.2 verified |
+| Last updated | 2026-10-21 13:37 EAT |
+| Branch | `main` (Task 1.2 delivered via `phase-1/task-1.2-core-tables`) |
+| Last commit | `feat(db): add core user department and location tables` |
+| Repo state | Core users/departments/locations schema, reviewed migration, guarded live integration suite and fresh-branch proof verified |
+| **Next task** | **1.3 Machine tables** |
 
 ---
 
@@ -330,6 +330,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D21 | 2026-10-21 | Pin stable Prisma 7.10.1; generate the `prisma-client` output as CommonJS in the API source tree and use `@prisma/adapter-pg`; `prisma7.config.ts` reads `DIRECT_URL` while runtime reads pooled `DATABASE_URL` | Current official Prisma 7 documentation requires a driver adapter and explicit output, supports CommonJS for this Nest build, and Prisma 8 was still a release candidate; separating CLI/runtime URLs preserves the required Neon connection roles | Install the Prisma 8 release candidate; use deprecated `prisma-client-js`; use the pooled URL for migrations; convert the API to ESM |
 | D22 | 2026-10-21 | Database connection starts in the background and health queries are bounded to one second; database failure makes readiness HTTP 503/`down`, while Redis-only failure remains HTTP 200/`degraded` | Neon is the system of record, but an outage must not prevent liveness or make readiness hang; Redis remains optional infrastructure | Block API boot on Postgres; report database failure as degraded; leave readiness HTTP status always 200 |
 | D23 | 2026-10-21 | Keep default Jest/Vitest/CI checks database-free with safe localhost URLs and mocked Prisma health; generate Prisma Client automatically before root build, typecheck and test | Fresh clones remain deterministic without developer credentials or external services, while live migrations and database readiness are verified through an explicit Neon path | Run every test against Neon; commit generated Prisma Client; require manual generation after checkout |
+| D24 | 2026-10-21 | Core model IDs are PostgreSQL-generated UUIDs using `gen_random_uuid()`; every timestamp uses `timestamptz(3)`, and Prisma `@updatedAt` owns automatic application-write timestamps | Database-generated IDs work consistently for Prisma and direct SQL writers, while one explicit UTC precision avoids timestamp drift | Prisma-generated UUIDs; UUID v7; database update triggers for all timestamps |
+| D25 | 2026-10-21 | Normalize user email to lowercase in a database trigger and enforce uniqueness with an index on `lower(email)`; membership/location foreign keys restrict department deletion and manager deletion sets the manager reference to null | The database guarantees case-insensitive identity and predictable non-cascading deletion regardless of write path | Application-only normalization; `citext`; cascading deletes; nullable membership on department deletion |
+| D26 | 2026-10-21 | Real core-model tests run only through `pnpm test:integration` against a dedicated `ci/`, `test/`, or `ephemeral/` Neon branch; the guard rejects long-lived/equal URLs and tests delete only their own generated records | Default CI remains hermetic and the explicit suite cannot accidentally target `main`, `staging`, `dev`, or the configured application/migration database | Put Neon in the default Jest suite; rely on naming convention without a guard; run against long-lived `dev` |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -487,6 +490,19 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Next task:** 1.2 Core tables: users, departments, locations
 - **Branch / commit:** `phase-1/task-1.1-prisma-neon` / `feat(api): add Prisma and Neon foundation`
 
+### [2026-10-21 13:37 EAT] — Task(s): 1.2 — Core users, departments and locations
+- **Prompt summary:** Add the first domain schema and reviewed migration, prove its constraints and relations against Neon `dev` and a fresh disposable branch, preserve hermetic defaults, and complete the Git/PR lifecycle without starting machine tables.
+- **What I did:** Added the `Role` enum and mapped `User`, `Department`, and `Location` Prisma models; added the first domain migration, lowercase-email trigger/index, explicit integration command/configuration, safety guard and live constraint/relation tests. Updated architecture, setup examples and commands.
+- **How:** IDs are database-generated UUIDs and all timestamps use `timestamptz(3)` with Prisma-managed `updated_at` (D24). Database email normalization plus a functional unique index makes email identity case-insensitive; named relations use `RESTRICT` for membership/locations and `SET NULL` for managers (D25). Live tests require a disposable Neon target distinct from all long-lived URLs and clean up their run-scoped rows (D26). The starting audit found clean synchronized `main` at `b6b30fa`, matching §9 with Task 1.2 next.
+- **Files touched:** `prisma/schema.prisma`, `prisma/migrations/20261021140000_core_tables/migration.sql`, root/API package scripts, API integration Jest config/guard/tests, API env example, README, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** `20261021140000_core_tables`; reviewed with no destructive SQL, three `gen_random_uuid()` defaults, seven `TIMESTAMPTZ(3)` fields, explicit `RESTRICT`/`SET NULL` actions, and applied after `20261021131500_initial`
+- **Verification:** `pnpm install` and `pnpm install --frozen-lockfile` passed with the tracked pnpm warning. `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, hermetic `pnpm test`, and the safe-localhost `pnpm build` passed; the default suite ran 48 tests (37 API, 11 web) without Neon. On a fresh six-hour Neon branch created from `main`, `prisma migrate deploy` applied `initial` then `core_tables`, migration status was current, and `pnpm test:integration` passed all five live tests covering reads, `updated_at`, every unique constraint, lowercase/case-insensitive email, named relations and required delete behavior. Post-test counts were zero and the branch was deleted. The reviewed domain migration then applied to `dev`, whose migration table reports both migrations complete. A negative integration invocation exited 1 before connecting because its URL equalled `DATABASE_URL`. The first disposable attempt exposed migration-directory ordering and the default five-second Jest timeout; that branch was deleted, the timestamp/explicit timeout were corrected, and the full fresh proof was rerun successfully.
+- **Result:** Task 1.2 ticked complete.
+- **Progress after this session:** 9 / 71 (12.7%)
+- **Left undone / follow-ups:** Machine/category/history tables remain exclusively in Task 1.3. No auth, provisioning, CRUD endpoints or seed data was added. Existing tooling/Docker/branch-protection issues remain; the integration-only PostgreSQL SSL warning is now tracked.
+- **Next task:** 1.3 Machine tables
+- **Branch / commit:** `phase-1/task-1.2-core-tables` / `feat(db): add core user department and location tables`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -498,6 +514,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Next.js 16.4.2 development startup can print `Ready` immediately before `next.config.ts` environment validation reports an error. The process still exits with code 1 and lists all invalid variables; this is an output-order quirk, not a bypass of validation.
 - Jest 30 runs the NestJS 12 ESM packages with Node's `--experimental-vm-modules`, so Node 24 prints a non-fatal experimental-feature warning during tests. All unit/e2e tests pass; reassess when Jest's ESM runtime no longer requires the flag.
 - The Task 0.4 test dependency tree currently reports deprecated transitive `glob@10.5.0`. It is not a direct dependency and does not affect the passing test suite; monitor upstream Jest tooling releases.
+- Live Neon integration currently emits a `pg-connection-string` warning that `sslmode=require` is treated as `verify-full` today but will adopt weaker libpq semantics in its next major version. Current TLS verification remains strict; before upgrading to `pg` 9 / `pg-connection-string` 3, change managed connection URLs to explicit `sslmode=verify-full` or deliberately opt into libpq compatibility.
 - **Resolved in Task 0.6:** plain `pnpm test` previously required a developer-provided `WEB_ORIGIN` and could also pass locally only because ignored `@app/shared` output already existed. Test setup now owns safe required URLs, and the root test command builds shared first; a clean staged-tree export passes with no `.env` files.
 
 ---
@@ -513,6 +530,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | `WEB_ORIGIN` | api | Yes | Web origin; used for the CORS allow-list in Task 0.4 |
 | `DATABASE_URL` | api | Yes | Neon **pooled** connection string (runtime and readiness) |
 | `DIRECT_URL` | api / prisma | Yes | Neon **direct** connection string (migrations and CLI operations) |
+| `INTEGRATION_DATABASE_URL` | api integration tests | Explicit suite only | Pooled URL for a dedicated disposable Neon branch; must differ from normal database URLs |
+| `INTEGRATION_DATABASE_BRANCH` | api integration tests | Explicit suite only | Dedicated branch name beginning `ci/`, `test/`, or `ephemeral/`; long-lived branches are rejected |
 | `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
 | `SUPABASE_URL` | api, web server | No (Phase 2) | Supabase project URL |
 | `SUPABASE_ANON_KEY` | web server | No (Phase 2) | Future Supabase client key; not exposed to client code in Task 0.3 |
@@ -540,8 +559,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Check formatting: `pnpm format:check`
 - Typecheck workspaces: `pnpm typecheck`
 - Test workspaces: `pnpm test`
+- Run guarded live database integration tests: `pnpm test:integration`
 - Generate Prisma Client: `pnpm prisma:generate`
-- Create/apply a development migration: `pnpm prisma:migrate:dev -- --name <migration-name>`
+- Create/apply a development migration: `pnpm prisma:migrate:dev --name <migration-name>`
 - Apply committed migrations: `pnpm prisma:migrate:deploy`
 - Run the seed command: `pnpm db:seed`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
@@ -556,7 +576,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`
 
-**Neon branches:** `main` (production), `staging`, `dev`; explicit database integration jobs create ephemeral branches from `dev` and remove them after the run. Default unit/e2e tests use localhost placeholders and never connect to Neon.
+**Neon branches:** `main` (production), `staging`, `dev`; explicit database integration jobs create dedicated ephemeral branches, apply reviewed migrations, and remove the branches after the run. `INTEGRATION_DATABASE_BRANCH` and `INTEGRATION_DATABASE_URL` are guarded so the suite cannot use a long-lived or normally configured database. Default unit/e2e tests use localhost placeholders and never connect to Neon.
 
 **Services running locally:** Redis via `docker compose up -d redis` on `127.0.0.1:6379` (stopped after verification).
 

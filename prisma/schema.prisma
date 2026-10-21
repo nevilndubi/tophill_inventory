@@ -7,3 +7,63 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  BIOMED_TECH
+  DEPT_MANAGER
+  STAFF
+  VIEWER
+
+  @@map("user_role")
+}
+
+model User {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supabaseUserId     String       @unique(map: "users_supabase_user_id_key") @map("supabase_user_id") @db.Uuid
+  email              String
+  fullName           String       @map("full_name")
+  role               Role
+  departmentId       String?      @map("department_id") @db.Uuid
+  phone              String?
+  isActive           Boolean      @default(true) @map("is_active")
+  lastLoginAt        DateTime?    @map("last_login_at") @db.Timestamptz(3)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  department         Department?  @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  managedDepartments Department[] @relation("DepartmentManager")
+
+  @@index([departmentId], map: "users_department_id_idx")
+  @@map("users")
+}
+
+model Department {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String     @unique(map: "departments_name_key")
+  code          String     @unique(map: "departments_code_key")
+  managerUserId String?    @map("manager_user_id") @db.Uuid
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  manager       User?      @relation("DepartmentManager", fields: [managerUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  members       User[]     @relation("DepartmentMembers")
+  locations     Location[]
+
+  @@index([managerUserId], map: "departments_manager_user_id_idx")
+  @@map("departments")
+}
+
+model Location {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId String     @map("department_id") @db.Uuid
+  name         String
+  building     String?
+  floor        String?
+  room         String?
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([departmentId, name], map: "locations_department_id_name_key")
+  @@map("locations")
+}
