@@ -16,6 +16,9 @@
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "zod": "4.6.7"
+  },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
