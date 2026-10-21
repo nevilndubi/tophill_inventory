@@ -46,6 +46,8 @@ pnpm prisma:generate
 pnpm prisma:migrate:dev
 pnpm prisma:migrate:deploy
 pnpm db:seed
+pnpm db:seed:verify
+pnpm db:index-review
 ```
 
 TypeScript is strict across every workspace. ESLint and Prettier run repository-wide, and Husky
@@ -109,6 +111,25 @@ The guard rejects missing values, non-Neon URLs, `main`, `staging`, `dev`, and a
 equal to either normal application/migration URL. The suite removes every record it creates; branch
 automation must still delete the disposable branch after the run. Never put connection strings in
 tracked files or command logs.
+
+### Demo seed data
+
+`pnpm db:seed` loads deterministic demonstration data only when all three safety confirmations are
+present: `SEED_ALLOWED_BRANCH`, an exact `SEED_ALLOWED_HOST` match, and
+`SEED_PROTECTED_HOSTS` containing the production `main` and `staging` hosts. The command rejects
+`main`, `staging`, mismatched hosts, and every CI environment before connecting. It is safe to rerun:
+fixed identifiers and upserts refresh relative demo dates without duplicating records. Seed users
+use reserved `@example.invalid` addresses, have no Supabase identity, and cannot sign in; Task 2.2
+replaces or links them.
+
+Never print or echo a database URL or password. The Task 1.7 Neon helper invokes branch creation
+with `--no-secrets`, captures connection strings only in child-process memory, and prints only safe
+branch metadata and command results. `prisma migrate reset` is destructive and is development-only;
+never run it against `main` or `staging`.
+
+`pnpm db:seed:verify` checks the seeded counts and consistency. `pnpm db:index-review` additionally
+proves asset-tag sequence continuity and runs the documented EXPLAIN review using temporary rows
+inside a rolled-back transaction. Both commands require the same seed safety variables.
 
 `GET /health/ready` checks both dependencies with short bounds. A database failure returns HTTP 503
 and overall `down` because Postgres is the system of record. Redis failure alone remains HTTP 200 and

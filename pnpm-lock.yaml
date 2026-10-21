@@ -17,9 +17,15 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.13.0(jiti@2.7.0))
+      '@prisma/adapter-pg':
+        specifier: 7.10.1
+        version: 7.10.1
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
+      '@types/pg':
+        specifier: 8.16.0
+        version: 8.16.0
       dotenv:
         specifier: 18.0.8
         version: 18.0.8
@@ -38,6 +44,9 @@ importers:
       lint-staged:
         specifier: 17.6.0
         version: 17.6.0
+      pg:
+        specifier: 8.16.3
+        version: 8.16.3
       prettier:
         specifier: 3.9.10
         version: 3.9.10
