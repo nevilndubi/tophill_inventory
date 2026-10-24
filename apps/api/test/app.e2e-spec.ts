@@ -1,9 +1,12 @@
 import { Body, Controller, Post, type INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { jest } from '@jest/globals';
 import request from 'supertest';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module';
+import { JwtVerifierService } from '../src/auth/jwt-verifier.service';
+import { UserSessionService } from '../src/auth/user-session.service';
 import { configureApplication } from '../src/bootstrap/configure-application';
 import { createZodDto } from '../src/common/validation/zod-dto';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -11,6 +14,17 @@ import { REDIS_CLIENT } from '../src/redis/redis.constants';
 import { RedisService } from '../src/redis/redis.service';
 
 class ValidationFixtureDto extends createZodDto(z.object({ name: z.string().min(1) }).strict()) {}
+
+const AUTHORIZATION =
+  'Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3QifQ.eyJzdWIiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEifQ.c2lnbmF0dXJl';
+const authenticatedUser = {
+  department: null,
+  email: 'staff@hospital.test',
+  fullName: 'Hospital Staff',
+  id: '22222222-2222-4222-8222-222222222222',
+  isActive: true,
+  role: 'STAFF' as const,
+};
 
 @Controller('validation-fixture')
 class ValidationFixtureController {
@@ -40,6 +54,10 @@ describe('API bootstrap (e2e)', () => {
       .useValue(unavailableRedis)
       .overrideProvider(PrismaService)
       .useValue(availableDatabase)
+      .overrideProvider(JwtVerifierService)
+      .useValue({ verify: jest.fn(async () => ({ subject: 'auth-subject' })) })
+      .overrideProvider(UserSessionService)
+      .useValue({ resolve: jest.fn(async () => authenticatedUser) })
       .compile();
 
     app = moduleRef.createNestApplication({ bufferLogs: true });
@@ -94,6 +112,10 @@ describe('API bootstrap (e2e)', () => {
       .useValue(connectedRedis)
       .overrideProvider(PrismaService)
       .useValue(availableDatabase)
+      .overrideProvider(JwtVerifierService)
+      .useValue({ verify: jest.fn(async () => ({ subject: 'auth-subject' })) })
+      .overrideProvider(UserSessionService)
+      .useValue({ resolve: jest.fn(async () => authenticatedUser) })
       .compile();
     const connectedApp = moduleRef.createNestApplication({ bufferLogs: true });
     configureApplication(connectedApp);
@@ -134,6 +156,10 @@ describe('API bootstrap (e2e)', () => {
       .useValue(connectedRedis)
       .overrideProvider(PrismaService)
       .useValue(unavailableDatabase)
+      .overrideProvider(JwtVerifierService)
+      .useValue({ verify: jest.fn(async () => ({ subject: 'auth-subject' })) })
+      .overrideProvider(UserSessionService)
+      .useValue({ resolve: jest.fn(async () => authenticatedUser) })
       .compile();
     const databaseDownApp = moduleRef.createNestApplication({ bufferLogs: true });
     configureApplication(databaseDownApp);
@@ -163,7 +189,10 @@ describe('API bootstrap (e2e)', () => {
   });
 
   it('does not expose health below the versioned API prefix', async () => {
-    const response = await request(app.getHttpServer()).get('/api/v1/health').expect(404);
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/health')
+      .set('Authorization', AUTHORIZATION)
+      .expect(404);
 
     expect(response.body.error).toMatchObject({
       code: 'NOT_FOUND',
@@ -175,6 +204,7 @@ describe('API bootstrap (e2e)', () => {
     const requestId = 'validation-e2e-request';
     const response = await request(app.getHttpServer())
       .post('/api/v1/validation-fixture')
+      .set('Authorization', AUTHORIZATION)
       .set('x-request-id', requestId)
       .send({ unexpected: true })
       .expect(400);
@@ -198,6 +228,7 @@ describe('API bootstrap (e2e)', () => {
   it('wraps successful versioned responses', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/validation-fixture')
+      .set('Authorization', AUTHORIZATION)
       .send({ name: 'Infusion Pump' })
       .expect(201);
 
@@ -211,5 +242,34 @@ describe('API bootstrap (e2e)', () => {
     expect(htmlResponse.text).toContain('Swagger UI');
     expect(jsonResponse.body.info.title).toBe('Tophill Inventory API');
     expect(jsonResponse.body.paths).toHaveProperty('/health');
+    expect(jsonResponse.body.components.securitySchemes.supabase).toMatchObject({
+      bearerFormat: 'JWT',
+      scheme: 'bearer',
+      type: 'http',
+    });
+  });
+
+  it('does not mount Swagger in production', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              ({ NODE_ENV: 'production', WEB_ORIGIN: 'http://127.0.0.1:3000' })[key],
+          },
+        },
+      ],
+    }).compile();
+    const productionApp = moduleRef.createNestApplication();
+    configureApplication(productionApp);
+    await productionApp.init();
+
+    try {
+      await request(productionApp.getHttpServer()).get('/api/docs').expect(404);
+      await request(productionApp.getHttpServer()).get('/api/docs-json').expect(404);
+    } finally {
+      await productionApp.close();
+    }
   });
 });

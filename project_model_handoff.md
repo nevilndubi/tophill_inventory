@@ -196,7 +196,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 2 — Authentication & Authorization
 - [x] 2.1 Supabase Auth project setup & config
-- [ ] 2.2 API JWT guard (JWKS verification) + local user provisioning/sync
+- [x] 2.2 API JWT guard (JWKS verification) + local user provisioning/sync
 - [ ] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
 - [ ] 2.4 Web auth: login/logout, session handling, route protection
 - [ ] 2.5 User management (invite, assign role/department, deactivate)
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 15 / 71 tasks (21.1%) |
-| Current phase | Phase 2 — Task 2.1 delivered |
-| Last updated | 2026-10-24 11:18 EAT |
-| Branch | `main` (Task 2.1 delivered via `phase-2/task-2.1-supabase-auth`) |
-| Last commit | `feat(auth): configure Supabase Auth foundation` |
-| Repo state | Task 2.1 merged by PR #18 as `43748fa`; local/hosted Auth proofs, browser-secret checks and GitHub `Quality` CI are green; local `main` synchronized and clean before this handoff-only update |
-| **Next task** | **2.2 API JWT guard and user provisioning** |
+| Overall progress | 16 / 71 tasks (22.5%) |
+| Current phase | Phase 2 — Task 2.2 complete; delivery pending |
+| Last updated | 2026-10-24 15:13 EAT |
+| Branch | `phase-2/task-2.2-api-jwt-guard` |
+| Last commit | `feat(auth): add Supabase JWT guard` (pending) |
+| Repo state | Task 2.2 implementation, hermetic suite, negative route-coverage proof, live sequential/concurrent disposable-Neon bootstrap proofs and long-lived-branch isolation checks are green; commit/PR/CI/merge remain in this turn |
+| **Next task** | **2.3 RBAC** |
 
 ---
 
@@ -298,9 +298,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Add a booking `needs_attention` marker/reason migration in Task 6.5 when service outages are coupled to affected bookings.
 - Enforce append-only `machine_status_history` and `audit_logs` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges and can disable the audit trigger.
 - In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
-- In Task 2.2, replace or link the six `@example.invalid` seed placeholders during real Supabase provisioning; until then their null Supabase identities and seed-data check keep them unable to sign in.
+- In Task 2.5, create real invited-user rows with Supabase identities; the six `@example.invalid` seed placeholders remain inert examples and are never linked or promoted.
 - Before inviting real users in Task 2.5, configure custom SMTP using the Resend capability planned for Phase 9; Supabase's built-in sender is rate-limited and unsuitable for staff invitations. Task 2.5 owns the invitation flow itself.
-- In Task 2.2, add a documented one-off bootstrap using `BOOTSTRAP_SUPER_ADMIN_EMAIL` to create/link the first real, non-seed SUPER_ADMIN row; never promote or reuse a seed placeholder.
+- After Task 2.4 supplies web login, bootstrap the owner's real first SUPER_ADMIN once against `dev` using `BOOTSTRAP_SUPER_ADMIN_EMAIL` in the API's own ignored `.env`, not the task credential file; repeat once for production using its deployment secret store, then remove the setting in each environment.
 - When staging and production domains exist, add their exact Supabase Site/redirect URLs and verify each environment; do not add wildcard Vercel preview redirects.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
@@ -366,6 +366,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D46 | 2026-10-21 | Keep the Task 1.1–1.6 index set unchanged after EXPLAIN review: the realistic 3,000-machine fixture used an intended existing index for all five primary query shapes | An initial all-in-one-department fixture caused an artificial sequential scan; distributing equipment realistically removed it, so adding an index would be speculative | Add a composite machine-list index based on the unrealistic fixture; force index use |
 | D47 | 2026-10-24 | Use modern Supabase publishable/secret keys and asymmetric ES256 signing with JWKS discovery; derive issuer and JWKS URLs from `SUPABASE_URL` and store no shared JWT secret | Current Supabase guidance gives independently rotatable keys and asymmetric verification avoids distributing a signing secret; the live token's `kid` matched the hosted JWKS | Legacy `anon`/`service_role` JWT keys; HS256 shared secret; manually unrelated issuer/JWKS values |
 | D48 | 2026-10-24 | Use invite-only confirmed email/password Auth with public and anonymous sign-up disabled; omit magic-link UI, keep the API secret server-only and expose only the publishable key/URL to the browser | This is the documented initial flow, prevents uncontrolled accounts, and keeps privileged credentials outside Next.js assets; real invitations wait for custom SMTP and Task 2.5 | Public registration; magic-link-first login; browser service key; send real invitations through the built-in test sender |
+| D49 | 2026-10-24 | Resolve authenticated users only by an existing non-seed `supabase_user_id`, plus a one-time transactional first-SUPER_ADMIN bootstrap; never link by email or auto-provision ordinary users | `users_seed_identity_consistency_check` requires seed rows to have a null identity and every non-seed row to have a non-null identity, so there is no valid unlinked real row to match by email without weakening the schema. Task 2.5 creates invited identities instead | Loosen the check; link seed placeholders; trust a JWT email claim; auto-provision a default role |
+| D50 | 2026-10-24 | Protect all application controllers with a global guard that accepts only strict Bearer ES256 Supabase tokens, requires the hosted issuer, authenticated audience/role and UUID subject, caches remote JWKS keys, and maps JWKS/provider outages to HTTP 503 `AUTH_UNAVAILABLE` | Algorithm allow-listing prevents confusion attacks, database lookup keeps application authorization local, explicit public metadata prevents accidental route exposure, and an upstream outage must not force clients to log out | HS256/shared secret; controller-by-controller guards; trust JWT application roles; return 401 for provider outages |
+| D51 | 2026-10-24 | Keep Task 2.2 bootstrap proof disposable; perform the real first-admin bootstrap on `dev` only after Task 2.4 web login, using the API's ignored `.env`, and repeat once in production through the deployment secret store | The real owner identity should not be placed in task credentials or chat, the operational flow needs a user-facing login, and environment-specific bootstrap values belong in each server's secret boundary | Bootstrap a test identity into `dev` now; store the real address in the task proof file; create the first admin manually in SQL |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -484,10 +487,37 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 2.2 API JWT guard and user provisioning
 - **Branch / commit:** `phase-2/task-2.1-handoff-finalize` / `docs: finalize Task 2.1 delivery` (pending)
 
+### [2026-10-24 11:45 EAT] — Task(s): 2.2 — API JWT guard and local identity resolution (partial)
+- **Prompt summary:** Add the default-deny Supabase JWKS guard, safe `/me` context, identity-only local lookup and transactional first-administrator bootstrap; prove security failures hermetically and the hosted flow on a disposable branch without exposing secrets.
+- **What I did:** Added the global guard, `@Public()` and typed `CurrentUser`; strict ES256/JWKS verification; 401/403/503 auth exceptions; API-only Supabase Admin lookup; identity-only Neon resolution; five-minute conditional login touches; guarded bootstrap; exact `/me` response; public health, OPTIONS and non-production Swagger handling; production Swagger suppression; Bearer OpenAPI support; server-secret env validation; architecture/setup documentation; and comprehensive unit/e2e coverage. No RBAC, web session, invitation, Redis cache or Task 2.3 work was added.
+- **How:** The guard is registered through `APP_GUARD`, permits only the two root health controller routes plus non-production Swagger infrastructure, and validates ES256, `kid`, exact issuer, `authenticated` audience/role, expiry and UUID subject with 30-second tolerance. Remote JWKS uses a one-second request timeout, 30-second cooldown and 10-minute cache. The seed-identity check makes email linking impossible without weakening the schema, so D49 supersedes the replacement/linkage portion of D45. Bootstrap confirms the hosted user's verified email via the Admin API and serializes creation with a PostgreSQL advisory transaction lock; logs contain only the created user ID.
+- **Files touched:** API Auth module/services/decorators/controller/tests, app/bootstrap/Swagger/health wiring, pino redaction test, env schema/example/tests, dependency manifests/lockfile, README, Supabase setup and architecture docs, handoff
+- **Migrations:** none
+- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (91 API + 14 web = 105 tests) and the full build with CI-safe validation variables passed; the first build without required web variables correctly failed validation. Hosted sign-in/JWKS proof passed with ES256/authenticated claims, wrong-password 400 and public-sign-up 422. A real hosted JWT against a disposable Neon child of `dev` reached `/api/v1/me` and returned the expected HTTP 403 `USER_NOT_PROVISIONED`; the branch was deleted and the Authorization header was redacted. Browser assets contained neither API secret identifiers nor the safe server-only sentinel. Two earlier disposable attempts were deleted: the first exposed a cold connection timeout and the second verifier command had an ESM-evaluation mistake; the corrected third proof passed.
+- **Result:** Implementation and hermetic acceptance behavior are green, but Task 2.2 remains partial and uncommitted under §7 because the available confirmed proof account ends in `.invalid`, which the required bootstrap correctly rejects. No live bootstrap success is claimed.
+- **Progress after this session:** 15 / 71 (21.1%)
+- **Left undone / follow-ups:** Privately create or select a confirmed non-seed, non-`.invalid` Supabase user and place its address/password only in the ignored mode-600 proof file, with `BOOTSTRAP_SUPER_ADMIN_EMAIL` matching it. Then run the disposable-branch bootstrap proof, tick 2.2, commit, push, open/monitor/merge the PR and synchronize `main`.
+- **Next task:** Resume and finish Task 2.2; do not start 2.3.
+- **Branch / commit:** `phase-2/task-2.2-api-jwt-guard` / uncommitted pending live bootstrap proof
+
+### [2026-10-24 15:13 EAT] — Task(s): 2.2 — Live bootstrap verification and completion
+- **Prompt summary:** Resume with a private confirmed non-reserved proof identity; prove sequential, repeat and concurrent first-admin behavior on disposable Neon, prove bootstrap inertia and route-coverage enforcement, preserve long-lived branches, then complete delivery.
+- **What I did:** Added an explicit all-controller route inventory test and a different-identity bootstrap-inert unit case; corrected the advisory-lock query for Prisma 7 by casting PostgreSQL's `void` result to text; ran sequential and concurrent hosted-JWT bootstrap proofs on fresh disposable Neon branches; and documented the post-Task-2.4 real `dev` and production bootstrap procedure. No Task 2.3 work was added.
+- **How:** The private file was confirmed ignored, mode 600, complete, internally matching and non-reserved without displaying any value. The first live call created one SUPER_ADMIN and returned HTTP 200; a repeat returned the same local user ID and left one row. On a second fresh branch, two simultaneous first requests both returned HTTP 200, the same local ID and exactly one row, proving the advisory transaction lock. A distinct identity with an existing admin is covered hermetically and returns `USER_NOT_PROVISIONED`. A temporary unreviewed controller route made the explicit inventory test fail with exit 1, then was removed and the test passed.
+- **Files touched:** Task 2.2 Auth implementation/tests and wiring; API env/docs; dependency lockfiles; README; architecture/Supabase setup; handoff
+- **Migrations:** none
+- **Verification:** Both disposable proof branches were deleted. The tested identity had zero rows in `dev`; `staging` and `main` have no `users` table yet and therefore zero bootstrap rows. Authorization remained redacted. Frozen install, format, lint, typecheck, hermetic tests (92 API + 14 web = 106) and the full build with safe CI values passed. The first raw lock attempt exposed Prisma's unsupported `void` deserialization before any insert; the text cast was verified live. A cold pooled connection affected the first concurrency attempt; warming the API pool made the bounded live concurrency proof deterministic, and every failed-attempt branch was deleted.
+- **Result:** Task 2.2 acceptance criteria are verified and the checklist is ticked complete; Git delivery remains in this turn.
+- **Progress after this session:** 16 / 71 (22.5%)
+- **Left undone / follow-ups:** Task 2.4 owns web login, after which the real owner is bootstrapped once on `dev` from the API's own ignored `.env`; production repeats the one-time step via its deployment secret store. Task 2.3 is otherwise next.
+- **Next task:** 2.3 RBAC
+- **Branch / commit:** `phase-2/task-2.2-api-jwt-guard` / `feat(auth): add Supabase JWT guard` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- **Resolved in Task 2.2:** a private confirmed non-reserved proof identity verified the sequential and concurrent bootstrap behavior on disposable branches; the real owner bootstrap remains an intentional post-Task-2.4 operational step rather than an acceptance blocker.
 - **Resolved in Task 1.7:** the owner rotated the inherited Neon role password and refreshed legitimate development configuration. Rule 19 and the safe Neon helper now use `--no-secrets`, capture connection output without displaying it, redact database URLs from failures, and emit only safe metadata; both Task 1.7 disposable runs deleted their branches.
 - Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4/1.5 migrations and live integration tests are authoritative; `Booking.usageSessions` is typed as a list despite database cardinality, and the one-active-maintenance-schedule rule exists only in raw SQL. Later services must continue mapping named database violations rather than relying on Prisma relation cardinality alone.
 - `machine_status_history` is append-only by schema/API design, but the current Neon owner role can still issue direct UPDATE/DELETE statements. Task 10.1 must introduce/use a least-privilege application role and revoke those privileges; migration ownership must remain separate.
@@ -525,6 +555,7 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 | `SUPABASE_SECRET_KEY` | api only | Yes | Modern server-side administration/storage key — never expose or print |
 | `SUPABASE_JWT_ISSUER` | api | No (derived) | Optional explicit issuer; must equal `SUPABASE_URL/auth/v1` |
 | `SUPABASE_JWKS_URL` | api | No (derived) | Optional explicit JWKS URL; must equal the project well-known endpoint |
+| `BOOTSTRAP_SUPER_ADMIN_EMAIL` | api only | One-off bootstrap only | Confirmed real first-administrator address; ignored after an active non-seed SUPER_ADMIN exists; never use or log a seed/`.invalid` address |
 | `API_BASE_URL` | web server | Yes | Server-side API location |
 | `NEXT_PUBLIC_API_URL` | web public | Yes | Browser-visible API location |
 | `NEXT_PUBLIC_SUPABASE_URL` | web public | Yes | Browser-visible Supabase project URL |
@@ -569,6 +600,7 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 **API operational endpoints:**
 - Liveness: `GET /health`
 - Readiness: `GET /health/ready`
+- Authenticated local profile: `GET /api/v1/me`
 - OpenAPI UI: `GET /api/docs`
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`

@@ -16,5 +16,8 @@ export const configureApplication = (app: INestApplication): void => {
     ],
   });
   app.enableShutdownHooks();
-  configureSwagger(app);
+
+  if (config.get('NODE_ENV', { infer: true }) !== 'production') {
+    configureSwagger(app);
+  }
 };

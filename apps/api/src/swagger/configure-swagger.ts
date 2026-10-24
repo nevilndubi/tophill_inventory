@@ -7,7 +7,15 @@ export const configureSwagger = (app: INestApplication): void => {
     .setTitle(`${APP_NAME} API`)
     .setDescription('Hospital equipment tracking and booking API')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        bearerFormat: 'JWT',
+        description: 'Supabase ES256 access token',
+        scheme: 'bearer',
+        type: 'http',
+      },
+      'supabase',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config, {
     ignoreGlobalPrefix: false,

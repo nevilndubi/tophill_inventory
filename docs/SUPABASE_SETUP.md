@@ -49,9 +49,9 @@ cp apps/web/.env.example apps/web/.env.local
 - Never put `SUPABASE_SECRET_KEY`, test passwords, access tokens or refresh tokens in any web
   variable, browser code, log, screenshot, issue, commit or chat message.
 
-The secret key is reserved for later server-side administration/storage work. Task 2.1 does not use
-it at runtime and does not add a JWT guard. Only Task 2.2 may begin accepting and verifying Bearer
-tokens.
+The API uses the secret key only with the Supabase Admin API to confirm the identity and verified
+email involved in the one-off first-administrator bootstrap. It never reaches browser code. Bearer
+tokens are verified independently through the public asymmetric JWKS; no shared JWT secret exists.
 
 ## Test user and safe proof
 
@@ -73,9 +73,30 @@ JWT. Its output is limited to the signing algorithm, presence of a key ID, issue
 expiry, JWKS match, and status/error codes proving that a wrong password and public sign-up are
 rejected. Delete or rotate the test account when it is no longer needed.
 
-Task 2.5 builds the real invitation flow after custom SMTP is available. Task 2.2 must also provide
-a one-off `BOOTSTRAP_SUPER_ADMIN_EMAIL` process that links the first real SUPER_ADMIN to a normal,
-non-seed `users` row; do not reuse any `@example.invalid` seed identity.
+Task 2.5 builds the real invitation flow after custom SMTP is available. Seed rows cannot be linked:
+the database requires seed users to have no Supabase identity and real users to have one. They remain
+inert examples until Task 2.5 creates real invited-user rows.
+
+## First administrator bootstrap
+
+1. Put the confirmed real administrator address in `BOOTSTRAP_SUPER_ADMIN_EMAIL` in an ignored,
+   permission-restricted API environment file or deployment secret. Never use `@example.invalid`.
+2. Ensure there is no active, non-seed `SUPER_ADMIN` in Neon.
+3. Sign in through Supabase as that exact user and call authenticated `GET /api/v1/me` once.
+4. The API verifies the ES256 access token, confirms the user and verified email through the Admin
+   API, takes a database transaction lock, and creates the non-seed SUPER_ADMIN identity once.
+5. Verify only the returned role and safe user ID. Never print the email, token, keys or password.
+6. Remove `BOOTSTRAP_SUPER_ADMIN_EMAIL` after success. Even if it remains set, it has no effect once
+   any active real SUPER_ADMIN exists.
+
+The bootstrap creates no seed relationship and performs no email linking. Every other unknown valid
+identity receives `USER_NOT_PROVISIONED` until Task 2.5 creates its real local row.
+
+Task 2.2 proves this flow only on disposable Neon branches. After Task 2.4 provides the browser
+login flow, perform the real one-time bootstrap against `dev` with the owner's address in the API's
+own ignored `.env` (never the task credential file). At production rollout, repeat once against the
+production database with the address supplied through the deployment secret store. Remove the
+variable after each successful bootstrap and verify that `/me` resolves the same local user.
 
 ## Verification checklist
 

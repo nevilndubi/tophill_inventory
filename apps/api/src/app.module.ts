@@ -10,6 +10,7 @@ import { env } from './config/env';
 import { HealthModule } from './health/health.module';
 import { pinoHttpOptions } from './logging/pino.config';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     LoggerModule.forRoot({ pinoHttp: pinoHttpOptions }),
     PrismaModule,
+    AuthModule,
     HealthModule,
   ],
   providers: [

@@ -75,8 +75,9 @@ Unless a table is explicitly documented with another key/timestamp shape, tables
 
 Task 1.7 demo users have `is_seed_data = true` and a null `supabase_user_id`, so they cannot sign
 in. A named database check requires every non-seed user to have a Supabase identity and every seed
-user to have none. Task 2.2 replaces or links the six reserved `@example.invalid` placeholders
-during real user provisioning.
+user to have none. Consequently, Task 2.2 cannot link an existing real row by email without first
+weakening that invariant, and it intentionally does not do so. The six reserved `@example.invalid`
+placeholders remain inert examples; Task 2.5 creates real invited-user rows with Supabase identities.
 
 **departments** — `id`, `name` (unique), `code` (unique), `manager_user_id` (nullable FK)
 
@@ -260,7 +261,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 ## 5. API design
 
 - **REST, JSON, versioned:** application routes use `/api/v1/...`; root-level `/health` and `/health/ready` are explicit exceptions for infrastructure probes. OpenAPI is at `/api/docs` (non-production or Admin-only in production).
-- **Auth:** `Authorization: Bearer <Supabase JWT>`; verified against the asymmetric ES256 Supabase JWKS (signature, `kid`, `iss`, `aud`, `exp`). No shared JWT secret is stored. On first valid token, a `users` row is provisioned/linked by `supabase_user_id`/email. The user's **role and active flag come from our DB**, cached in Redis for 60s.
+- **Auth:** application routes accept only `Authorization: Bearer <Supabase JWT>`. A global guard verifies the asymmetric Supabase JWKS signature and `kid`, permits only ES256, requires the exact issuer, `aud = authenticated`, `role = authenticated`, an unexpired token and a UUID subject, with 30 seconds of clock tolerance. No shared JWT secret is stored. The subject must match an existing active, non-seed `users.supabase_user_id`; there is no email linking or automatic provisioning. The sole exception is the guarded, transactional first-SUPER_ADMIN bootstrap described below. Root health probes and non-production Swagger are explicitly public; CORS preflight bypasses authentication. A JWKS/provider outage returns `AUTH_UNAVAILABLE` with HTTP 503 instead of treating the session as invalid. The user's **role and active flag come from Neon**, with Redis caching deferred to Task 7.2.
 - **Authorization:** `@RequirePermission('machine:update')` etc. Permission map is in `packages/shared`.
 - **Validation:** shared Zod schemas; unknown fields stripped/rejected.
 - **Errors (standard shape):**
@@ -403,12 +404,25 @@ only after those domains exist; Vercel preview wildcards are forbidden. The web 
 publishable key, while the modern secret key stays API-only. Supabase's database remains empty of
 application tables because Neon is the system of record.
 
+**First administrator bootstrap:** `BOOTSTRAP_SUPER_ADMIN_EMAIL` is an optional API-only deployment
+secret. When no active, non-seed SUPER_ADMIN exists, a valid token for that exact address may create
+the initial row only after the Supabase Admin API confirms the address. A PostgreSQL advisory
+transaction lock makes simultaneous first requests safe. Seed addresses and `.invalid` domains are
+rejected, and the setting becomes inert as soon as a real active SUPER_ADMIN exists. Normal users
+are created with their Supabase identity by the Task 2.5 invitation workflow. `last_login_at` uses a
+conditional update at most once per five minutes per user.
+
+The disposable Task 2.2 proof does not modify any long-lived branch. The real first administrator
+is bootstrapped once against Neon `dev` after Task 2.4 supplies the web login flow, using the real
+address only in the API's ignored `.env`. Production repeats the same one-time operation with
+`BOOTSTRAP_SUPER_ADMIN_EMAIL` supplied by the deployment secret store, then removes the setting.
+
 ---
 
 ## 12. Security & privacy
 
 - No patient data stored; purpose fields carry a UI warning and are excluded from logs.
-- One-hour ES256 JWTs; the server verifies JWKS signature/key ID, issuer, audience and expiry; roles come from our DB, never from client claims.
+- One-hour ES256 JWTs; the global guard verifies JWKS signature/key ID, exact issuer, authenticated audience and token role, expiry, and UUID subject. It rejects alternate algorithms, anonymous/service-role tokens, and all malformed Bearer headers; application roles come from Neon, never from JWT claims.
 - Helmet, strict CORS (`WEB_ORIGIN` only), Redis rate limits, body size limits, upload type/size allow-list.
 - Private storage buckets, signed URLs (≤5 min), virus-scan hook point documented for uploads.
 - Secrets only in host/Vercel/GitHub secrets. The modern Supabase secret key never reaches browser code or build assets; only `NEXT_PUBLIC_SUPABASE_URL` and the publishable key are public.
