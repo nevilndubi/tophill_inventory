@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 17 / 71 tasks (23.9%) |
-| Current phase | Phase 2 — Task 2.3 complete locally; Git delivery pending |
-| Last updated | 2026-10-24 15:33 EAT |
-| Branch | `phase-2/task-2.3-rbac` |
+| Current phase | Phase 2 — Task 2.3 delivered |
+| Last updated | 2026-10-24 15:38 EAT |
+| Branch | `main` (Task 2.3 delivered via `phase-2/task-2.3-rbac`) |
 | Last commit | `feat(auth): add role-based access control` |
-| Repo state | Task 2.3 implementation, hermetic verification and production-build exclusion check passed locally; commit, PR, hosted CI, merge and final `main` synchronization remain in this turn |
+| Repo state | Task 2.3 merged by PR #22 as `c383839`; local/hermetic verification and the production-build exclusion check passed, GitHub `Quality` passed, and local `main` synchronized cleanly before this handoff-only update |
 | **Next task** | **2.4 Web auth** |
 
 ---
@@ -547,6 +547,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Left undone / follow-ups:** Six architecture gaps for later own-resource/new-permission behavior are proposed in Pending for owner approval; Task 7.2 must invalidate cached role/department/active state. Existing known issues remain unchanged.
 - **Next task:** 2.4 Web auth
 - **Branch / commit:** `phase-2/task-2.3-rbac` / `feat(auth): add role-based access control`
+
+### [2026-10-24 15:38 EAT] — Task(s): 2.3 — Hosted verification and delivery
+- **Prompt summary:** Deliver the completed Task 2.3 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.4.
+- **What I did:** Committed the verified RBAC implementation, pushed the task branch, opened PR #22, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
+- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.3 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
+- **Files touched:** this handoff only in the delivery follow-up; Task 2.3 implementation and architecture changes were delivered by PR #22
+- **Migrations:** none
+- **Verification:** GitHub `Quality` passed in 1m15s for PR #22; Supabase Preview reported skipped as expected; the PR merged as `c383839`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 2.3 is complete and delivered on `main`.
+- **Progress after this session:** 17 / 71 (23.9%)
+- **Left undone / follow-ups:** The six proposed capability mappings remain pending owner approval at their scheduled tasks, and Task 7.2 must invalidate cached role/department/active state. Existing known issues remain unchanged.
+- **Next task:** 2.4 Web auth
+- **Branch / commit:** `phase-2/task-2.3-handoff-finalize` / `docs: finalize Task 2.3 delivery`
 
 ---
 
