@@ -9,6 +9,7 @@ coverage/
 *.tsbuildinfo
 apps/web/.artifacts/
 apps/api/src/generated/prisma/
+supabase/.temp/
 
 # Environment files (examples stay tracked)
 .env

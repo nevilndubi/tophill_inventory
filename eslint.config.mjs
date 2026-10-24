@@ -6,7 +6,7 @@ import prettier from 'eslint-config-prettier/flat';
 import tseslint from 'typescript-eslint';
 
 const webFiles = ['apps/web/**/*.{js,jsx,ts,tsx}'];
-const prismaTypeScriptFiles = ['prisma/**/*.ts', 'prisma7.config.ts'];
+const prismaTypeScriptFiles = ['prisma/**/*.ts', 'prisma7.config.ts', 'scripts/**/*.ts'];
 const nonWebTypeScriptFiles = [
   'apps/api/**/*.ts',
   'packages/shared/**/*.ts',

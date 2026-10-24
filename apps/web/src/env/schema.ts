@@ -10,20 +10,23 @@ const requiredUrl = z.preprocess(
 
 const optionalUrl = z.preprocess(blankToUndefined, z.url('must be a valid URL').optional());
 
-const optionalSecret = z.preprocess(
-  blankToUndefined,
-  z.string().min(1, 'must not be empty').optional(),
+const requiredPublishableKey = z.preprocess(
+  (value) => value ?? '',
+  z
+    .string()
+    .min(1, 'is required')
+    .startsWith('sb_publishable_', 'must be a modern sb_publishable_ key'),
 );
 
 export const webServerEnvironmentSchema = z.object({
   API_BASE_URL: requiredUrl,
-  SUPABASE_URL: optionalUrl,
-  SUPABASE_ANON_KEY: optionalSecret,
   SENTRY_DSN: optionalUrl,
 });
 
 export const webPublicEnvironmentSchema = z.object({
   NEXT_PUBLIC_API_URL: requiredUrl,
+  NEXT_PUBLIC_SUPABASE_URL: requiredUrl,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: requiredPublishableKey,
 });
 
 const webEnvironmentSchema = webServerEnvironmentSchema.extend(webPublicEnvironmentSchema.shape);

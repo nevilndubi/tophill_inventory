@@ -27,6 +27,11 @@ const optionalSecret = z.preprocess(
   z.string().min(1, 'must not be empty').optional(),
 );
 
+const requiredSupabaseSecretKey = z.preprocess(
+  (value) => value ?? '',
+  z.string().min(1, 'is required').startsWith('sb_secret_', 'must be a modern sb_secret_ key'),
+);
+
 const redisUrl = z.preprocess(
   blankToUndefined,
   z
@@ -37,7 +42,7 @@ const redisUrl = z.preprocess(
     .default('redis://127.0.0.1:6379'),
 );
 
-export const apiEnvironmentSchema = z
+const apiEnvironmentInputSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65_535).default(3001)),
@@ -45,8 +50,8 @@ export const apiEnvironmentSchema = z
     DATABASE_URL: requiredPostgresUrl,
     DIRECT_URL: requiredPostgresUrl,
     REDIS_URL: redisUrl,
-    SUPABASE_URL: optionalUrl,
-    SUPABASE_SERVICE_ROLE_KEY: optionalSecret,
+    SUPABASE_URL: requiredUrl,
+    SUPABASE_SECRET_KEY: requiredSupabaseSecretKey,
     SUPABASE_JWT_ISSUER: optionalUrl,
     SUPABASE_JWKS_URL: optionalUrl,
     RESEND_API_KEY: optionalSecret,
@@ -63,7 +68,46 @@ export const apiEnvironmentSchema = z
         path: ['REDIS_URL'],
       });
     }
+
+    const supabaseBaseUrl = environment.SUPABASE_URL.replace(/\/$/, '');
+    const expectedIssuer = `${supabaseBaseUrl}/auth/v1`;
+    const expectedJwksUrl = `${expectedIssuer}/.well-known/jwks.json`;
+
+    if (
+      environment.SUPABASE_JWT_ISSUER !== undefined &&
+      environment.SUPABASE_JWT_ISSUER.replace(/\/$/, '') !== expectedIssuer
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'must match SUPABASE_URL/auth/v1',
+        path: ['SUPABASE_JWT_ISSUER'],
+      });
+    }
+
+    if (
+      environment.SUPABASE_JWKS_URL !== undefined &&
+      environment.SUPABASE_JWKS_URL !== expectedJwksUrl
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'must match SUPABASE_URL/auth/v1/.well-known/jwks.json',
+        path: ['SUPABASE_JWKS_URL'],
+      });
+    }
+  })
+  .transform((environment) => {
+    const supabaseBaseUrl = environment.SUPABASE_URL.replace(/\/$/, '');
+    const supabaseIssuer = `${supabaseBaseUrl}/auth/v1`;
+
+    return {
+      ...environment,
+      SUPABASE_URL: supabaseBaseUrl,
+      SUPABASE_JWT_ISSUER: supabaseIssuer,
+      SUPABASE_JWKS_URL: `${supabaseIssuer}/.well-known/jwks.json`,
+    };
   });
+
+export const apiEnvironmentSchema = apiEnvironmentInputSchema;
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
 
