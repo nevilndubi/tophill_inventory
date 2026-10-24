@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 16 / 71 tasks (22.5%) |
-| Current phase | Phase 2 — Task 2.2 complete; delivery pending |
-| Last updated | 2026-10-24 15:13 EAT |
-| Branch | `phase-2/task-2.2-api-jwt-guard` |
-| Last commit | `feat(auth): add Supabase JWT guard` (pending) |
-| Repo state | Task 2.2 implementation, hermetic suite, negative route-coverage proof, live sequential/concurrent disposable-Neon bootstrap proofs and long-lived-branch isolation checks are green; commit/PR/CI/merge remain in this turn |
+| Current phase | Phase 2 — Task 2.2 delivered |
+| Last updated | 2026-10-24 15:16 EAT |
+| Branch | `main` (Task 2.2 delivered via `phase-2/task-2.2-api-jwt-guard`) |
+| Last commit | `feat(auth): add Supabase JWT guard` |
+| Repo state | Task 2.2 merged by PR #20 as `f6d257c`; local/hermetic and disposable live proofs passed, GitHub `Quality` passed, and local `main` synchronized cleanly before this handoff-only update |
 | **Next task** | **2.3 RBAC** |
 
 ---
@@ -512,6 +512,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Left undone / follow-ups:** Task 2.4 owns web login, after which the real owner is bootstrapped once on `dev` from the API's own ignored `.env`; production repeats the one-time step via its deployment secret store. Task 2.3 is otherwise next.
 - **Next task:** 2.3 RBAC
 - **Branch / commit:** `phase-2/task-2.2-api-jwt-guard` / `feat(auth): add Supabase JWT guard` (pending)
+
+### [2026-10-24 15:16 EAT] — Task(s): 2.2 — Hosted verification and delivery
+- **Prompt summary:** Deliver the completed Task 2.2 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.3.
+- **What I did:** Committed the verified implementation, pushed the task branch, opened PR #20, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
+- **How:** Used the D18 Git lifecycle and D43/Task-2.1 credential-output rules. Supabase Preview correctly skipped because Task 2.2 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
+- **Files touched:** this handoff only in the delivery follow-up; Task 2.2 implementation and documentation were delivered by PR #20
+- **Migrations:** none
+- **Verification:** GitHub `Quality` passed in 1m09s; Supabase Preview reported skipped as expected; PR #20 merged as `f6d257c`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 2.2 is complete and delivered on `main`.
+- **Progress after this session:** 16 / 71 (22.5%)
+- **Left undone / follow-ups:** The real first-admin operational bootstrap remains scheduled after Task 2.4 for `dev` and at production deployment as recorded in D51. Task 2.3 owns RBAC and is next.
+- **Next task:** 2.3 RBAC
+- **Branch / commit:** `phase-2/task-2.2-handoff-finalize` / `docs: finalize Task 2.2 delivery` (pending)
 
 ---
 
