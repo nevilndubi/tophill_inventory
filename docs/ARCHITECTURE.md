@@ -262,7 +262,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 
 - **REST, JSON, versioned:** application routes use `/api/v1/...`; root-level `/health` and `/health/ready` are explicit exceptions for infrastructure probes. OpenAPI is at `/api/docs` (non-production or Admin-only in production).
 - **Auth:** application routes accept only `Authorization: Bearer <Supabase JWT>`. A global guard verifies the asymmetric Supabase JWKS signature and `kid`, permits only ES256, requires the exact issuer, `aud = authenticated`, `role = authenticated`, an unexpired token and a UUID subject, with 30 seconds of clock tolerance. No shared JWT secret is stored. The subject must match an existing active, non-seed `users.supabase_user_id`; there is no email linking or automatic provisioning. The sole exception is the guarded, transactional first-SUPER_ADMIN bootstrap described below. Root health probes and non-production Swagger are explicitly public; CORS preflight bypasses authentication. A JWKS/provider outage returns `AUTH_UNAVAILABLE` with HTTP 503 instead of treating the session as invalid. The user's **role and active flag come from Neon**, with Redis caching deferred to Task 7.2.
-- **Authorization:** `@RequirePermission('machine:update')` etc. Permission map is in `packages/shared`.
+- **Authorization:** the authentication guard runs first and loads the active Neon user; the global permission guard then requires exactly one of `@RequirePermission(...)`, `@AuthenticatedOnly()` or `@Public()`. It fails closed for absent/unknown metadata or roles and returns `403 PERMISSION_DENIED` without identifying allowed roles. Application roles and departments come only from that Neon user context, never JWT claims or request input. The permission map and browser-safe `can`/`getPermissionScope` helpers live in `packages/shared`; scoped services use the API's department helpers before reading or mutating resources.
 - **Validation:** shared Zod schemas; unknown fields stripped/rejected.
 - **Errors (standard shape):**
   ```json
@@ -337,6 +337,30 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | View reports/dashboard | ✅ | ✅ | ✅ | ✅ (own dept) | ❌ | ✅ |
 
 The matrix is encoded once in `packages/shared/src/permissions.ts` and consumed by both API guards and UI visibility checks.
+
+The stable permission names are `machine:read`, `machine:create`, `machine:update`,
+`machine:retire`, `reference:manage`, `booking:create`, `booking:approve`,
+`usage:check-in-out`, `usage:force-end`, `fault:report`, `service:manage`, `user:manage`,
+`audit:read` and `report:read`. Each role has an explicit entry for every permission—there is no
+implicit role inheritance. Scope is one of `GLOBAL`, `OWN_DEPARTMENT` or `NONE`. The three initial
+department-scoped grants are `booking:approve`, `usage:force-end` and `report:read` for
+`DEPT_MANAGER`; a manager without a department and a resource without a department are denied.
+`departmentScopeFilter(user, permission)` supplies list-query scoping and
+`assertDepartmentAccess(user, resourceDepartmentId)` enforces single-resource access. The helpers
+reserve an optional authorization context so later ownership rules can add `isOwner` without
+breaking existing callers; no ownership grant is inferred in Task 2.3.
+
+`@AuthenticatedOnly()` is reserved for identity endpoints such as `GET /me`; every other
+non-public application handler declares a permission. Authorization denials use the standard
+request-ID error envelope and log only user ID, Neon role, permission, route and request ID. CORS
+preflight and the explicitly public infrastructure routes bypass both guards. The Task 2.5 user
+policy helpers separately enforce that only SUPER_ADMIN may manage SUPER_ADMIN, ADMIN may assign
+non-SUPER_ADMIN roles, nobody else assigns roles, self-deactivation is forbidden and the final
+active SUPER_ADMIN is protected.
+
+Until Task 7.2, the local user (including role, department and active state) is read from Neon on
+every request, so changes take effect immediately on the next request. Task 7.2 must preserve that
+behavior by invalidating `user:{supabaseId}` whenever role, department or active state changes.
 
 ---
 

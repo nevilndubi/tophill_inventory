@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import type { Permission, PermissionScope } from '@app/shared';
 import type { Role } from '../generated/prisma/enums';
 
 export type AuthenticatedUser = {
@@ -15,6 +16,10 @@ export type AuthenticatedUser = {
 };
 
 export type AuthenticatedRequest = Request & {
+  authorizationContext?: {
+    permission: Permission | 'undeclared';
+    scope?: PermissionScope;
+  };
   user?: AuthenticatedUser;
 };
 

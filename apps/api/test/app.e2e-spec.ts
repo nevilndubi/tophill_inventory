@@ -5,6 +5,7 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module';
+import { AuthenticatedOnly } from '../src/authorization/authenticated-only.decorator';
 import { JwtVerifierService } from '../src/auth/jwt-verifier.service';
 import { UserSessionService } from '../src/auth/user-session.service';
 import { configureApplication } from '../src/bootstrap/configure-application';
@@ -27,6 +28,7 @@ const authenticatedUser = {
 };
 
 @Controller('validation-fixture')
+@AuthenticatedOnly()
 class ValidationFixtureController {
   @Post()
   validate(@Body() body: ValidationFixtureDto): ValidationFixtureDto {

@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { createClient } from '@supabase/supabase-js';
 import type { ApiEnvironment } from '../config/env';
 import { AuthController } from './auth.controller';
@@ -32,8 +31,8 @@ import { UserSessionService } from './user-session.service';
     },
     SupabaseAdminService,
     UserSessionService,
-    { provide: APP_GUARD, useClass: SupabaseAuthGuard },
+    SupabaseAuthGuard,
   ],
-  exports: [JwtVerifierService, SupabaseAdminService, UserSessionService],
+  exports: [JwtVerifierService, SupabaseAdminService, SupabaseAuthGuard, UserSessionService],
 })
 export class AuthModule {}
