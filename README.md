@@ -150,8 +150,15 @@ marked public. `GET /api/v1/me` returns the authenticated local user's safe prof
 first real administrator, set `BOOTSTRAP_SUPER_ADMIN_EMAIL` only in an ignored local environment
 file or deployment secret, sign in as that confirmed Supabase user, and call `/api/v1/me`. The value
 is ignored once an active non-seed SUPER_ADMIN exists and must never be a seed or `.invalid` address.
-The real `dev` bootstrap waits until Task 2.4 provides web login and uses the API's ignored `.env`;
-production repeats it once using the deployment secret store.
+Now that Task 2.4 provides web login, perform the real `dev` bootstrap once using the API's ignored
+`.env`; production repeats it once using the deployment secret store.
+
+The web app now uses Supabase's supported Next.js SSR clients and `src/proxy.ts`. Visit `/login` and
+sign in with an administrator-issued email/password account; there is intentionally no public
+registration, magic-link or password-reset UI. Authenticated navigation comes from the Neon-backed
+`GET /api/v1/me` context and the shared permission map. Future feature destinations remain disabled
+until their tasks are implemented. Logout clears both the Supabase session and all cached query data,
+which is required for shared ward devices.
 
 ## Continuous integration
 

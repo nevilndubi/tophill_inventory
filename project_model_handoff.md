@@ -198,7 +198,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 2.1 Supabase Auth project setup & config
 - [x] 2.2 API JWT guard (JWKS verification) + local user provisioning/sync
 - [x] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
-- [ ] 2.4 Web auth: login/logout, session handling, route protection
+- [x] 2.4 Web auth: login/logout, session handling, route protection
 - [ ] 2.5 User management (invite, assign role/department, deactivate)
 - [ ] 2.6 Auth/RBAC test suite
 
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 17 / 71 tasks (23.9%) |
-| Current phase | Phase 2 — Task 2.3 delivered |
-| Last updated | 2026-10-24 15:38 EAT |
-| Branch | `main` (Task 2.3 delivered via `phase-2/task-2.3-rbac`) |
-| Last commit | `feat(auth): add role-based access control` |
-| Repo state | Task 2.3 merged by PR #22 as `c383839`; local/hermetic verification and the production-build exclusion check passed, GitHub `Quality` passed, and local `main` synchronized cleanly before this handoff-only update |
-| **Next task** | **2.4 Web auth** |
+| Overall progress | 18 / 71 tasks (25.4%) |
+| Current phase | Phase 2 — Task 2.4 verified; Git delivery in progress |
+| Last updated | 2026-10-24 23:01 EAT |
+| Branch | `phase-2/task-2.4-web-auth` |
+| Last commit | `feat(auth): add web authentication` (pending) |
+| Repo state | Task 2.4 implementation, hermetic checks, browser QA and credential-safe disposable-Neon proof are complete; commit/PR/CI/merge remain in this turn |
+| **Next task** | **2.5 User management** |
 
 ---
 
@@ -300,8 +300,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
 - In Task 2.5, create real invited-user rows with Supabase identities; the six `@example.invalid` seed placeholders remain inert examples and are never linked or promoted.
 - Before inviting real users in Task 2.5, configure custom SMTP using the Resend capability planned for Phase 9; Supabase's built-in sender is rate-limited and unsuitable for staff invitations. Task 2.5 owns the invitation flow itself.
-- After Task 2.4 supplies web login, bootstrap the owner's real first SUPER_ADMIN once against `dev` using `BOOTSTRAP_SUPER_ADMIN_EMAIL` in the API's own ignored `.env`, not the task credential file; repeat once for production using its deployment secret store, then remove the setting in each environment.
+- Task 2.4 now supplies web login; bootstrap the owner's real first SUPER_ADMIN once against `dev` using `BOOTSTRAP_SUPER_ADMIN_EMAIL` in the API's own ignored `.env`, not the task credential file; repeat once for production using its deployment secret store, then remove the setting in each environment.
 - When staging and production domains exist, add their exact Supabase Site/redirect URLs and verify each environment; do not add wildcard Vercel preview redirects.
+- **Hospital shared-device security:** decide the idle/inactivity sign-out policy before production hardening (candidate owner: Task 10.2). Task 2.4 deliberately implements explicit and cross-tab logout only.
+- **Task 7.3 — login rate limiting:** add the application-owned Redis control when the rate-limiting task lands; Supabase's hosted Auth limits are the only login throttle until then.
 - **Task 3.8 — restore retired machine:** proposed new `machine:restore` permission, initially `GLOBAL` for SUPER_ADMIN and ADMIN only; do not alias restore to edit/retire until the owner approves the state-transition policy.
 - **Task 5.4 — cancel own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`; administrative or department cancellation remains a separate decision for that service.
 - **Task 4.2 — check in a session you hold:** proposed ownership rule layered on `usage:check-in-out` with `isOwner = true`; force-ending another user's session remains governed by `usage:force-end`.
@@ -378,6 +380,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D51 | 2026-10-24 | Keep Task 2.2 bootstrap proof disposable; perform the real first-admin bootstrap on `dev` only after Task 2.4 web login, using the API's ignored `.env`, and repeat once in production through the deployment secret store | The real owner identity should not be placed in task credentials or chat, the operational flow needs a user-facing login, and environment-specific bootstrap values belong in each server's secret boundary | Bootstrap a test identity into `dev` now; store the real address in the task proof file; create the first admin manually in SQL |
 | D52 | 2026-10-24 | Encode RBAC as an exhaustive browser-safe role × permission × scope matrix with `GLOBAL`, `OWN_DEPARTMENT` and `NONE`; run a fail-closed global permission guard after authentication, use explicit `@AuthenticatedOnly()` for `/me`, and derive role, active state and department only from the Neon user context | The Architecture §7 matrix contains both global and department-scoped grants plus BIOMED edit-only behavior; explicit entries avoid undocumented inheritance, shared helpers keep web/API decisions aligned, and database-backed context makes role changes effective on the next request | Trust JWT application claims; boolean-only permissions; implicit ADMIN/SUPER_ADMIN inheritance; controller-by-controller guards; path-special-case `/me` |
 | D53 | 2026-10-24 | Keep Task 2.5 user-administration invariants as shared pure functions: SUPER_ADMIN may assign any role, ADMIN may assign only non-SUPER_ADMIN roles, other roles assign none, self-deactivation is denied and the final active SUPER_ADMIN is protected | The same deterministic policy can be exercised now and reused by later API/UI code without prematurely adding user-management endpoints | Defer all policy definition to Task 2.5; encode the restrictions only in UI controls; add implicit role inheritance |
+| D54 | 2026-10-24 | Implement web sessions with `@supabase/ssr` request-scoped server clients, a browser singleton and Next.js 16 `proxy.ts`; use `getClaims()` for every server trust decision and use `getSession()` only after validation to retrieve the opaque bearer | This is the current supported Supabase/Next.js App Router convention, refreshes cookies correctly with private cache headers and keeps Proxy optimistic while the API remains authoritative | Deprecated `middleware.ts`; trust `getSession()` server-side; custom JWT cookies; use Proxy as authorization authority |
+| D55 | 2026-10-24 | Accept Supabase's browser-readable SSR auth cookies with `SameSite=Lax`, production `Secure` and no false HttpOnly claim; compensate with one-hour access tokens, refresh rotation, exact-origin bearer attachment, full query-cache clearing/cross-tab logout and Task 10.2 CSP | Supabase documents that its browser client needs the refresh token; pretending the cookie is HttpOnly would break supported refresh behavior and misstate the security model | Force HttpOnly and lose browser refresh; store tokens in localStorage/React state; omit the tradeoff |
+| D56 | 2026-10-24 | Map web auth failures explicitly: retry one 401 then sign out, retain the session for permission 403s and auth/network 503s, route unprovisioned/inactive users to a dedicated no-access screen, and render navigation from one shared-permission config with unbuilt entries disabled | Invalid identity, missing local access, insufficient permission and upstream outage require different recovery; shared permissions prevent UI drift and disabled placeholders avoid 404s without starting later features | Treat every failure as logout; infer access from JWT; duplicate role strings; link unfinished pages |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -561,6 +566,20 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 2.4 Web auth
 - **Branch / commit:** `phase-2/task-2.3-handoff-finalize` / `docs: finalize Task 2.3 delivery`
 
+### [2026-10-24 23:01 EAT] — Task(s): 2.4 — Web authentication
+- **Prompt summary:** Add supported Supabase/Next.js 16 email-password sessions, protected App Router pages, authenticated API calls, role-aware navigation, distinct auth failure UX, hermetic tests, credential-safe browser proof and the full Git delivery workflow—without starting Task 2.5.
+- **What I did:** Added `@supabase/ssr` browser/server clients and cookie refresh through `proxy.ts`; accessible login and complete logout; a server trust boundary based on `getClaims()` plus API `/me`; an exact authenticated-user provider; origin-confined bearer injection with one 401 refresh; distinct forbidden, no-access and unavailable experiences; validated return paths; shared-permission navigation; an authenticated shell and guarded `/admin` proof route; documentation and 44 new web tests. The existing responsive shell, status language, health display and global boundaries remain intact. No invitation, user CRUD, password reset, magic link, database migration or Task 2.5 behavior was added.
+- **How:** Supabase's browser-readable cookie contract is documented honestly and hardened with Lax/production-Secure options, private refresh responses, short-lived rotated tokens, exact-origin attachment and complete TanStack cache clearing. Proxy performs optimistic redirects only; protected leaf/server data loads validate claims and the NestJS API remains authoritative for role, department and active state. Future navigation destinations are visible only where permitted but disabled as “coming soon,” so none leads to a 404 (D54–D56).
+- **Files touched:** web auth/Supabase/API-client modules, App Router groups and auth-state pages, shell/navigation/provider/login components and tests, web dependencies/lockfile, README, Supabase setup, architecture, generated Next.js agent guidance and handoff
+- **Migrations:** none; live proof used a disposable Neon child of `dev`, applied the existing chain, and deleted the branch afterwards
+- **Verification:** Frozen install passed with the known pnpm warning. An initial format check identified one new test file; Prettier corrected it, then format check, lint and typecheck passed. Hermetic tests passed: 125 API + 58 web = 183. The production build passed and excluded the test-only RBAC controller; neither the server-secret variable name nor a synthetic server-only sentinel appeared in browser assets. Automated browser QA at 360, 768 and 1280 px proved the login UI had no horizontal overflow, contained no registration/reset/magic-link path and rejected a hostile return URL; screenshots remain ignored. The in-app browser service was unavailable, so the repo's installed Playwright/Chromium was used and this limitation is stated rather than hidden.
+- **Live proof:** A credential-safe Playwright run used the ignored mode-600 Task 2.1 identity and a disposable Neon branch without displaying identity data, credentials, keys, tokens, cookies, connection strings or traces. It proved unauthenticated `/` redirected to `/login`; a wrong password showed only the generic message; first valid login bootstrapped exactly one non-seed SUPER_ADMIN; the app returned a local UUID/role and browser `/health` HTTP 200; SUPER_ADMIN navigation rendered; a hard reload stayed signed in; changing only the disposable local role to STAFF hid administration and direct `/admin` rendered `/forbidden`; logout returned to `/login` and browser Back exposed no application data. The proof branch was deleted, and a final branch query found zero Task 2.4 disposable branches. Supabase project settings were not changed.
+- **Result:** Task 2.4 acceptance criteria are verified locally and live, and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
+- **Progress after this session:** 18 / 71 (25.4%)
+- **Left undone / follow-ups:** The owner bootstrap is now operationally possible and remains a one-time private `dev` step followed by the equivalent production secret-store step. Idle sign-out policy and application login throttling remain pending at their recorded tasks. Task 2.5 owns invitations/user management; no live staff identity or seed identity was provisioned here.
+- **Next task:** 2.5 User management
+- **Branch / commit:** `phase-2/task-2.4-web-auth` / `feat(auth): add web authentication` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -619,6 +638,8 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Create local API environment: `cp apps/api/.env.example apps/api/.env`
 - Create local web environment: `cp apps/web/.env.example apps/web/.env.local`
 - Run all workspaces in development: `pnpm dev`
+- Run only the web app in development: `pnpm --filter @app/web dev`
+- Run only the API in development: `pnpm --filter @app/api dev`
 - Start local Redis: `docker compose up -d redis`
 - Check local Redis: `docker compose ps redis`
 - Stop local Redis: `docker compose stop redis`

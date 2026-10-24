@@ -392,11 +392,15 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 
 ## 10. Frontend architecture
 
-- **Next.js App Router** with route groups: `(auth)/login`, `(app)/dashboard`, `(app)/machines`, `(app)/machines/[id]`, `(app)/status`, `(app)/bookings`, `(app)/service`, `(app)/reports`, `(app)/admin/{users,reference,audit,settings}`, `/scan/[assetTag]` (QR landing).
+- **Next.js App Router** with route groups: `(auth)/login`, the current `(app)/` dashboard placeholder, and planned `(app)/machines`, `(app)/machines/[id]`, `(app)/status`, `(app)/bookings`, `(app)/service`, `(app)/reports`, `(app)/admin/{users,reference,audit,settings}`, `/scan/[assetTag]` (QR landing).
 - **Data fetching:** TanStack Query against the typed API client; server components for initial page shells; **no business rules in the client**.
-- **API URL handling:** the client is configured with a validated API origin, sends infrastructure checks such as `/health` to that root origin, and prepends `/api/v1` only for application requests. Browser calls use the validated `NEXT_PUBLIC_API_URL`; server-only calls use `API_BASE_URL`. The auth-header provider currently returns no token and is replaced by Supabase integration in Phase 2.
+- **API URL handling:** the client is configured with a validated API origin, sends infrastructure checks such as `/health` to that root origin, and prepends `/api/v1` only for application requests. Browser calls use the validated `NEXT_PUBLIC_API_URL`; server-only calls use `API_BASE_URL`. The browser provider reads/refreshes the current Supabase session, while server calls receive the request-scoped validated bearer.
 - **Forms:** React Hook Form + shared Zod schemas.
-- **Auth:** Supabase JS for sign-in; access token attached to API calls; Next middleware protects `(app)` routes; role-aware navigation using the shared permission map.
+- **Auth:** `@supabase/ssr` creates a browser singleton and one server client per request. Next.js 16 `proxy.ts` calls validated `getClaims()` to refresh cookies and perform only optimistic redirects; it never trusts `getSession()` for a security decision. A cached server DAL validates claims again at each protected leaf/data boundary, retrieves the bearer only after that check, and bootstraps the application context exclusively from API `GET /me`. The NestJS API remains authoritative for identity, active state, role and department.
+- **Session and API failures:** a protected API 401 triggers exactly one Supabase refresh/retry, then clears the Supabase session and the entire TanStack Query cache before redirecting to login. `403 PERMISSION_DENIED` keeps the session and shows `/forbidden`; `USER_NOT_PROVISIONED` and `USER_INACTIVE` show `/no-access` with sign-out; `503 AUTH_UNAVAILABLE` and network failures retain the session and show a retryable unavailable banner/page. Supabase auth-state changes clear cached data and propagate sign-out across tabs.
+- **Bearer boundary:** access tokens stay inside Supabase clients, are never stored in application React state or localStorage by application code, and are attached only to the exact validated API origin. Server calls obtain the bearer from their request-scoped server client after `getClaims()` succeeds.
+- **Navigation:** one typed config maps every item to a `@app/shared` permission and renders it through `can()`/`getPermissionScope()` without role inheritance. Until their feature tasks land, visible future destinations are disabled “coming soon” items; the current overview is the only normal link and the guarded `/admin` placeholder exists solely to prove hard-navigation 403 behavior.
+- **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes and `javascript:` input fall back to `/`.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.
 - **Calendar:** week/day timeline per machine; drag-to-select slot; conflicts shown inline from the availability endpoint.
@@ -437,7 +441,7 @@ are created with their Supabase identity by the Task 2.5 invitation workflow. `l
 conditional update at most once per five minutes per user.
 
 The disposable Task 2.2 proof does not modify any long-lived branch. The real first administrator
-is bootstrapped once against Neon `dev` after Task 2.4 supplies the web login flow, using the real
+is bootstrapped once against Neon `dev` now that Task 2.4 supplies the web login flow, using the real
 address only in the API's ignored `.env`. Production repeats the same one-time operation with
 `BOOTSTRAP_SUPER_ADMIN_EMAIL` supplied by the deployment secret store, then removes the setting.
 
@@ -450,6 +454,7 @@ address only in the API's ignored `.env`. Production repeats the same one-time o
 - Helmet, strict CORS (`WEB_ORIGIN` only), Redis rate limits, body size limits, upload type/size allow-list.
 - Private storage buckets, signed URLs (≤5 min), virus-scan hook point documented for uploads.
 - Secrets only in host/Vercel/GitHub secrets. The modern Supabase secret key never reaches browser code or build assets; only `NEXT_PUBLIC_SUPABASE_URL` and the publishable key are public.
+- Supabase SSR stores access and refresh tokens in its `sb-<project-ref>-auth-token` cookie (chunked when necessary). Supabase requires the browser client to read the refresh token, so these cookies are deliberately **not HttpOnly**. They use `SameSite=Lax`, `Secure` outside localhost and path `/`; compensating controls are the one-hour access-token lifetime, refresh-token rotation, strict same-origin bearer attachment and the Content-Security-Policy scheduled for Task 10.2. Authenticated responses that refresh cookies carry private/no-store cache headers.
 - Audit log is append-only and Admin-visible.
 - Dependency audit in CI; Dependabot enabled.
 - Backups: Neon point-in-time restore window documented and a restore drill performed (Task 10.4).

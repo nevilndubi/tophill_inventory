@@ -1,15 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import {
-  CalendarDays,
-  ClipboardList,
-  FileChartColumn,
-  LayoutDashboard,
-  Menu,
-  MonitorCog,
-  Stethoscope,
-} from 'lucide-react';
+import { Menu } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -19,37 +12,47 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-
-const navigation = [
-  { label: 'Overview', icon: LayoutDashboard, active: true },
-  { label: 'Machines', icon: MonitorCog },
-  { label: 'Status board', icon: ClipboardList },
-  { label: 'Bookings', icon: CalendarDays },
-  { label: 'Service', icon: Stethoscope },
-  { label: 'Reports', icon: FileChartColumn },
-];
+import { navigationForRole } from '@/lib/navigation';
+import { useAuthenticatedUser } from './authenticated-user-provider';
+import { LogoutButton } from './logout-button';
 
 function Navigation({ compact = false }: { compact?: boolean }) {
+  const { user } = useAuthenticatedUser();
+  const navigation = navigationForRole(user.role);
+
   return (
     <nav aria-label="Primary navigation" className="mt-8 space-y-1.5 px-3">
-      {navigation.map(({ active, icon: Icon, label }) => (
-        <div
-          key={label}
-          aria-current={active ? 'page' : undefined}
-          aria-disabled={active ? undefined : true}
-          className={cn(
-            'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium',
-            active
-              ? 'bg-sidebar-accent text-white shadow-[inset_3px_0_0_var(--color-primary)]'
-              : 'cursor-not-allowed text-sidebar-muted',
-            compact && 'justify-center px-2 lg:justify-start lg:px-3',
-          )}
-          title={compact ? label : undefined}
-        >
-          <Icon className="size-5 shrink-0" aria-hidden="true" />
-          <span className={cn(compact && 'sr-only lg:not-sr-only')}>{label}</span>
-        </div>
-      ))}
+      {navigation.map(({ href, icon: Icon, label, status }) => {
+        const classes = cn(
+          'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium',
+          status === 'available'
+            ? 'bg-sidebar-accent text-white shadow-[inset_3px_0_0_var(--color-primary)]'
+            : 'cursor-not-allowed text-sidebar-muted',
+          compact && 'justify-center px-2 lg:justify-start lg:px-3',
+        );
+        const content = (
+          <>
+            <Icon className="size-5 shrink-0" aria-hidden="true" />
+            <span className={cn(compact && 'sr-only lg:not-sr-only')}>{label}</span>
+            {status === 'coming-soon' ? <span className="sr-only">Coming soon</span> : null}
+          </>
+        );
+
+        return status === 'available' ? (
+          <Link key={label} href={href} aria-current="page" className={classes}>
+            {content}
+          </Link>
+        ) : (
+          <div
+            key={label}
+            aria-disabled="true"
+            className={classes}
+            title={`${label} — coming soon`}
+          >
+            {content}
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -110,6 +113,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>
           <p className="text-base font-semibold tracking-tight sm:text-lg">Overview</p>
+          <div className="ml-auto">
+            <LogoutButton />
+          </div>
         </header>
 
         <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-12">

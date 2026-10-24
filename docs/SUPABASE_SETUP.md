@@ -92,11 +92,47 @@ inert examples until Task 2.5 creates real invited-user rows.
 The bootstrap creates no seed relationship and performs no email linking. Every other unknown valid
 identity receives `USER_NOT_PROVISIONED` until Task 2.5 creates its real local row.
 
-Task 2.2 proves this flow only on disposable Neon branches. After Task 2.4 provides the browser
-login flow, perform the real one-time bootstrap against `dev` with the owner's address in the API's
+Task 2.2 proves this flow only on disposable Neon branches. With Task 2.4's browser login available,
+perform the real one-time bootstrap against `dev` with the owner's address in the API's
 own ignored `.env` (never the task credential file). At production rollout, repeat once against the
 production database with the address supplied through the deployment secret store. Remove the
 variable after each successful bootstrap and verify that `/me` resolves the same local user.
+
+## Next.js web session flow
+
+The web app follows Supabase's current App Router SSR pattern with `@supabase/ssr`:
+
+- `src/proxy.ts` is the Next.js 16 convention (the old `middleware.ts` name is deprecated). It calls
+  `auth.getClaims()` to validate/refresh the session and performs optimistic redirects only.
+- Server Components use a fresh request-scoped Supabase client, call `getClaims()` before making any
+  trust decision, and use `getSession()` only afterwards to retrieve the opaque bearer. The NestJS
+  API independently verifies that bearer and supplies role, department and active state through
+  `GET /api/v1/me`.
+- The browser client signs in with email/password and maintains Supabase's cookie-backed session. It
+  exposes no sign-up, magic-link or password-reset flow.
+- Logout clears the Supabase session and the entire TanStack Query cache. Supabase auth-state events
+  propagate sign-out to other open tabs.
+
+Supabase SSR names the auth cookie `sb-<project-ref>-auth-token` and may split large values into
+chunks. The browser client must read the refresh token to maintain the session, so Supabase's current
+guidance explicitly does **not** make these cookies HttpOnly. The project uses `SameSite=Lax`, path
+`/`, and `Secure` outside localhost. Compensating controls are the one-hour access-token lifetime,
+refresh-token rotation, exact API-origin bearer checks, private/no-store refresh responses, and the
+Content-Security-Policy scheduled for Task 10.2. Application code never stores a token in its own
+React state or localStorage.
+
+Only relative return paths beginning with a single `/` are accepted. Protocol-relative paths,
+absolute URLs, backslashes and `javascript:` values fall back to `/`.
+
+### Later environment redirect checklist
+
+- [ ] Assign the exact staging web domain, then add its exact Site/redirect URLs and verify login,
+      refresh and logout there.
+- [ ] Assign the exact production web domain, then add its exact Site/redirect URLs and verify the
+      same flow there.
+- [ ] Keep Vercel preview-domain wildcards absent.
+- [ ] Keep the local Site URL `http://localhost:3000` and local redirect entry
+      `http://localhost:3000/**` until the environment-specific domains are real.
 
 ## Verification checklist
 
