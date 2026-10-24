@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { Response } from 'express';
+import { isAppRole } from '@app/shared';
+import type { AuthenticatedRequest } from '../../auth/auth.types';
 import { getOrCreateRequestId, REQUEST_ID_HEADER, type RequestWithId } from '../http/request-id';
 
 type ErrorResponse = {
@@ -30,7 +32,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
-    const request = context.getRequest<RequestWithId>();
+    const request = context.getRequest<RequestWithId & AuthenticatedRequest>();
     const response = context.getResponse<Response>();
     const requestId = getOrCreateRequestId(request);
     const status = exception instanceof HttpException ? exception.getStatus() : 500;
@@ -40,6 +42,19 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     request.requestId = requestId;
     response.setHeader(REQUEST_ID_HEADER, requestId);
+
+    if (status === 403 && normalized.code === 'PERMISSION_DENIED') {
+      this.logger.warn(
+        {
+          permission: request.authorizationContext?.permission ?? 'undeclared',
+          requestId,
+          role: isAppRole(request.user?.role) ? request.user.role : 'unknown',
+          route: `${request.method} ${request.originalUrl}`,
+          userId: request.user?.id ?? 'unknown',
+        },
+        'Permission denied',
+      );
+    }
 
     if (status >= 500) {
       this.logger.error(

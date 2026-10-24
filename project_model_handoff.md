@@ -197,7 +197,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 ### Phase 2 — Authentication & Authorization
 - [x] 2.1 Supabase Auth project setup & config
 - [x] 2.2 API JWT guard (JWKS verification) + local user provisioning/sync
-- [ ] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
+- [x] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
 - [ ] 2.4 Web auth: login/logout, session handling, route protection
 - [ ] 2.5 User management (invite, assign role/department, deactivate)
 - [ ] 2.6 Auth/RBAC test suite
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 16 / 71 tasks (22.5%) |
-| Current phase | Phase 2 — Task 2.2 delivered |
-| Last updated | 2026-10-24 15:16 EAT |
-| Branch | `main` (Task 2.2 delivered via `phase-2/task-2.2-api-jwt-guard`) |
-| Last commit | `feat(auth): add Supabase JWT guard` |
-| Repo state | Task 2.2 merged by PR #20 as `f6d257c`; local/hermetic and disposable live proofs passed, GitHub `Quality` passed, and local `main` synchronized cleanly before this handoff-only update |
-| **Next task** | **2.3 RBAC** |
+| Overall progress | 17 / 71 tasks (23.9%) |
+| Current phase | Phase 2 — Task 2.3 complete locally; Git delivery pending |
+| Last updated | 2026-10-24 15:33 EAT |
+| Branch | `phase-2/task-2.3-rbac` |
+| Last commit | `feat(auth): add role-based access control` |
+| Repo state | Task 2.3 implementation, hermetic verification and production-build exclusion check passed locally; commit, PR, hosted CI, merge and final `main` synchronization remain in this turn |
+| **Next task** | **2.4 Web auth** |
 
 ---
 
@@ -302,6 +302,13 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Before inviting real users in Task 2.5, configure custom SMTP using the Resend capability planned for Phase 9; Supabase's built-in sender is rate-limited and unsuitable for staff invitations. Task 2.5 owns the invitation flow itself.
 - After Task 2.4 supplies web login, bootstrap the owner's real first SUPER_ADMIN once against `dev` using `BOOTSTRAP_SUPER_ADMIN_EMAIL` in the API's own ignored `.env`, not the task credential file; repeat once for production using its deployment secret store, then remove the setting in each environment.
 - When staging and production domains exist, add their exact Supabase Site/redirect URLs and verify each environment; do not add wildcard Vercel preview redirects.
+- **Task 3.8 — restore retired machine:** proposed new `machine:restore` permission, initially `GLOBAL` for SUPER_ADMIN and ADMIN only; do not alias restore to edit/retire until the owner approves the state-transition policy.
+- **Task 5.4 — cancel own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`; administrative or department cancellation remains a separate decision for that service.
+- **Task 4.2 — check in a session you hold:** proposed ownership rule layered on `usage:check-in-out` with `isOwner = true`; force-ending another user's session remains governed by `usage:force-end`.
+- **Task 5.4 — edit own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`, subject to booking-state and overlap checks.
+- **Task 9.3 — read own notifications:** proposed new `notification:read-own` permission for every authenticated application role, enforced with ownership rather than a global notification-read grant.
+- **Task 3.5 — upload attachments:** proposed new `attachment:upload` permission for SUPER_ADMIN, ADMIN, BIOMED_TECH, DEPT_MANAGER and STAFF, with entity access checked by the service; VIEWER remains read-only pending approval.
+- **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -369,6 +376,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D49 | 2026-10-24 | Resolve authenticated users only by an existing non-seed `supabase_user_id`, plus a one-time transactional first-SUPER_ADMIN bootstrap; never link by email or auto-provision ordinary users | `users_seed_identity_consistency_check` requires seed rows to have a null identity and every non-seed row to have a non-null identity, so there is no valid unlinked real row to match by email without weakening the schema. Task 2.5 creates invited identities instead | Loosen the check; link seed placeholders; trust a JWT email claim; auto-provision a default role |
 | D50 | 2026-10-24 | Protect all application controllers with a global guard that accepts only strict Bearer ES256 Supabase tokens, requires the hosted issuer, authenticated audience/role and UUID subject, caches remote JWKS keys, and maps JWKS/provider outages to HTTP 503 `AUTH_UNAVAILABLE` | Algorithm allow-listing prevents confusion attacks, database lookup keeps application authorization local, explicit public metadata prevents accidental route exposure, and an upstream outage must not force clients to log out | HS256/shared secret; controller-by-controller guards; trust JWT application roles; return 401 for provider outages |
 | D51 | 2026-10-24 | Keep Task 2.2 bootstrap proof disposable; perform the real first-admin bootstrap on `dev` only after Task 2.4 web login, using the API's ignored `.env`, and repeat once in production through the deployment secret store | The real owner identity should not be placed in task credentials or chat, the operational flow needs a user-facing login, and environment-specific bootstrap values belong in each server's secret boundary | Bootstrap a test identity into `dev` now; store the real address in the task proof file; create the first admin manually in SQL |
+| D52 | 2026-10-24 | Encode RBAC as an exhaustive browser-safe role × permission × scope matrix with `GLOBAL`, `OWN_DEPARTMENT` and `NONE`; run a fail-closed global permission guard after authentication, use explicit `@AuthenticatedOnly()` for `/me`, and derive role, active state and department only from the Neon user context | The Architecture §7 matrix contains both global and department-scoped grants plus BIOMED edit-only behavior; explicit entries avoid undocumented inheritance, shared helpers keep web/API decisions aligned, and database-backed context makes role changes effective on the next request | Trust JWT application claims; boolean-only permissions; implicit ADMIN/SUPER_ADMIN inheritance; controller-by-controller guards; path-special-case `/me` |
+| D53 | 2026-10-24 | Keep Task 2.5 user-administration invariants as shared pure functions: SUPER_ADMIN may assign any role, ADMIN may assign only non-SUPER_ADMIN roles, other roles assign none, self-deactivation is denied and the final active SUPER_ADMIN is protected | The same deterministic policy can be exercised now and reused by later API/UI code without prematurely adding user-management endpoints | Defer all policy definition to Task 2.5; encode the restrictions only in UI controls; add implicit role inheritance |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -526,6 +535,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 2.3 RBAC
 - **Branch / commit:** `phase-2/task-2.2-handoff-finalize` / `docs: finalize Task 2.2 delivery` (pending)
 
+### [2026-10-24 15:33 EAT] — Task(s): 2.3 — Exhaustive scoped RBAC
+- **Prompt summary:** Implement only Task 2.3: the complete shared role/permission matrix, fail-closed API authorization, department scope, future user-management policies, exhaustive hermetic tests, documentation and the full Git delivery workflow.
+- **What I did:** Added the browser-safe shared roles, 14 permissions and explicit scope matrix; `can`/`getPermissionScope`; role-assignment, self-deactivation and last-SUPER_ADMIN policy functions; `@RequirePermission()` and `@AuthenticatedOnly()`; the globally ordered permission guard; department assertion/list-filter helpers; standard denial logging/error handling; and a test-only RBAC controller excluded from production output. `/me` is now explicitly authenticated-only, while health, Swagger infrastructure and CORS preflight retain their documented behavior. No web login, invitation, CRUD, cache or Task 2.4 work was added.
+- **How:** Authentication loads the active Neon user first, then authorization fails closed unless a handler is public, authenticated-only or declares one known permission. All role entries are explicit—there is no role inheritance. The shared matrix returns `GLOBAL`, `OWN_DEPARTMENT` or `NONE`; DEPT_MANAGER scope uses only the department on the Neon user context. A reserved optional authorization context permits later `isOwner` inputs without breaking callers, but Task 2.3 grants no inferred ownership access (D52–D53).
+- **Files touched:** `packages/shared/src/permissions.ts` and exports; API authorization module/decorators/guard/helpers/error logging; `/me` and global guard wiring; independent unit/e2e tests and fixtures; production-build fixture check; architecture and handoff
+- **Migrations:** none
+- **Verification:** Frozen install passed with the known pnpm `DEP0169` warning. Format check, lint, typecheck, hermetic tests (125 API + 14 web = 139) and the full build passed. The independent hand-written matrix test covers every role × permission and both key directions, the shared roles equal Prisma's generated enum, negative guard/scope/error paths pass, role changes take effect on the next request, and `pnpm build` reports `API production build excludes the test-only RBAC controller`.
+- **Result:** Task 2.3 acceptance criteria are verified locally and the checklist is ticked; Git delivery remains in this turn.
+- **Progress after this session:** 17 / 71 (23.9%)
+- **Left undone / follow-ups:** Six architecture gaps for later own-resource/new-permission behavior are proposed in Pending for owner approval; Task 7.2 must invalidate cached role/department/active state. Existing known issues remain unchanged.
+- **Next task:** 2.4 Web auth
+- **Branch / commit:** `phase-2/task-2.3-rbac` / `feat(auth): add role-based access control`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -589,6 +611,7 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Stop local Redis: `docker compose stop redis`
 - Remove local Redis resources: `docker compose down`
 - Build shared, web and API: `pnpm build`
+- Verify the API production build excludes test-only RBAC controllers: `pnpm build` (automatic final assertion)
 - Lint workspaces: `pnpm lint`
 - Fix auto-fixable lint issues: `pnpm lint:fix`
 - Format supported files: `pnpm format`

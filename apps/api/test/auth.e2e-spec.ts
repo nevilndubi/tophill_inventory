@@ -6,6 +6,10 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
+  AuthenticatedOnly,
+  IS_AUTHENTICATED_ONLY_ROUTE,
+} from '../src/authorization/authenticated-only.decorator';
+import {
   AuthenticationUnavailableException,
   InvalidAuthenticationException,
   UserInactiveException,
@@ -58,6 +62,7 @@ const readLabel = (token: string): string => {
 };
 
 @Controller('protected-fixture')
+@AuthenticatedOnly()
 class ProtectedFixtureController {
   @Get()
   getFixture() {
@@ -300,10 +305,14 @@ describe('API authentication (e2e)', () => {
         const routeParts = [controllerPath, methodPath]
           .map((part) => part.replace(/^\/+|\/+$/g, ''))
           .filter((part) => part.length > 0);
-        const access =
-          reflector.getAllAndOverride<boolean>(IS_PUBLIC_ROUTE, [handler, controller]) === true
-            ? 'public'
-            : 'global-guard';
+        const isPublic =
+          reflector.getAllAndOverride<boolean>(IS_PUBLIC_ROUTE, [handler, controller]) === true;
+        const isAuthenticatedOnly =
+          reflector.getAllAndOverride<boolean>(IS_AUTHENTICATED_ONLY_ROUTE, [
+            handler,
+            controller,
+          ]) === true;
+        const access = isPublic ? 'public' : isAuthenticatedOnly ? 'authenticated-only' : 'missing';
         coveredRoutes.push(`${RequestMethod[requestMethod]} /${routeParts.join('/')} ${access}`);
       }
     }
@@ -311,8 +320,8 @@ describe('API authentication (e2e)', () => {
     expect(coveredRoutes.sort()).toEqual([
       'GET /health public',
       'GET /health/ready public',
-      'GET /me global-guard',
-      'GET /protected-fixture global-guard',
+      'GET /me authenticated-only',
+      'GET /protected-fixture authenticated-only',
     ]);
   });
 });

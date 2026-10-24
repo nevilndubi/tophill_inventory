@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @app/shared build && pnpm --parallel --stream --filter @app/shared --filter @app/web --filter @app/api run dev",
     "prebuild": "pnpm prisma:generate",
-    "build": "pnpm --filter @app/shared build && pnpm --filter @app/web build && pnpm --filter @app/api build",
+    "build": "pnpm --filter @app/shared build && pnpm --filter @app/web build && pnpm --filter @app/api build && pnpm exec tsx scripts/assert-api-production-build.ts",
     "lint": "eslint apps packages prisma scripts prisma7.config.ts --max-warnings=0",
     "lint:fix": "eslint apps packages prisma scripts prisma7.config.ts --fix --max-warnings=0",
     "format": "prettier --write . --ignore-unknown",
