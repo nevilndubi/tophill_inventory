@@ -35,9 +35,13 @@ export class ApiClientError extends Error {
   }
 }
 
-type ApiClientOptions = {
+export type ApiClientOptions = {
   origin: string;
   getAccessToken?: () => Promise<string | null>;
+  refreshAccessToken?: () => Promise<string | null>;
+  onForbidden?: (error: ApiClientError) => void | Promise<void>;
+  onUnauthorized?: (error: ApiClientError) => void | Promise<void>;
+  onUnavailable?: (error: ApiClientError) => void | Promise<void>;
   fetcher?: typeof fetch;
 };
 
@@ -80,30 +84,47 @@ const normalizeApiError = (payload: unknown, status: number): ApiClientError => 
   );
 };
 
+export const isConfiguredApiUrl = (origin: string, target: string): boolean => {
+  try {
+    return new URL(target).origin === new URL(origin).origin;
+  } catch {
+    return false;
+  }
+};
+
 export function createApiClient({
   origin,
   getAccessToken = async () => null,
+  refreshAccessToken,
+  onForbidden,
+  onUnauthorized,
+  onUnavailable,
   fetcher = fetch,
 }: ApiClientOptions) {
   const apiOrigin = normalizeOrigin(origin);
 
-  const execute = async <T>(url: string, options: RequestOptions = {}): Promise<T> => {
+  const execute = async <T>(
+    url: string,
+    options: RequestOptions = {},
+    authenticated = true,
+  ): Promise<T> => {
     const headers = new Headers(options.headers);
-    const token = await getAccessToken();
 
     headers.set('accept', 'application/json');
     if (options.body && !headers.has('content-type')) {
       headers.set('content-type', 'application/json');
     }
-    if (token) {
-      headers.set('authorization', `Bearer ${token}`);
-    }
 
-    let response: Response;
-    try {
-      response = await fetcher(url, { ...options, headers });
-    } catch (cause) {
-      throw new ApiClientError(
+    const send = async (token: string | null): Promise<Response> => {
+      const requestHeaders = new Headers(headers);
+      if (authenticated && token && isConfiguredApiUrl(apiOrigin, url)) {
+        requestHeaders.set('authorization', `Bearer ${token}`);
+      }
+      return fetcher(url, { ...options, headers: requestHeaders });
+    };
+
+    const handleNetworkFailure = async (cause: unknown): Promise<never> => {
+      const networkError = new ApiClientError(
         {
           code: 'NETWORK_ERROR',
           message: 'The API could not be reached.',
@@ -111,11 +132,59 @@ export function createApiClient({
         },
         0,
       );
+      if (authenticated) {
+        await onUnavailable?.(networkError);
+      }
+      throw networkError;
+    };
+
+    let response: Response;
+    try {
+      response = await send(authenticated ? await getAccessToken() : null);
+    } catch (cause) {
+      return handleNetworkFailure(cause);
     }
 
-    const payload = await readJson(response);
+    let payload = await readJson(response);
+    if (authenticated && response.status === 401 && refreshAccessToken) {
+      let refreshedToken: string | null;
+      try {
+        refreshedToken = await refreshAccessToken();
+      } catch (cause) {
+        const refreshError =
+          cause instanceof ApiClientError
+            ? cause
+            : new ApiClientError(
+                {
+                  code: 'AUTH_UNAVAILABLE',
+                  message: 'Authentication is temporarily unavailable.',
+                  details: {},
+                },
+                503,
+              );
+        await onUnavailable?.(refreshError);
+        throw refreshError;
+      }
+      if (refreshedToken) {
+        try {
+          response = await send(refreshedToken);
+        } catch (cause) {
+          return handleNetworkFailure(cause);
+        }
+        payload = await readJson(response);
+      }
+    }
+
     if (!response.ok) {
-      throw normalizeApiError(payload, response.status);
+      const apiError = normalizeApiError(payload, response.status);
+      if (authenticated && response.status === 401) {
+        await onUnauthorized?.(apiError);
+      } else if (authenticated && response.status === 403) {
+        await onForbidden?.(apiError);
+      } else if (authenticated && response.status === 503 && apiError.code === 'AUTH_UNAVAILABLE') {
+        await onUnavailable?.(apiError);
+      }
+      throw apiError;
     }
 
     if (!isRecord(payload) || !('data' in payload)) {
@@ -136,10 +205,10 @@ export function createApiClient({
     rootUrl: (path: string) => `${apiOrigin}${normalizePath(path)}`,
     versionedUrl: (path: string) => `${apiOrigin}/api/v1${normalizePath(path)}`,
     requestRoot: <T>(path: string, options?: RequestOptions) =>
-      execute<T>(`${apiOrigin}${normalizePath(path)}`, options),
+      execute<T>(`${apiOrigin}${normalizePath(path)}`, options, false),
     request: <T>(path: string, options?: RequestOptions) =>
       execute<T>(`${apiOrigin}/api/v1${normalizePath(path)}`, options),
-    health: () => execute<HealthResponse>(`${apiOrigin}/health`),
+    health: () => execute<HealthResponse>(`${apiOrigin}/health`, {}, false),
   };
 }
 

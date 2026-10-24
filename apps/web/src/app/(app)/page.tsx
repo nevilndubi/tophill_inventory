@@ -1,7 +1,10 @@
 import { HealthConnection } from '@/components/health-connection';
 import { StatusLanguage } from '@/components/status-language';
+import { requireCurrentAppUser } from '@/lib/auth/current-user';
 
-export default function HomePage() {
+export default async function HomePage() {
+  await requireCurrentAppUser('/');
+
   return (
     <div>
       <div className="max-w-3xl">
