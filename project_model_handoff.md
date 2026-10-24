@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 18 / 71 tasks (25.4%) |
-| Current phase | Phase 2 — Task 2.4 verified; Git delivery in progress |
-| Last updated | 2026-10-24 23:01 EAT |
-| Branch | `phase-2/task-2.4-web-auth` |
-| Last commit | `feat(auth): add web authentication` (pending) |
-| Repo state | Task 2.4 implementation, hermetic checks, browser QA and credential-safe disposable-Neon proof are complete; commit/PR/CI/merge remain in this turn |
+| Current phase | Phase 2 — Task 2.4 delivered |
+| Last updated | 2026-10-24 23:06 EAT |
+| Branch | `main` (Task 2.4 delivered via `phase-2/task-2.4-web-auth`) |
+| Last commit | `feat(auth): add web authentication` |
+| Repo state | Task 2.4 merged by PR #24 as `89d9706`; local/hermetic verification, credential-safe live browser proof and GitHub `Quality` passed, and local `main` synchronized cleanly before this handoff-only update |
 | **Next task** | **2.5 User management** |
 
 ---
@@ -579,6 +579,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Left undone / follow-ups:** The owner bootstrap is now operationally possible and remains a one-time private `dev` step followed by the equivalent production secret-store step. Idle sign-out policy and application login throttling remain pending at their recorded tasks. Task 2.5 owns invitations/user management; no live staff identity or seed identity was provisioned here.
 - **Next task:** 2.5 User management
 - **Branch / commit:** `phase-2/task-2.4-web-auth` / `feat(auth): add web authentication` (pending)
+
+### [2026-10-24 23:06 EAT] — Task(s): 2.4 — Hosted verification and delivery
+- **Prompt summary:** Deliver the completed Task 2.4 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.5.
+- **What I did:** Committed the verified web-auth implementation, pushed the task branch, opened PR #24, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
+- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.4 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
+- **Files touched:** this handoff only in the delivery follow-up; Task 2.4 implementation, tests and documentation were delivered by PR #24
+- **Migrations:** none
+- **Verification:** GitHub `Quality` passed in 1m40s for PR #24; Supabase Preview reported skipped as expected; the PR merged as `89d9706`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 2.4 is complete and delivered on `main`.
+- **Progress after this session:** 18 / 71 (25.4%)
+- **Left undone / follow-ups:** The one-time real-owner bootstrap on `dev` and production remains an operational step using private environment/deployment secrets. Task 2.5 owns invitations and user management; idle sign-out policy and application login throttling remain pending at their recorded tasks.
+- **Next task:** 2.5 User management
+- **Branch / commit:** `phase-2/task-2.4-handoff-finalize` / `docs: finalize Task 2.4 delivery` (pending)
 
 ---
 
