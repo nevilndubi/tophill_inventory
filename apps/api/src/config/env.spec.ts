@@ -87,4 +87,20 @@ describe('API environment', () => {
       }),
     ).toThrow(/SUPABASE_JWT_ISSUER: must match SUPABASE_URL\/auth\/v1/);
   });
+
+  it('normalizes the optional bootstrap email and rejects reserved seed addresses', () => {
+    expect(
+      parseApiEnvironment({
+        ...baseEnvironment,
+        BOOTSTRAP_SUPER_ADMIN_EMAIL: 'First.Admin@Hospital.Test',
+      }).BOOTSTRAP_SUPER_ADMIN_EMAIL,
+    ).toBe('first.admin@hospital.test');
+
+    expect(() =>
+      parseApiEnvironment({
+        ...baseEnvironment,
+        BOOTSTRAP_SUPER_ADMIN_EMAIL: 'seed@example.invalid',
+      }),
+    ).toThrow('BOOTSTRAP_SUPER_ADMIN_EMAIL: must not use a reserved .invalid address');
+  });
 });

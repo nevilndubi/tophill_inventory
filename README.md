@@ -121,7 +121,7 @@ present: `SEED_ALLOWED_BRANCH`, an exact `SEED_ALLOWED_HOST` match, and
 `main`, `staging`, mismatched hosts, and every CI environment before connecting. It is safe to rerun:
 fixed identifiers and upserts refresh relative demo dates without duplicating records. Seed users
 use reserved `@example.invalid` addresses, have no Supabase identity, and cannot sign in; Task 2.2
-replaces or links them.
+does not link them. Task 2.5 creates real invited-user rows with Supabase identities.
 
 Never print or echo a database URL or password. The Task 1.7 Neon helper invokes branch creation
 with `--no-secrets`, captures connection strings only in child-process memory, and prints only safe
@@ -143,6 +143,15 @@ database. The browser receives only the modern publishable key; the modern secre
 The hosted Auth project is invite-only and uses email/password plus asymmetric ES256/JWKS token
 verification. Follow [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for the exact dashboard
 settings, safe test-user procedure and credential-free verification command.
+
+The API protects application routes globally. Root health probes and non-production Swagger are
+public; all current and future controllers require a strict Supabase Bearer token unless explicitly
+marked public. `GET /api/v1/me` returns the authenticated local user's safe profile. To bootstrap the
+first real administrator, set `BOOTSTRAP_SUPER_ADMIN_EMAIL` only in an ignored local environment
+file or deployment secret, sign in as that confirmed Supabase user, and call `/api/v1/me`. The value
+is ignored once an active non-seed SUPER_ADMIN exists and must never be a seed or `.invalid` address.
+The real `dev` bootstrap waits until Task 2.4 provides web login and uses the API's ignored `.env`;
+production repeats it once using the deployment secret store.
 
 ## Continuous integration
 

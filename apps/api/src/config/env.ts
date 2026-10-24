@@ -27,6 +27,14 @@ const optionalSecret = z.preprocess(
   z.string().min(1, 'must not be empty').optional(),
 );
 
+const optionalEmail = z.preprocess(
+  blankToUndefined,
+  z
+    .email('must be a valid email address')
+    .transform((value) => value.toLowerCase())
+    .optional(),
+);
+
 const requiredSupabaseSecretKey = z.preprocess(
   (value) => value ?? '',
   z.string().min(1, 'is required').startsWith('sb_secret_', 'must be a modern sb_secret_ key'),
@@ -54,6 +62,7 @@ const apiEnvironmentInputSchema = z
     SUPABASE_SECRET_KEY: requiredSupabaseSecretKey,
     SUPABASE_JWT_ISSUER: optionalUrl,
     SUPABASE_JWKS_URL: optionalUrl,
+    BOOTSTRAP_SUPER_ADMIN_EMAIL: optionalEmail,
     RESEND_API_KEY: optionalSecret,
     SENTRY_DSN: optionalUrl,
   })
@@ -92,6 +101,14 @@ const apiEnvironmentInputSchema = z
         code: 'custom',
         message: 'must match SUPABASE_URL/auth/v1/.well-known/jwks.json',
         path: ['SUPABASE_JWKS_URL'],
+      });
+    }
+
+    if (environment.BOOTSTRAP_SUPER_ADMIN_EMAIL?.endsWith('.invalid')) {
+      context.addIssue({
+        code: 'custom',
+        message: 'must not use a reserved .invalid address',
+        path: ['BOOTSTRAP_SUPER_ADMIN_EMAIL'],
       });
     }
   })
