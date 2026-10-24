@@ -11,8 +11,8 @@
     "dev": "pnpm --filter @app/shared build && pnpm --parallel --stream --filter @app/shared --filter @app/web --filter @app/api run dev",
     "prebuild": "pnpm prisma:generate",
     "build": "pnpm --filter @app/shared build && pnpm --filter @app/web build && pnpm --filter @app/api build",
-    "lint": "eslint apps packages prisma prisma7.config.ts --max-warnings=0",
-    "lint:fix": "eslint apps packages prisma prisma7.config.ts --fix --max-warnings=0",
+    "lint": "eslint apps packages prisma scripts prisma7.config.ts --max-warnings=0",
+    "lint:fix": "eslint apps packages prisma scripts prisma7.config.ts --fix --max-warnings=0",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
     "pretypecheck": "pnpm prisma:generate",
@@ -28,6 +28,7 @@
     "db:seed:verify": "tsx prisma/verify-seed.ts",
     "db:index-review": "tsx prisma/verify-seed.ts --sequence-proof --index-review",
     "verify:neon:task-1.7": "tsx prisma/verify-neon-task-1-7.ts",
+    "verify:supabase:auth": "tsx scripts/verify-supabase-auth.ts",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -3,6 +3,8 @@ import { parseApiEnvironment } from './env';
 const baseEnvironment = {
   DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/tophill_test',
   DIRECT_URL: 'postgresql://test:test@127.0.0.1:5432/tophill_test',
+  SUPABASE_SECRET_KEY: 'sb_secret_test_server_only',
+  SUPABASE_URL: 'https://example.supabase.co',
   WEB_ORIGIN: 'http://127.0.0.1:3000',
 };
 
@@ -54,5 +56,35 @@ describe('API environment', () => {
         DIRECT_URL: 'redis://127.0.0.1:6379',
       }),
     ).toThrow(/DATABASE_URL: must use the postgres:\/\/ or postgresql:\/\/ protocol/);
+  });
+
+  it('derives the issuer and JWKS URL from the project URL', () => {
+    const environment = parseApiEnvironment({
+      ...baseEnvironment,
+      SUPABASE_URL: 'https://example.supabase.co/',
+    });
+
+    expect(environment.SUPABASE_URL).toBe('https://example.supabase.co');
+    expect(environment.SUPABASE_JWT_ISSUER).toBe('https://example.supabase.co/auth/v1');
+    expect(environment.SUPABASE_JWKS_URL).toBe(
+      'https://example.supabase.co/auth/v1/.well-known/jwks.json',
+    );
+  });
+
+  it('rejects legacy server keys and inconsistent JWT endpoints', () => {
+    expect(() =>
+      parseApiEnvironment({
+        ...baseEnvironment,
+        SUPABASE_SECRET_KEY: 'legacy-service-role-key',
+      }),
+    ).toThrow('SUPABASE_SECRET_KEY: must be a modern sb_secret_ key');
+
+    expect(() =>
+      parseApiEnvironment({
+        ...baseEnvironment,
+        SUPABASE_JWT_ISSUER: 'https://other.supabase.co/auth/v1',
+        SUPABASE_JWKS_URL: 'https://other.supabase.co/auth/v1/.well-known/jwks.json',
+      }),
+    ).toThrow(/SUPABASE_JWT_ISSUER: must match SUPABASE_URL\/auth\/v1/);
   });
 });

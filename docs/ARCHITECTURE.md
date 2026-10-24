@@ -55,7 +55,7 @@ Companion to `project_model_handoff.md`. If you change anything here, update thi
 | **Worker** | BullMQ consumers + schedulers | Same repo/image, started with a different entrypoint. Never serves HTTP traffic |
 | **Neon PostgreSQL** | Persistent data, constraints, transactions | Pooled URL for runtime, direct URL for migrations. Branches for dev/staging/CI |
 | **Redis** | Cache, pub/sub, BullMQ, rate-limit counters, short locks | TLS in production; every key has a TTL (BullMQ keys excepted) |
-| **Supabase Auth** | Identity (email/password, magic link), JWT issuance | App roles are **not** trusted from the JWT — they come from our `users` table |
+| **Supabase Auth** | Invite-only identity (email/password), JWT issuance | Public/anonymous sign-up and magic-link login are disabled; app roles are **not** trusted from the JWT — they come from our `users` table |
 | **Supabase Storage** | Machine photos, manuals, service attachments | Private buckets; API issues short-lived signed URLs |
 | **GitHub Actions** | CI: lint, typecheck, test, build, migration check, deploy hooks | |
 
@@ -260,7 +260,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 ## 5. API design
 
 - **REST, JSON, versioned:** application routes use `/api/v1/...`; root-level `/health` and `/health/ready` are explicit exceptions for infrastructure probes. OpenAPI is at `/api/docs` (non-production or Admin-only in production).
-- **Auth:** `Authorization: Bearer <Supabase JWT>`; verified against Supabase JWKS (signature, `iss`, `exp`). On first valid token, a `users` row is provisioned/linked by `supabase_user_id`/email. The user's **role and active flag come from our DB**, cached in Redis for 60s.
+- **Auth:** `Authorization: Bearer <Supabase JWT>`; verified against the asymmetric ES256 Supabase JWKS (signature, `kid`, `iss`, `aud`, `exp`). No shared JWT secret is stored. On first valid token, a `users` row is provisioned/linked by `supabase_user_id`/email. The user's **role and active flag come from our DB**, cached in Redis for 60s.
 - **Authorization:** `@RequirePermission('machine:update')` etc. Permission map is in `packages/shared`.
 - **Validation:** shared Zod schemas; unknown fields stripped/rejected.
 - **Errors (standard shape):**
@@ -397,15 +397,21 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 
 **Foundation CI:** pull requests to `main` and pushes to `main` run one required `Quality` job: frozen pnpm install, format check, lint, typecheck, tests, then build. Jest and Vitest provide deterministic localhost test configuration internally, so the default test suites never consume developer environment files or contact Neon/Redis. Prisma Client generation is automatic before build, typecheck, and test. The build step receives only safe localhost URLs needed by startup validation. Real Neon branches and service containers are reserved for explicitly selected integration paths.
 
+**Supabase Auth environments:** local Auth uses Site URL `http://localhost:3000` and the sole
+redirect allow-list entry `http://localhost:3000/**`. Exact staging and production URLs are added
+only after those domains exist; Vercel preview wildcards are forbidden. The web receives the modern
+publishable key, while the modern secret key stays API-only. Supabase's database remains empty of
+application tables because Neon is the system of record.
+
 ---
 
 ## 12. Security & privacy
 
 - No patient data stored; purpose fields carry a UI warning and are excluded from logs.
-- Short-lived JWTs; server verifies signature, issuer, expiry; roles from our DB, never from client claims.
+- One-hour ES256 JWTs; the server verifies JWKS signature/key ID, issuer, audience and expiry; roles come from our DB, never from client claims.
 - Helmet, strict CORS (`WEB_ORIGIN` only), Redis rate limits, body size limits, upload type/size allow-list.
 - Private storage buckets, signed URLs (≤5 min), virus-scan hook point documented for uploads.
-- Secrets only in host/Vercel/GitHub secrets. Service-role key never reaches the browser.
+- Secrets only in host/Vercel/GitHub secrets. The modern Supabase secret key never reaches browser code or build assets; only `NEXT_PUBLIC_SUPABASE_URL` and the publishable key are public.
 - Audit log is append-only and Admin-visible.
 - Dependency audit in CI; Dependabot enabled.
 - Backups: Neon point-in-time restore window documented and a restore drill performed (Task 10.4).

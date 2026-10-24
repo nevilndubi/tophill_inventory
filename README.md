@@ -48,6 +48,7 @@ pnpm prisma:migrate:deploy
 pnpm db:seed
 pnpm db:seed:verify
 pnpm db:index-review
+pnpm verify:supabase:auth
 ```
 
 TypeScript is strict across every workspace. ESLint and Prettier run repository-wide, and Husky
@@ -134,6 +135,14 @@ inside a rolled-back transaction. Both commands require the same seed safety var
 `GET /health/ready` checks both dependencies with short bounds. A database failure returns HTTP 503
 and overall `down` because Postgres is the system of record. Redis failure alone remains HTTP 200 and
 `degraded`.
+
+## Supabase Auth
+
+Supabase supplies identity (and later private file storage) while Neon remains the only application
+database. The browser receives only the modern publishable key; the modern secret key is API-only.
+The hosted Auth project is invite-only and uses email/password plus asymmetric ES256/JWKS token
+verification. Follow [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for the exact dashboard
+settings, safe test-user procedure and credential-free verification command.
 
 ## Continuous integration
 

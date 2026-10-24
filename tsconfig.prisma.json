@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["prisma7.config.ts", "prisma/**/*.ts"]
+  "include": ["prisma7.config.ts", "prisma/**/*.ts", "scripts/**/*.ts"]
 }

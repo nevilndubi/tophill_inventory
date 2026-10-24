@@ -127,6 +127,7 @@ Open decisions are tracked in §11 (Decision Log). If you believe a stack choice
 17. **Do not refactor unrelated code** or "improve" things outside the current task. Note them in Pending/Backlog instead.
 18. **Do not leave the repo broken.** At the end of every prompt: install, lint, typecheck, tests and build must pass for what you touched. If something can't pass, say exactly what and why in the log.
 19. **Never print, log, or echo a database connection string or password.** Neon CLI output that may contain credentials must be captured to a permission-restricted temporary file or in-memory value and discarded; when JSON output is needed, expose only non-secret branch identifiers or hosts. Redact database errors and command evidence so credentials never enter terminals, logs, CI output, the repository, or the handoff.
+20. **Never print, log, or echo Supabase keys, passwords, access/refresh tokens, or full JWTs.** Capture CLI/API values in memory, emit only non-secret configuration metadata and token claims, and keep proof credentials in ignored permission-restricted files.
 
 ---
 
@@ -194,7 +195,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 1.7 Indexes, seed script (realistic demo data), migration review
 
 ### Phase 2 — Authentication & Authorization
-- [ ] 2.1 Supabase Auth project setup & config
+- [x] 2.1 Supabase Auth project setup & config
 - [ ] 2.2 API JWT guard (JWKS verification) + local user provisioning/sync
 - [ ] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
 - [ ] 2.4 Web auth: login/logout, session handling, route protection
@@ -278,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 14 / 71 tasks (19.7%) |
-| Current phase | Phase 1 — Task 1.7 verified |
-| Last updated | 2026-10-21 16:34 EAT |
-| Branch | `main` (Task 1.7 delivered via `phase-1/task-1.7-indexes-seed-review`) |
-| Last commit | `feat(db): add deterministic demo seed and index review` |
-| Repo state | Task 1.7 merged by PR #16; seven-migration fresh-branch proof, repeat seed, index plans, 39-test Neon integration, `dev` migration/seed, zero drift and hosted CI verified |
-| **Next task** | **2.1 Supabase Auth project setup and config** |
+| Overall progress | 15 / 71 tasks (21.1%) |
+| Current phase | Phase 2 — Task 2.1 verified locally |
+| Last updated | 2026-10-24 11:15 EAT |
+| Branch | `phase-2/task-2.1-supabase-auth` |
+| Last commit | `feat(auth): configure Supabase Auth foundation` (pending commit) |
+| Repo state | Task 2.1 implementation and hosted Auth proofs pass locally; commit, PR, hosted CI, merge and final `main` synchronization remain in this turn |
+| **Next task** | **2.2 API JWT guard and user provisioning** |
 
 ---
 
@@ -298,6 +299,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Enforce append-only `machine_status_history` and `audit_logs` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges and can disable the audit trigger.
 - In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
 - In Task 2.2, replace or link the six `@example.invalid` seed placeholders during real Supabase provisioning; until then their null Supabase identities and seed-data check keep them unable to sign in.
+- Before inviting real users in Task 2.5, configure custom SMTP using the Resend capability planned for Phase 9; Supabase's built-in sender is rate-limited and unsuitable for staff invitations. Task 2.5 owns the invitation flow itself.
+- In Task 2.2, add a documented one-off bootstrap using `BOOTSTRAP_SUPER_ADMIN_EMAIL` to create/link the first real, non-seed SUPER_ADMIN row; never promote or reuse a seed placeholder.
+- When staging and production domains exist, add their exact Supabase Site/redirect URLs and verify each environment; do not add wildcard Vercel preview redirects.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -360,6 +364,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D44 | 2026-10-21 | Seed deterministic demonstration data with fixed hash-derived UUIDs, natural-key/id upserts, relative dates and explicit `HM-000001`–`HM-000060` tags; require branch+host confirmation, protected-host denial and a hard CI refusal | Reruns must refresh a coherent demo world without duplicates, touching production targets, or colliding with the database-owned asset-tag sequence | Truncate-and-reinsert; random IDs; fixture SQL; allow seed in CI |
 | D45 | 2026-10-21 | Make Supabase identity nullable only for rows flagged `is_seed_data`, enforced by `users_seed_identity_consistency_check`; six `@example.invalid` placeholders have no identity and Task 2.2 replaces/links them | Task 1.7 requires one placeholder per role that cannot authenticate, while all real users must retain a Supabase identity | Fake Supabase UUIDs; routable emails; defer role examples until auth |
 | D46 | 2026-10-21 | Keep the Task 1.1–1.6 index set unchanged after EXPLAIN review: the realistic 3,000-machine fixture used an intended existing index for all five primary query shapes | An initial all-in-one-department fixture caused an artificial sequential scan; distributing equipment realistically removed it, so adding an index would be speculative | Add a composite machine-list index based on the unrealistic fixture; force index use |
+| D47 | 2026-10-24 | Use modern Supabase publishable/secret keys and asymmetric ES256 signing with JWKS discovery; derive issuer and JWKS URLs from `SUPABASE_URL` and store no shared JWT secret | Current Supabase guidance gives independently rotatable keys and asymmetric verification avoids distributing a signing secret; the live token's `kid` matched the hosted JWKS | Legacy `anon`/`service_role` JWT keys; HS256 shared secret; manually unrelated issuer/JWKS values |
+| D48 | 2026-10-24 | Use invite-only confirmed email/password Auth with public and anonymous sign-up disabled; omit magic-link UI, keep the API secret server-only and expose only the publishable key/URL to the browser | This is the documented initial flow, prevents uncontrolled accounts, and keeps privileged credentials outside Next.js assets; real invitations wait for custom SMTP and Task 2.5 | Public registration; magic-link-first login; browser service key; send real invitations through the built-in test sender |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -452,6 +458,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 2.1 Supabase Auth project setup and config
 - **Branch / commit:** `phase-1/task-1.7-handoff-finalize` / `docs: finalize Task 1.7 delivery`
 
+### [2026-10-24 11:15 EAT] — Task(s): 2.1 — Supabase Auth project setup and configuration
+- **Prompt summary:** Independently re-audit the corrected hosted Supabase Auth project, configure only the Task 2.1 repository foundation, prove invite-only email/password authentication without exposing credentials, and complete the Git lifecycle.
+- **What I did:** Re-audited the hosted project through the authenticated CLI and Supabase plugin; added modern server/public env validation, derived issuer/JWKS values, hermetic test/CI placeholders, a credential-safe live proof command, `docs/SUPABASE_SETUP.md`, browser-bundle leak checks, and Auth architecture/setup documentation. No guard, `/me`, provisioning, RBAC, route protection, Supabase data tables or Storage feature was added.
+- **How:** The web accepts only `NEXT_PUBLIC_SUPABASE_URL` and an `sb_publishable_` key; the API requires `SUPABASE_URL` and an `sb_secret_` key and derives the ES256 issuer/JWKS endpoints. The verifier reads the mode-600 ignored test credential file plus an in-memory publishable key, emits safe JWT metadata only, checks the JWT `kid` against JWKS, and performs wrong-password/public-signup negative probes (D47–D48).
+- **Files touched:** API/web env schemas, tests, setup files and examples; CI safe build env; root scripts/typecheck/lint scope; credential-safe verification script; `.gitignore`; README; Supabase setup and architecture docs; handoff
+- **Migrations:** none; Supabase's `public` schema remained empty and no Storage bucket was created
+- **Verification:** Hosted config re-pull reported local Site URL (Supabase-normalized trailing slash), only `http://localhost:3000/**`, 3600-second access tokens, refresh rotation/reuse 10, global/anonymous sign-up disabled, email enabled/confirmed and minimum password 12. CLI reported modern publishable+secret keys without displaying them; plugin access succeeded, found zero public tables and zero buckets. Live password sign-in returned HTTP 200 with ES256, `kid`, expected issuer/audience/role/expiry and a JWKS key match; wrong password returned 400 `invalid_credentials`; public sign-up returned 422 `signup_disabled`. The credential file was ignored and mode 600. Frozen install passed with the known pnpm warning; format, lint, typecheck, hermetic tests (58 total: 44 API, 14 web) and build passed. Both a build sentinel and the hosted server secret were absent from browser assets. `actionlint` was not installed locally; GitHub CI remains the hosted workflow proof.
+- **Result:** Task 2.1 ticked complete locally; commit, PR, hosted CI, merge and final main synchronization remain in this turn.
+- **Progress after this session:** 15 / 71 (21.1%)
+- **Left undone / follow-ups:** Task 2.2 owns JWT verification, global auth, `/me`, identity linking/provisioning and the first real SUPER_ADMIN bootstrap. Task 2.5 owns invitations, and custom Resend SMTP is required before real staff invitations. Exact staging/production redirects wait for real domains. Existing known tooling and branch-protection issues remain unchanged.
+- **Next task:** 2.2 API JWT guard and user provisioning
+- **Branch / commit:** `phase-2/task-2.1-supabase-auth` / `feat(auth): configure Supabase Auth foundation` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -489,13 +508,17 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 | `SEED_PROTECTED_HOSTS` | Prisma seed | Explicit seed only | Comma-separated production `main` and `staging` hosts that the seed must reject |
 | `NEON_PROJECT_ID` | Task 1.7 verification helper | Explicit live verification only | Non-secret Neon project identifier; connection output remains captured |
 | `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
-| `SUPABASE_URL` | api, web server | No (Phase 2) | Supabase project URL |
-| `SUPABASE_ANON_KEY` | web server | No (Phase 2) | Future Supabase client key; not exposed to client code in Task 0.3 |
-| `SUPABASE_SERVICE_ROLE_KEY` | api only | No (Phase 2) | Server-side admin/storage key — never expose to web |
-| `SUPABASE_JWT_ISSUER` | api | No (Phase 2) | JWT issuer used during token verification |
-| `SUPABASE_JWKS_URL` | api | No (Phase 2) | JWKS endpoint used during token verification |
+| `SUPABASE_URL` | api | Yes | Supabase project URL; source for the derived issuer/JWKS endpoints |
+| `SUPABASE_SECRET_KEY` | api only | Yes | Modern server-side administration/storage key — never expose or print |
+| `SUPABASE_JWT_ISSUER` | api | No (derived) | Optional explicit issuer; must equal `SUPABASE_URL/auth/v1` |
+| `SUPABASE_JWKS_URL` | api | No (derived) | Optional explicit JWKS URL; must equal the project well-known endpoint |
 | `API_BASE_URL` | web server | Yes | Server-side API location |
-| `NEXT_PUBLIC_API_URL` | web public | Yes | Browser-visible API location; the only public web environment variable |
+| `NEXT_PUBLIC_API_URL` | web public | Yes | Browser-visible API location |
+| `NEXT_PUBLIC_SUPABASE_URL` | web public | Yes | Browser-visible Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web public | Yes | Modern browser-safe Supabase key; never substitute a server secret |
+| `SUPABASE_AUTH_TEST_EMAIL` | ignored Task 2.1 proof file | Live proof only | Dedicated non-staff confirmed test identity; never print it |
+| `SUPABASE_AUTH_TEST_PASSWORD` | ignored Task 2.1 proof file | Live proof only | Dedicated test password; never print it |
+| `SUPABASE_AUTH_PROOF_ENV_FILE` | Task 2.1 verifier | No | Optional path override for the ignored proof credential file |
 | `RESEND_API_KEY` | api | No (Phase 9) | Email provider key |
 | `SENTRY_DSN` | api, web server | No (Phase 11) | Error tracking destination |
 
@@ -524,6 +547,7 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Verify deterministic seed counts/relations: `pnpm db:seed:verify`
 - Review seed sequence and five EXPLAIN query shapes: `pnpm db:index-review`
 - Run the credential-safe Task 1.7 disposable/dev proof: `NEON_PROJECT_ID=<project-id> pnpm verify:neon:task-1.7`
+- Run the credential-safe hosted Auth proof: `pnpm verify:supabase:auth`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`
