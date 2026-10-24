@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 15 / 71 tasks (21.1%) |
-| Current phase | Phase 2 — Task 2.1 verified locally |
-| Last updated | 2026-10-24 11:15 EAT |
-| Branch | `phase-2/task-2.1-supabase-auth` |
-| Last commit | `feat(auth): configure Supabase Auth foundation` (pending commit) |
-| Repo state | Task 2.1 implementation and hosted Auth proofs pass locally; commit, PR, hosted CI, merge and final `main` synchronization remain in this turn |
+| Current phase | Phase 2 — Task 2.1 delivered |
+| Last updated | 2026-10-24 11:18 EAT |
+| Branch | `main` (Task 2.1 delivered via `phase-2/task-2.1-supabase-auth`) |
+| Last commit | `feat(auth): configure Supabase Auth foundation` |
+| Repo state | Task 2.1 merged by PR #18 as `43748fa`; local/hosted Auth proofs, browser-secret checks and GitHub `Quality` CI are green; local `main` synchronized and clean before this handoff-only update |
 | **Next task** | **2.2 API JWT guard and user provisioning** |
 
 ---
@@ -470,6 +470,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Left undone / follow-ups:** Task 2.2 owns JWT verification, global auth, `/me`, identity linking/provisioning and the first real SUPER_ADMIN bootstrap. Task 2.5 owns invitations, and custom Resend SMTP is required before real staff invitations. Exact staging/production redirects wait for real domains. Existing known tooling and branch-protection issues remain unchanged.
 - **Next task:** 2.2 API JWT guard and user provisioning
 - **Branch / commit:** `phase-2/task-2.1-supabase-auth` / `feat(auth): configure Supabase Auth foundation` (pending)
+
+### [2026-10-24 11:18 EAT] — Task(s): 2.1 — Hosted verification and delivery
+- **Prompt summary:** Complete Task 2.1 delivery after the repository implementation and credential-safe live Supabase proofs passed.
+- **What I did:** Pushed the task branch, opened PR #18, monitored the repository `Quality` workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
+- **How:** Used the full Git workflow authorized by D18. Supabase Preview correctly skipped because Task 2.1 introduced no Supabase database migration; the repository's required quality workflow was the merge gate.
+- **Files touched:** this handoff only in the delivery follow-up; Task 2.1 implementation and setup documentation were delivered by PR #18
+- **Migrations:** none
+- **Verification:** GitHub `Quality` passed in 1m05s for PR #18; Supabase Preview reported skipped as expected; the PR merged as `43748fa`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 2.1 is complete and delivered on `main`.
+- **Progress after this session:** 15 / 71 (21.1%)
+- **Left undone / follow-ups:** Unchanged from the implementation entry: Task 2.2 owns JWT guard/provisioning/bootstrap; Task 2.5 owns invitations; custom SMTP and exact deployed redirect URLs remain pending at their scheduled points.
+- **Next task:** 2.2 API JWT guard and user provisioning
+- **Branch / commit:** `phase-2/task-2.1-handoff-finalize` / `docs: finalize Task 2.1 delivery` (pending)
 
 ---
 
