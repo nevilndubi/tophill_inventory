@@ -252,6 +252,9 @@ describe('API role authorization (e2e)', () => {
     }
 
     expect(routes.sort()).toEqual([
+      'DELETE /categories/:id permission:reference:manage',
+      'GET /categories permission:machine:read',
+      'GET /categories/:id permission:machine:read',
       'GET /health public',
       'GET /health/ready public',
       'GET /me authenticated-only',
@@ -263,7 +266,9 @@ describe('API role authorization (e2e)', () => {
       'GET /rbac-test-only/unknown-permission permission:unknown:permission',
       'GET /users permission:user:manage',
       'GET /users/departments permission:user:manage',
+      'PATCH /categories/:id permission:reference:manage',
       'PATCH /users/:id permission:user:manage',
+      'POST /categories permission:reference:manage',
       'POST /users permission:user:manage',
       'POST /users/:id/deactivate permission:user:manage',
       'POST /users/:id/reactivate permission:user:manage',

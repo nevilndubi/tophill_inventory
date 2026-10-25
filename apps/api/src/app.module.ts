@@ -15,6 +15,7 @@ import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 import { AuthorizationModule } from './authorization/authorization.module';
 import { PermissionGuard } from './authorization/permission.guard';
 import { UsersModule } from './users/users.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     AuthModule,
     AuthorizationModule,
+    CategoriesModule,
     HealthModule,
     UsersModule,
   ],

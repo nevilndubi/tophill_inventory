@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -18,16 +19,20 @@ import { LogoutButton } from './logout-button';
 
 function Navigation({ compact = false }: { compact?: boolean }) {
   const { user } = useAuthenticatedUser();
+  const pathname = usePathname();
   const navigation = navigationForRole(user.role);
 
   return (
     <nav aria-label="Primary navigation" className="mt-8 space-y-1.5 px-3">
       {navigation.map(({ href, icon: Icon, label, status }) => {
+        const isCurrent = pathname === href;
         const classes = cn(
           'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium',
-          status === 'available'
+          status === 'available' && isCurrent
             ? 'bg-sidebar-accent text-white shadow-[inset_3px_0_0_var(--color-primary)]'
-            : 'cursor-not-allowed text-sidebar-muted',
+            : status === 'available'
+              ? 'text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white'
+              : 'cursor-not-allowed text-sidebar-muted',
           compact && 'justify-center px-2 lg:justify-start lg:px-3',
         );
         const content = (
@@ -39,7 +44,12 @@ function Navigation({ compact = false }: { compact?: boolean }) {
         );
 
         return status === 'available' ? (
-          <Link key={label} href={href} aria-current="page" className={classes}>
+          <Link
+            key={label}
+            href={href}
+            aria-current={isCurrent ? 'page' : undefined}
+            className={classes}
+          >
             {content}
           </Link>
         ) : (

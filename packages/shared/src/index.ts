@@ -1,6 +1,15 @@
 export const APP_NAME = 'Tophill Inventory' as const;
 
 export {
+  categoryIdParamsSchema,
+  createCategorySchema,
+  updateCategorySchema,
+  type CreateCategoryInput,
+  type ManagedCategory,
+  type UpdateCategoryInput,
+} from './category-management';
+
+export {
   AUDIT_ACTIONS,
   auditActionSchema,
   NOTIFICATION_TYPES,

@@ -8,6 +8,7 @@ export type AuditRecordInput = {
   after?: Prisma.InputJsonObject;
   before?: Prisma.InputJsonObject;
   entityId: string;
+  entityType?: string;
   requestId: string;
 };
 
@@ -21,7 +22,7 @@ export class AuditService {
         after: input.after,
         before: input.before,
         entityId: input.entityId,
-        entityType: 'user',
+        entityType: input.entityType ?? 'user',
         requestId: input.requestId,
       },
     });

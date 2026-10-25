@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from './app-shell';
 
+vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+
 vi.mock('./authenticated-user-provider', () => ({
   useAuthenticatedUser: () => ({
     signOut: vi.fn(),
@@ -32,5 +34,9 @@ describe('AppShell', () => {
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText('Tophill Inventory')).toBeInTheDocument();
     expect(within(dialog).getByText('Overview')).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 });

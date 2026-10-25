@@ -30,6 +30,7 @@
     "verify:neon:task-1.7": "tsx prisma/verify-neon-task-1-7.ts",
     "verify:supabase:auth": "tsx scripts/verify-supabase-auth.ts",
     "verify:users:live": "tsx scripts/verify-user-management-live.ts",
+    "verify:categories:live": "tsx scripts/verify-categories-live.ts",
     "users:reconcile-auth": "pnpm --filter @app/api exec tsx src/scripts/reconcile-auth-identities.ts",
     "prepare": "husky"
   },
