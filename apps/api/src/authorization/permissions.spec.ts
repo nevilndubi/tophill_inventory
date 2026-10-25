@@ -2,6 +2,7 @@ import {
   can,
   canAssignRole,
   canDeactivateUser,
+  canManageUser,
   getPermissionScope,
   isLastActiveSuperAdmin,
   PERMISSIONS,
@@ -134,22 +135,24 @@ describe('shared role permissions', () => {
     expect([...ROLES].sort()).toEqual(Object.values(PrismaRole).sort());
   });
 
-  it.each([
-    ['SUPER_ADMIN', 'SUPER_ADMIN', true],
-    ['SUPER_ADMIN', 'VIEWER', true],
-    ['ADMIN', 'ADMIN', true],
-    ['ADMIN', 'VIEWER', true],
-    ['ADMIN', 'SUPER_ADMIN', false],
-    ['BIOMED_TECH', 'STAFF', false],
-    ['DEPT_MANAGER', 'STAFF', false],
-    ['STAFF', 'VIEWER', false],
-    ['VIEWER', 'VIEWER', false],
-  ] satisfies ReadonlyArray<readonly [AppRole, AppRole, boolean]>)(
-    'applies role-assignment policy for %s targeting %s',
-    (actorRole, targetRole, expected) => {
-      expect(canAssignRole(actorRole, targetRole)).toBe(expected);
-    },
-  );
+  it('matches the independent role-assignment matrix for every role pair', () => {
+    const expectedAssignableRoles = {
+      SUPER_ADMIN: [...ROLES],
+      ADMIN: ['ADMIN', 'BIOMED_TECH', 'DEPT_MANAGER', 'STAFF', 'VIEWER'],
+      BIOMED_TECH: [],
+      DEPT_MANAGER: [],
+      STAFF: [],
+      VIEWER: [],
+    } as const satisfies Record<AppRole, readonly AppRole[]>;
+
+    for (const actorRole of ROLES) {
+      for (const targetRole of ROLES) {
+        expect(canAssignRole(actorRole, targetRole)).toBe(
+          expectedAssignableRoles[actorRole].some((role) => role === targetRole),
+        );
+      }
+    }
+  });
 
   it('protects self-deactivation and the final active SUPER_ADMIN', () => {
     expect(
@@ -189,6 +192,25 @@ describe('shared role permissions', () => {
         targetRole: 'SUPER_ADMIN',
       }),
     ).toBe(false);
+  });
+
+  it('matches the independent user-management target matrix for every role pair', () => {
+    const expectedManageableTargets = {
+      SUPER_ADMIN: [...ROLES],
+      ADMIN: ['ADMIN', 'BIOMED_TECH', 'DEPT_MANAGER', 'STAFF', 'VIEWER'],
+      BIOMED_TECH: [],
+      DEPT_MANAGER: [],
+      STAFF: [],
+      VIEWER: [],
+    } as const satisfies Record<AppRole, readonly AppRole[]>;
+
+    for (const actorRole of ROLES) {
+      for (const targetRole of ROLES) {
+        expect(canManageUser(actorRole, targetRole)).toBe(
+          expectedManageableTargets[actorRole].some((role) => role === targetRole),
+        );
+      }
+    }
   });
 
   it('keeps permission names a closed typed set', () => {

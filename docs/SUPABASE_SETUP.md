@@ -73,9 +73,62 @@ JWT. Its output is limited to the signing algorithm, presence of a key ID, issue
 expiry, JWKS match, and status/error codes proving that a wrong password and public sign-up are
 rejected. Delete or rotate the test account when it is no longer needed.
 
-Task 2.5 builds the real invitation flow after custom SMTP is available. Seed rows cannot be linked:
-the database requires seed users to have no Supabase identity and real users to have one. They remain
-inert examples until Task 2.5 creates real invited-user rows.
+The user-management workflow creates the Supabase identity and matching Neon row together. Seed rows
+cannot be linked: the database requires seed users to have no Supabase identity and real users to
+have one. The six seed users remain inert examples and never appear in user-management responses.
+
+## Staff invitations and acceptance
+
+The API uses the current server-only `auth.admin.inviteUserByEmail()` flow. It pre-checks Neon and
+Supabase, creates the identity, then inserts the local user and audit event in one Neon transaction.
+If that transaction fails, it deletes only the identity created by the same request. A pre-existing
+identity without a local row is not auto-linked; run the read-only `pnpm users:reconcile-auth`
+command to list orphan identity IDs/counts, then investigate manually without displaying addresses.
+
+In **Authentication → Email Templates → Invite user**, set the subject exactly to:
+
+```text
+You have been invited to Tophill Inventory
+```
+
+Set the body exactly to:
+
+```html
+<h2>You have been invited to Tophill Inventory</h2>
+<p>An administrator created an account for you.</p>
+<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite&returnTo=%2F">Accept invitation</a></p>
+<p>If you were not expecting this invitation, you can ignore this message.</p>
+```
+
+The API supplies `http://localhost:3000/auth/confirm` as the local `RedirectTo`; the existing
+`http://localhost:3000/**` redirect allow-list entry covers it. Add the exact staging and production
+web origins only when those domains exist, and verify their `/auth/confirm` flow separately. Never
+add Vercel preview wildcards.
+
+The server confirmation route accepts only `type=invite` plus the one-time `token_hash`, calls the
+SSR `verifyOtp` flow, strips the token from the next URL, and redirects to the authenticated
+set-password page. Expired, malformed and reused links show the same generic invalid-invitation
+screen. The new password must satisfy the hosted 12-character minimum. Public registration,
+password reset and magic-link login remain unavailable.
+
+### Custom SMTP gate for real staff
+
+Do not send a real staff invitation until all of these are complete:
+
+1. In the planned Phase 9 Resend account, verify the hospital-owned sending domain and create a
+   restricted SMTP credential.
+2. In **Project Settings → Authentication → SMTP Settings**, enable custom SMTP and enter the Resend
+   host, port, username, password and an approved sender address through the dashboard only.
+3. Paste the exact invite template above and retain the environment's exact redirect allow-list.
+4. Invite one dedicated non-staff test identity, accept the link, set a password, and verify `/me`
+   and role-aware navigation.
+5. Review Auth delivery/error logs without copying addresses or links into issues or chat, then begin
+   staff invitations.
+
+Supabase's built-in sender remains organisation-member-only/rate-limited for this project. Live email
+delivery is therefore intentionally unverified in Task 2.5. Its live proof used Admin
+`generateLink(type: invite)` without sending mail, never displayed the returned link/token, completed
+the same confirm/set-password flow, then deleted the temporary identity.
 
 ## First administrator bootstrap
 

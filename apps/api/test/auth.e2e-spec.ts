@@ -19,6 +19,7 @@ import { IS_PUBLIC_ROUTE } from '../src/auth/public.decorator';
 import { JwtVerifierService } from '../src/auth/jwt-verifier.service';
 import { UserSessionService } from '../src/auth/user-session.service';
 import { configureApplication } from '../src/bootstrap/configure-application';
+import { REQUIRED_PERMISSION } from '../src/authorization/require-permission.decorator';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { REDIS_CLIENT } from '../src/redis/redis.constants';
 import { RedisService } from '../src/redis/redis.service';
@@ -312,7 +313,17 @@ describe('API authentication (e2e)', () => {
             handler,
             controller,
           ]) === true;
-        const access = isPublic ? 'public' : isAuthenticatedOnly ? 'authenticated-only' : 'missing';
+        const permission = reflector.getAllAndOverride<unknown>(REQUIRED_PERMISSION, [
+          handler,
+          controller,
+        ]);
+        const access = isPublic
+          ? 'public'
+          : isAuthenticatedOnly
+            ? 'authenticated-only'
+            : permission
+              ? `permission:${String(permission)}`
+              : 'missing';
         coveredRoutes.push(`${RequestMethod[requestMethod]} /${routeParts.join('/')} ${access}`);
       }
     }
@@ -322,6 +333,12 @@ describe('API authentication (e2e)', () => {
       'GET /health/ready public',
       'GET /me authenticated-only',
       'GET /protected-fixture authenticated-only',
+      'GET /users permission:user:manage',
+      'GET /users/departments permission:user:manage',
+      'PATCH /users/:id permission:user:manage',
+      'POST /users permission:user:manage',
+      'POST /users/:id/deactivate permission:user:manage',
+      'POST /users/:id/reactivate permission:user:manage',
     ]);
   });
 });

@@ -49,6 +49,8 @@ pnpm db:seed
 pnpm db:seed:verify
 pnpm db:index-review
 pnpm verify:supabase:auth
+pnpm users:reconcile-auth
+NEON_PROJECT_ID=<project-id> pnpm verify:users:live
 ```
 
 TypeScript is strict across every workspace. ESLint and Prettier run repository-wide, and Husky
@@ -159,6 +161,14 @@ registration, magic-link or password-reset UI. Authenticated navigation comes fr
 `GET /api/v1/me` context and the shared permission map. Future feature destinations remain disabled
 until their tasks are implemented. Logout clears both the Supabase session and all cached query data,
 which is required for shared ward devices.
+
+Administrators with `user:manage` can use `/admin` to search and page through non-seed users, create
+invitations, assign allowed roles/departments, and deactivate or reactivate access. The API owns all
+policy checks and writes a minimal audit event in the same transaction as each local change. Before
+inviting real staff, configure custom SMTP and the exact invite template in
+[docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md); the hosted built-in sender is not approved for real
+staff delivery. `pnpm users:reconcile-auth` is a read-only operator command that reports Supabase
+identity IDs with no Neon row and never prints addresses.
 
 ## Continuous integration
 

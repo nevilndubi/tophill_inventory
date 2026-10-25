@@ -259,6 +259,12 @@ describe('API role authorization (e2e)', () => {
       'GET /rbac-test-only/department/:departmentId permission:booking:approve',
       'GET /rbac-test-only/global permission:machine:create',
       'GET /rbac-test-only/public public',
+      'GET /users permission:user:manage',
+      'GET /users/departments permission:user:manage',
+      'PATCH /users/:id permission:user:manage',
+      'POST /users permission:user:manage',
+      'POST /users/:id/deactivate permission:user:manage',
+      'POST /users/:id/reactivate permission:user:manage',
     ]);
   });
 });

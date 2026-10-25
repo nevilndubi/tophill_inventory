@@ -67,7 +67,7 @@ export const NAVIGATION_ENTRIES = [
     icon: Settings,
     label: 'Administration',
     permission: 'user:manage',
-    status: 'coming-soon',
+    status: 'available',
   },
 ] as const satisfies readonly NavigationEntry[];
 

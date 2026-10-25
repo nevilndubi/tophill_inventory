@@ -77,7 +77,14 @@ Task 1.7 demo users have `is_seed_data = true` and a null `supabase_user_id`, so
 in. A named database check requires every non-seed user to have a Supabase identity and every seed
 user to have none. Consequently, Task 2.2 cannot link an existing real row by email without first
 weakening that invariant, and it intentionally does not do so. The six reserved `@example.invalid`
-placeholders remain inert examples; Task 2.5 creates real invited-user rows with Supabase identities.
+placeholders remain inert examples; the Task 2.5 invitation workflow creates separate real rows with
+their exact Supabase identities.
+
+User administration never exposes `supabase_user_id`, `is_seed_data` or internal timestamps to the
+browser. Lists exclude seed rows, use stable name/ID sorting, search normalized names or email
+case-insensitively, and paginate server-side (25 by default, 100 maximum). Email is immutable after
+invitation. Full names are trimmed and bounded to 120 characters, and `DEPT_MANAGER` always requires
+a department.
 
 **departments** — `id`, `name` (unique), `code` (unique), `manager_user_id` (nullable FK)
 
@@ -275,7 +282,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 ### 5.1 Main endpoints (summary)
 | Area | Endpoints |
 |---|---|
-| Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `POST /users/:id/deactivate` |
+| Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `GET /users/departments`, `POST /users/:id/{deactivate,reactivate}` |
 | Reference | `/departments`, `/locations`, `/categories` (CRUD) |
 | Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `GET /machines/:id/history` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
@@ -358,6 +365,22 @@ policy helpers separately enforce that only SUPER_ADMIN may manage SUPER_ADMIN, 
 non-SUPER_ADMIN roles, nobody else assigns roles, self-deactivation is forbidden and the final
 active SUPER_ADMIN is protected.
 
+User invitations validate authorization and local uniqueness before creating the Supabase identity,
+then create the matching non-seed Neon row and `user.invited` audit event. If the Neon transaction
+fails, the API deletes only the identity created by that request; a failed compensation returns a
+5xx, logs only the identity ID with `ORPHANED_AUTH_IDENTITY`, and is discoverable through the
+read-only `users:reconcile-auth` command. A pre-existing Auth identity without a Neon row is never
+auto-linked (`AUTH_IDENTITY_EXISTS`); it requires an explicit operator reconciliation. Concurrent
+duplicates settle through the database email uniqueness rule, with compensation by the losing
+request.
+
+Role, department, activation and deactivation mutations lock the active real SUPER_ADMIN rows before
+evaluating the last-admin rule. Nobody can change their own role/department or deactivate
+themselves; ADMIN cannot modify SUPER_ADMIN; seed rows cannot be listed or mutated. User mutation
+and a minimal audit event commit in one Neon transaction. Deactivation is Neon-only: the identity
+may still obtain a Supabase session, but every API call receives `USER_INACTIVE` until reactivation.
+No Supabase ban/sign-out operation is added, avoiding a second cross-system failure boundary.
+
 Until Task 7.2, the local user (including role, department and active state) is read from Neon on
 every request, so changes take effect immediately on the next request. Task 7.2 must preserve that
 behavior by invalidating `user:{supabaseId}` whenever role, department or active state changes.
@@ -399,7 +422,8 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 - **Auth:** `@supabase/ssr` creates a browser singleton and one server client per request. Next.js 16 `proxy.ts` calls validated `getClaims()` to refresh cookies and perform only optimistic redirects; it never trusts `getSession()` for a security decision. A cached server DAL validates claims again at each protected leaf/data boundary, retrieves the bearer only after that check, and bootstraps the application context exclusively from API `GET /me`. The NestJS API remains authoritative for identity, active state, role and department.
 - **Session and API failures:** a protected API 401 triggers exactly one Supabase refresh/retry, then clears the Supabase session and the entire TanStack Query cache before redirecting to login. `403 PERMISSION_DENIED` keeps the session and shows `/forbidden`; `USER_NOT_PROVISIONED` and `USER_INACTIVE` show `/no-access` with sign-out; `503 AUTH_UNAVAILABLE` and network failures retain the session and show a retryable unavailable banner/page. Supabase auth-state changes clear cached data and propagate sign-out across tabs.
 - **Bearer boundary:** access tokens stay inside Supabase clients, are never stored in application React state or localStorage by application code, and are attached only to the exact validated API origin. Server calls obtain the bearer from their request-scoped server client after `getClaims()` succeeds.
-- **Navigation:** one typed config maps every item to a `@app/shared` permission and renders it through `can()`/`getPermissionScope()` without role inheritance. Until their feature tasks land, visible future destinations are disabled “coming soon” items; the current overview is the only normal link and the guarded `/admin` placeholder exists solely to prove hard-navigation 403 behavior.
+- **Navigation:** one typed config maps every item to a `@app/shared` permission and renders it through `can()`/`getPermissionScope()` without role inheritance. Until their feature tasks land, visible future destinations are disabled “coming soon” items; overview and the permission-guarded `/admin` user-management workspace are the implemented links.
+- **User management:** `/admin` supplies accessible search/filter/pagination, invitation, role/department editing and activation controls with responsive table/card layouts. UI controls mirror the shared policy helpers, but the API remains authoritative. Invite acceptance uses the server `/auth/confirm` route to exchange a one-time `token_hash` with `verifyOtp`, then an authenticated set-password page enforces the hosted 12-character minimum and follows only validated same-origin return paths.
 - **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes and `javascript:` input fall back to `/`.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.

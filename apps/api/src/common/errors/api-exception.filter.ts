@@ -20,6 +20,13 @@ type ErrorResponse = {
 const isErrorResponse = (value: unknown): value is ErrorResponse =>
   typeof value === 'object' && value !== null;
 
+const httpStatusFromUnknown = (value: unknown): number => {
+  if (typeof value !== 'object' || value === null) return 500;
+  const candidate =
+    'status' in value ? value.status : 'statusCode' in value ? value.statusCode : 500;
+  return typeof candidate === 'number' && candidate >= 400 && candidate <= 599 ? candidate : 500;
+};
+
 const statusCodeToErrorCode = (status: number): string =>
   typeof HttpStatus[status] === 'string' ? HttpStatus[status] : 'HTTP_ERROR';
 
@@ -35,10 +42,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const request = context.getRequest<RequestWithId & AuthenticatedRequest>();
     const response = context.getResponse<Response>();
     const requestId = getOrCreateRequestId(request);
-    const status = exception instanceof HttpException ? exception.getStatus() : 500;
+    const status =
+      exception instanceof HttpException ? exception.getStatus() : httpStatusFromUnknown(exception);
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
-    const normalized = this.normalizeError(status, exceptionResponse);
+    const normalized =
+      status === HttpStatus.PAYLOAD_TOO_LARGE
+        ? {
+            code: 'PAYLOAD_TOO_LARGE',
+            details: {},
+            message: 'Request body is too large',
+          }
+        : this.normalizeError(status, exceptionResponse);
 
     request.requestId = requestId;
     response.setHeader(REQUEST_ID_HEADER, requestId);

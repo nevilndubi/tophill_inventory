@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 import { AuthorizationModule } from './authorization/authorization.module';
 import { PermissionGuard } from './authorization/permission.guard';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PermissionGuard } from './authorization/permission.guard';
     AuthModule,
     AuthorizationModule,
     HealthModule,
+    UsersModule,
   ],
   providers: [
     { provide: APP_GUARD, useExisting: SupabaseAuthGuard },

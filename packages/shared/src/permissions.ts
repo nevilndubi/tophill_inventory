@@ -155,6 +155,9 @@ export const can = (role: AppRole, permission: Permission): boolean =>
 export const canAssignRole = (actorRole: AppRole, targetRole: AppRole): boolean =>
   actorRole === 'SUPER_ADMIN' || (actorRole === 'ADMIN' && targetRole !== 'SUPER_ADMIN');
 
+export const canManageUser = (actorRole: AppRole, targetRole: AppRole): boolean =>
+  actorRole === 'SUPER_ADMIN' || (actorRole === 'ADMIN' && targetRole !== 'SUPER_ADMIN');
+
 export type DeactivationFacts = {
   activeSuperAdminCount: number;
   actorId: string;

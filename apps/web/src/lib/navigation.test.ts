@@ -44,9 +44,10 @@ describe('role-aware navigation', () => {
 
   it('marks every unbuilt destination as coming soon instead of linking to a missing page', () => {
     expect(
-      NAVIGATION_ENTRIES.filter((entry) => entry.href !== '/').every(
+      NAVIGATION_ENTRIES.filter((entry) => !['/', '/admin'].includes(entry.href)).every(
         (entry) => entry.status === 'coming-soon',
       ),
     ).toBe(true);
+    expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/admin')?.status).toBe('available');
   });
 });
