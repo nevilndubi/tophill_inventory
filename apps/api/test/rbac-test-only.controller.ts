@@ -1,11 +1,14 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, SetMetadata } from '@nestjs/common';
 import { getPermissionScope } from '@app/shared';
 import { CurrentUser } from '../src/auth/current-user.decorator';
 import { Public } from '../src/auth/public.decorator';
 import type { AuthenticatedUser } from '../src/auth/auth.types';
 import { AuthenticatedOnly } from '../src/authorization/authenticated-only.decorator';
 import { assertDepartmentAccess } from '../src/authorization/department-scope';
-import { RequirePermission } from '../src/authorization/require-permission.decorator';
+import {
+  REQUIRED_PERMISSION,
+  RequirePermission,
+} from '../src/authorization/require-permission.decorator';
 
 export const RBAC_TEST_ONLY_MARKER = 'RBAC_TEST_ONLY_CONTROLLER';
 
@@ -27,6 +30,22 @@ export class RbacTestOnlyController {
       assertDepartmentAccess(user, departmentId);
     }
 
+    return { allowed: true };
+  }
+
+  @Get('departmentless')
+  @RequirePermission('booking:approve')
+  getDepartmentlessPermission(@CurrentUser() user: AuthenticatedUser): { allowed: true } {
+    if (getPermissionScope(user.role, 'booking:approve') === 'OWN_DEPARTMENT') {
+      assertDepartmentAccess(user, null);
+    }
+
+    return { allowed: true };
+  }
+
+  @Get('unknown-permission')
+  @SetMetadata(REQUIRED_PERMISSION, 'unknown:permission')
+  getUnknownPermission(): { allowed: true } {
     return { allowed: true };
   }
 

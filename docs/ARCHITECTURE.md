@@ -475,7 +475,7 @@ address only in the API's ignored `.env`. Production repeats the same one-time o
 
 - No patient data stored; purpose fields carry a UI warning and are excluded from logs.
 - One-hour ES256 JWTs; the global guard verifies JWKS signature/key ID, exact issuer, authenticated audience and token role, expiry, and UUID subject. It rejects alternate algorithms, anonymous/service-role tokens, and all malformed Bearer headers; application roles come from Neon, never from JWT claims.
-- Helmet, strict CORS (`WEB_ORIGIN` only), Redis rate limits, body size limits, upload type/size allow-list.
+- Helmet, strict CORS (`WEB_ORIGIN` only through an exact origin predicate; other origins receive no allow-origin header), Redis rate limits, body size limits, upload type/size allow-list.
 - Private storage buckets, signed URLs (≤5 min), virus-scan hook point documented for uploads.
 - Secrets only in host/Vercel/GitHub secrets. The modern Supabase secret key never reaches browser code or build assets; only `NEXT_PUBLIC_SUPABASE_URL` and the publishable key are public.
 - Supabase SSR stores access and refresh tokens in its `sb-<project-ref>-auth-token` cookie (chunked when necessary). Supabase requires the browser client to read the refresh token, so these cookies are deliberately **not HttpOnly**. They use `SameSite=Lax`, `Secure` outside localhost and path `/`; compensating controls are the one-hour access-token lifetime, refresh-token rotation, strict same-origin bearer attachment and the Content-Security-Policy scheduled for Task 10.2. Authenticated responses that refresh cookies carry private/no-store cache headers.
@@ -505,3 +505,13 @@ address only in the API's ignored `.env`. Production repeats the same one-time o
 | UI e2e | Playwright | Login → find machine → see status → book → check-out → check-in → report fault → technician resolves |
 | Resilience | Jest | Redis down ⇒ API still correct |
 | Load | k6/Artillery | Status board under N concurrent users; booking under contention |
+
+The Task 2.6 Auth/RBAC contract keeps one hand-written access row for every production controller
+handler plus the non-production Swagger infrastructure routes. Each row declares unauthenticated,
+inactive and all-six-role outcomes independently of the shared permission map. Runtime discovery
+must match that manifest exactly and every controller handler must declare exactly one of
+`@Public()`, `@AuthenticatedOnly()` or `@RequirePermission()`. This makes both a new unclassified
+route and a permission-map mutation fail the hermetic e2e suite. JWT tests use local ES256 keys and
+a loopback JWKS endpoint; no hosted Auth, Neon or Redis service is contacted. Strict authorization
+accepts only the case-sensitive `Bearer` scheme. A denied `HEAD` request proves the same status and
+request-ID header as `GET`, but has no JSON body because HTTP suppresses bodies for `HEAD` responses.
