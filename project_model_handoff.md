@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 21 / 71 tasks (29.6%) |
-| Current phase | Phase 3 — Task 3.1 verified locally and live; Git delivery in progress |
-| Last updated | 2026-10-25 16:31 EAT |
-| Branch | `phase-3/task-3.1-categories-crud` |
-| Last commit | `feat(categories): add category management` (pending) |
-| Repo state | Task 3.1 implementation, migration, hermetic checks, responsive Chromium proof and disposable-Neon proof pass; commit/PR/hosted CI/merge remain in this turn |
+| Current phase | Phase 3 — Task 3.1 complete and delivered |
+| Last updated | 2026-10-25 16:33 EAT |
+| Branch | `main` |
+| Last commit | `3ad3b23 Merge pull request #30 from nevilndubi/phase-3/task-3.1-categories-crud` |
+| Repo state | Task 3.1 is merged after green hosted CI; local `main` is synchronized with `origin/main` and the next implementation task is 3.2 |
 | **Next task** | **3.2 Departments & locations CRUD (API + UI)** |
 
 ---
@@ -506,6 +506,19 @@ Task 2.5 added permission-gated paginated user administration, compensated Supab
 - **Left undone / follow-ups:** Reference-data caching/invalidation remains assigned to Task 7.2. Department/location CRUD is Task 3.2; no placeholder UI or later machine feature was added. Existing known issues remain unchanged.
 - **Next task:** 3.2 Departments & locations CRUD (API + UI)
 - **Branch / commit:** `phase-3/task-3.1-categories-crud` / `feat(categories): add category management` (pending)
+
+### [2026-10-25 16:33 EAT] — Task(s): 3.1 — Hosted verification and delivery
+- **Prompt summary:** Deliver the verified categories API/UI, migration and documentation through the complete owned Git workflow.
+- **What I did:** Committed the full Task 3.1 implementation as `246194d`, pushed the task branch, opened PR #30, monitored hosted checks, merged only after the required job passed, deleted the task branch, and synchronized local `main` with `origin/main`.
+- **How:** Used the D18 branch/PR lifecycle. GitHub Actions independently repeated frozen installation, formatting, linting, typechecking, hermetic tests and the production build; Supabase Preview correctly skipped because the additive category index is a Prisma/Neon migration rather than a Supabase database migration.
+- **Files touched:** this handoff only in the delivery follow-up; the category contracts, API/UI, migration, tests, live verifier and architecture clarification were delivered by PR #30
+- **Migrations:** `20261025093000_category_name_case_insensitive` was delivered after its successful Neon `dev`, fresh-disposable-branch and zero-drift proof
+- **Verification:** GitHub `Quality` passed in 1m49s for PR #30; Supabase Preview reported skipped as expected; PR #30 merged as `3ad3b23`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 3.1 is complete and delivered on `main`.
+- **Progress after this session:** 21 / 71 (29.6%)
+- **Left undone / follow-ups:** Department/location CRUD remains Task 3.2 and reference-data caching remains Task 7.2. All previously recorded pending items and known issues remain unchanged.
+- **Next task:** 3.2 Departments & locations CRUD (API + UI)
+- **Branch / commit:** `main` / `3ad3b23 Merge pull request #30 from nevilndubi/phase-3/task-3.1-categories-crud`
 
 ---
 
