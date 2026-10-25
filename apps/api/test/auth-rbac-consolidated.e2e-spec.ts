@@ -34,6 +34,8 @@ import { RedisService } from '../src/redis/redis.service';
 import { UserAlreadyExistsException, UserNotFoundException } from '../src/users/users.errors';
 import { UsersService } from '../src/users/users.service';
 import { CategoriesService } from '../src/categories/categories.service';
+import { DepartmentsService } from '../src/reference/departments.service';
+import { LocationsService } from '../src/reference/locations.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -327,6 +329,182 @@ const EXPECTED_ACCESS_TABLE = [
     successStatus: 200,
     unauthenticated: 'DENY',
   },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/departments',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/departments/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/departments/:id/eligible-managers',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/departments',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'PATCH',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/departments/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'DELETE',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/departments/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/locations',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/locations/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/locations',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'PATCH',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/locations/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'DELETE',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/locations/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
 ] as const satisfies readonly ExpectedAccessRow[];
 
 type InventoryRow = {
@@ -393,6 +571,40 @@ const categoriesService = {
   read: jest.fn(async () => managedCategory),
   update: jest.fn(async () => managedCategory),
 };
+const managedDepartment = {
+  code: 'ICU',
+  id: DEPARTMENT_A,
+  is_deletable: true,
+  location_count: 0,
+  machine_count: 0,
+  manager: null,
+  name: 'Intensive Care',
+  user_count: 0,
+};
+const departmentsService = {
+  create: jest.fn(async () => managedDepartment),
+  delete: jest.fn(async () => managedDepartment),
+  eligibleManagers: jest.fn(async () => []),
+  read: jest.fn(async () => managedDepartment),
+  update: jest.fn(async () => managedDepartment),
+};
+const managedLocation = {
+  building: null,
+  department: { code: 'ICU', id: DEPARTMENT_A, name: 'Intensive Care' },
+  floor: null,
+  id: TARGET_USER_ID,
+  is_deletable: true,
+  machine_count: 0,
+  name: 'Bay A',
+  room: null,
+};
+const locationsService = {
+  create: jest.fn(async () => managedLocation),
+  delete: jest.fn(async () => managedLocation),
+  list: jest.fn(async () => ({ items: [managedLocation], page: 1, pageSize: 50, total: 1 })),
+  read: jest.fn(async () => managedLocation),
+  update: jest.fn(async () => managedLocation),
+};
 
 const configForVerifier = (jwksUrl: string) =>
   ({
@@ -421,8 +633,10 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
       builder = client
         .patch(path)
         .send(
-          route.startsWith('/api/v1/categories')
-            ? { name: 'Updated category' }
+          route.startsWith('/api/v1/categories') ||
+            route.startsWith('/api/v1/departments') ||
+            route.startsWith('/api/v1/locations')
+            ? { name: 'Updated reference' }
             : { fullName: 'Updated User' },
         );
       break;
@@ -438,6 +652,10 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
       if (route === '/api/v1/categories') {
         builder = builder.send({ name: 'Test category' });
       }
+      if (route === '/api/v1/departments')
+        builder = builder.send({ code: 'ICU', name: 'Intensive Care' });
+      if (route === '/api/v1/locations')
+        builder = builder.send({ departmentId: DEPARTMENT_A, name: 'Bay A' });
       break;
   }
 
@@ -557,6 +775,10 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(usersService)
         .overrideProvider(CategoriesService)
         .useValue(categoriesService)
+        .overrideProvider(DepartmentsService)
+        .useValue(departmentsService)
+        .overrideProvider(LocationsService)
+        .useValue(locationsService)
         .compile();
 
     const productionModule = await createModule(false);

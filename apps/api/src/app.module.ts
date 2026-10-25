@@ -16,6 +16,7 @@ import { AuthorizationModule } from './authorization/authorization.module';
 import { PermissionGuard } from './authorization/permission.guard';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ReferenceModule } from './reference/reference.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CategoriesModule } from './categories/categories.module';
     }),
     LoggerModule.forRoot({ pinoHttp: pinoHttpOptions }),
     PrismaModule,
+    ReferenceModule,
     AuthModule,
     AuthorizationModule,
     CategoriesModule,

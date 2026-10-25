@@ -61,9 +61,15 @@ const makeHarness = () => {
     $queryRaw: jest.fn(async () => [{ id: 'admin-a' }, { id: 'admin-b' }]),
     auditLog: { create: jest.fn(async () => ({})) },
     department: {
+      findMany: jest.fn<
+        () => Promise<
+          Array<{ code: string; id: string; managerUserId: string | null; name: string }>
+        >
+      >(async () => []),
       findUnique: jest.fn<(arguments_: unknown) => Promise<{ id: string } | null>>(async () => ({
         id: department.id,
       })),
+      update: jest.fn(async () => ({})),
     },
     user: {
       create: jest.fn(async () => localUser()),
@@ -370,6 +376,41 @@ describe(UsersService.name, () => {
     expect(
       [...users.values()].filter((user) => user.role === 'SUPER_ADMIN' && user.isActive),
     ).toHaveLength(1);
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(4);
+  });
+
+  it.each([
+    ['deactivation', 'active'],
+    ['role change', 'role'],
+    ['department move', 'department'],
+  ])('clears a managed department with an audit on %s', async (_label, change) => {
+    const { audit, service, tx } = makeHarness();
+    const manager = localUser({ role: 'DEPT_MANAGER' });
+    tx.user.findUnique.mockResolvedValueOnce(manager);
+    tx.department.findMany.mockResolvedValueOnce([{ ...department, managerUserId: manager.id }]);
+    if (change === 'active') {
+      tx.user.update.mockResolvedValueOnce({ ...manager, isActive: false });
+      await service.setActive(actor(), manager.id, false, 'manager-change');
+    } else if (change === 'role') {
+      tx.user.update.mockResolvedValueOnce({ ...manager, role: 'STAFF' });
+      await service.update(actor(), manager.id, { role: 'STAFF' }, 'manager-change');
+    } else {
+      const otherDepartment = '99999999-9999-4999-8999-999999999999';
+      tx.user.update.mockResolvedValueOnce({ ...manager, departmentId: otherDepartment });
+      await service.update(
+        actor(),
+        manager.id,
+        { departmentId: otherDepartment },
+        'manager-change',
+      );
+    }
+    expect(tx.department.update).toHaveBeenCalledWith({
+      data: { managerUserId: null },
+      where: { id: department.id },
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'department.manager_cleared', entityId: department.id }),
+    );
   });
 });
