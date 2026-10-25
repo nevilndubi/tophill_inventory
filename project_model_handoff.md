@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 19 / 71 tasks (26.8%) |
-| Current phase | Phase 2 — Task 2.5 verified; Git delivery in progress |
-| Last updated | 2026-10-25 07:14 EAT |
-| Branch | `phase-2/task-2.5-user-management` |
-| Last commit | `feat(users): add user management` (pending) |
-| Repo state | Task 2.5 API/UI, hermetic tests and credential-safe disposable Neon/Supabase browser proof are verified; conventional commit, PR, hosted CI, merge and local `main` synchronization remain in this turn |
+| Current phase | Phase 2 — Task 2.5 complete and delivered |
+| Last updated | 2026-10-25 07:17 EAT |
+| Branch | `main` (Task 2.5 delivered through PR #26) |
+| Last commit | `feat(users): add user management` (`31d2e20`) |
+| Repo state | PR #26 passed GitHub `Quality` and merged as `16d08e1`; local `main` matched `origin/main` with a clean worktree before this handoff-only delivery update |
 | **Next task** | **2.6 Auth/RBAC test suite** |
 
 ---
@@ -610,6 +610,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Left undone / follow-ups:** Custom SMTP and a non-staff delivery test remain mandatory before inviting real staff; orphan identities require deliberate reconciliation; invite throttling belongs to Task 7.3. The real owner bootstrap remains a private one-time `dev` operation and later production secret-store operation. Task 2.6 is next.
 - **Next task:** 2.6 Auth/RBAC test suite
 - **Branch / commit:** `phase-2/task-2.5-user-management` / `feat(users): add user management` (pending)
+
+### [2026-10-25 07:17 EAT] — Task(s): 2.5 — Hosted verification and delivery
+- **Prompt summary:** Deliver the completed Task 2.5 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.6.
+- **What I did:** Committed the verified user-management implementation, pushed the task branch, opened PR #26, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
+- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.5 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
+- **Files touched:** this handoff only in the delivery follow-up; Task 2.5 implementation, tests and documentation were delivered by PR #26
+- **Migrations:** none
+- **Verification:** GitHub `Quality` passed in 1m42s for PR #26; Supabase Preview reported skipped as expected; the PR merged as `16d08e1`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 2.5 is complete and delivered on `main`.
+- **Progress after this session:** 19 / 71 (26.8%)
+- **Left undone / follow-ups:** Custom SMTP and a non-staff delivery test remain mandatory before real invitations; orphan reconciliation and Task 7.3 invitation throttling remain pending. The one-time real-owner bootstrap remains an operational `dev` and production step using private environment/deployment secrets.
+- **Next task:** 2.6 Auth/RBAC test suite
+- **Branch / commit:** `phase-2/task-2.5-handoff-finalize` / `docs: finalize Task 2.5 delivery` (pending)
 
 ---
 
