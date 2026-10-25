@@ -33,6 +33,7 @@ import { REDIS_CLIENT } from '../src/redis/redis.constants';
 import { RedisService } from '../src/redis/redis.service';
 import { UserAlreadyExistsException, UserNotFoundException } from '../src/users/users.errors';
 import { UsersService } from '../src/users/users.service';
+import { CategoriesService } from '../src/categories/categories.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -55,7 +56,7 @@ const TEST_ROLES = [
 
 type TestRole = (typeof TEST_ROLES)[number];
 type AccessExpectation = 'ALLOW' | 'DENY' | 'SCOPED';
-type HttpMethod = 'GET' | 'PATCH' | 'POST';
+type HttpMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST';
 
 type ExpectedAccessRow = {
   declaration: string;
@@ -246,6 +247,86 @@ const EXPECTED_ACCESS_TABLE = [
     successStatus: 201,
     unauthenticated: 'DENY',
   },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/categories',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/categories/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/categories',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'PATCH',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/categories/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'DELETE',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/categories/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
 ] as const satisfies readonly ExpectedAccessRow[];
 
 type InventoryRow = {
@@ -296,6 +377,23 @@ const usersService = {
   update: jest.fn(async () => managedUser),
 };
 
+const managedCategory = {
+  defaultMaxBookingMinutes: null,
+  defaultServiceIntervalDays: null,
+  description: null,
+  id: TARGET_USER_ID,
+  is_deletable: true,
+  machine_count: 0,
+  name: 'Test category',
+};
+
+const categoriesService = {
+  create: jest.fn(async () => managedCategory),
+  delete: jest.fn(async () => managedCategory),
+  read: jest.fn(async () => managedCategory),
+  update: jest.fn(async () => managedCategory),
+};
+
 const configForVerifier = (jwksUrl: string) =>
   ({
     get: jest.fn((key: keyof ApiEnvironment) => {
@@ -316,8 +414,17 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
     case 'GET':
       builder = client.get(path);
       break;
+    case 'DELETE':
+      builder = client.delete(path);
+      break;
     case 'PATCH':
-      builder = client.patch(path).send({ fullName: 'Updated User' });
+      builder = client
+        .patch(path)
+        .send(
+          route.startsWith('/api/v1/categories')
+            ? { name: 'Updated category' }
+            : { fullName: 'Updated User' },
+        );
       break;
     case 'POST':
       builder = client.post(path);
@@ -327,6 +434,9 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
           fullName: 'Managed User',
           role: 'STAFF',
         });
+      }
+      if (route === '/api/v1/categories') {
+        builder = builder.send({ name: 'Test category' });
       }
       break;
   }
@@ -445,6 +555,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(userSession)
         .overrideProvider(UsersService)
         .useValue(usersService)
+        .overrideProvider(CategoriesService)
+        .useValue(categoriesService)
         .compile();
 
     const productionModule = await createModule(false);

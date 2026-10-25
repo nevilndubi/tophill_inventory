@@ -203,7 +203,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 2.6 Auth/RBAC test suite
 
 ### Phase 3 — Machine Registry
-- [ ] 3.1 Categories CRUD (API + UI)
+- [x] 3.1 Categories CRUD (API + UI)
 - [ ] 3.2 Departments & locations CRUD (API + UI)
 - [ ] 3.3 Machines CRUD API (pagination, filter, search, sort)
 - [ ] 3.4 Machines UI (list, detail, create/edit)
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 20 / 71 tasks (28.2%) |
-| Current phase | Phase 2 — Task 2.6 complete and delivered |
-| Last updated | 2026-10-25 09:25 EAT |
-| Branch | `main` (Task 2.6 delivered through PR #28) |
-| Last commit | `test(auth): consolidate Auth and RBAC coverage` (`7b1d8d5`) |
-| Repo state | PR #28 passed GitHub `Quality` and merged as `95b39a3`; local `main` matched `origin/main` with a clean worktree before this handoff-only delivery update |
-| **Next task** | **3.1 Categories CRUD (API + UI)** |
+| Overall progress | 21 / 71 tasks (29.6%) |
+| Current phase | Phase 3 — Task 3.1 verified locally and live; Git delivery in progress |
+| Last updated | 2026-10-25 16:31 EAT |
+| Branch | `phase-3/task-3.1-categories-crud` |
+| Last commit | `feat(categories): add category management` (pending) |
+| Repo state | Task 3.1 implementation, migration, hermetic checks, responsive Chromium proof and disposable-Neon proof pass; commit/PR/hosted CI/merge remain in this turn |
+| **Next task** | **3.2 Departments & locations CRUD (API + UI)** |
 
 ---
 
@@ -312,6 +312,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 9.3 — read own notifications:** proposed new `notification:read-own` permission for every authenticated application role, enforced with ownership rather than a global notification-read grant.
 - **Task 3.5 — upload attachments:** proposed new `attachment:upload` permission for SUPER_ADMIN, ADMIN, BIOMED_TECH, DEPT_MANAGER and STAFF, with entity access checked by the service; VIEWER remains read-only pending approval.
 - **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
+- **Task 7.2 — reference-data caching:** place cache-aside behind the category service's read method and invalidate every category list/detail key after each successful create, update or delete; Task 3.1 deliberately adds no cache.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -389,6 +390,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D59 | 2026-10-25 | Accept invitations through server-side `verifyOtp(token_hash, invite)` and an authenticated 12-character set-password page; require custom SMTP before real staff delivery, while live Task 2.5 proof uses non-delivering Admin `generateLink` and deletes the temporary identity | The token hash never enters client application state, expired/reused links fail generically, and the feature can be verified without using Supabase's restricted built-in sender or exposing one-time links | Put an access token in the URL; add public password reset/magic links; send a real staff invite through the built-in sender; defer acceptance to another task |
 | D60 | 2026-10-25 | Keep one independently hand-authored route-access manifest for Task 2.6 and compare it one-to-one with runtime controller discovery; execute its role matrix through locally signed ES256 tokens and a controlled loopback JWKS server, and retain a conditional skipped sentinel for Task 7.2 cache invalidation | The test oracle must not derive expected access from production permissions, new handlers cannot disappear from coverage silently, and the full suite remains hermetic while exercising the real JWT/guard stack | Reuse the shared permission map as expected data; maintain a disconnected route list; contact hosted Supabase; defer cache coverage without an executable reminder |
 | D61 | 2026-10-25 | Evaluate CORS with an exact-origin callback: requests without an Origin remain usable by server clients, the configured `WEB_ORIGIN` receives CORS headers, and every other origin receives no allow-origin header | The consolidated bypass tests exposed that a fixed string configuration emitted the configured allow-origin value even for a different request Origin; browsers still rejected the mismatch, but omitting the header is the precise allow-list contract | Keep the fixed string behavior; reject non-browser requests that omit Origin; allow multiple or wildcard origins |
+| D62 | 2026-10-25 | Let every active authenticated role read categories through its existing `machine:read` grant, reserve mutations for `reference:manage`, normalize category names with shared NFC/trim/whitespace rules, and enforce case-insensitive uniqueness with `machine_categories_name_lower_key`; list counts include non-retired, non-deleted machines while deletion state/count includes every machine reference | All six roles need reference data to view machines, the documented matrix already grants only ADMIN/SUPER_ADMIN reference management, shared normalization keeps form/API behavior identical, and the foreign key blocks deletion even for retired or soft-deleted machines. The API's 1–3650 day and 5–1440 minute limits intentionally narrow the original database checks, which enforce positivity only | Add a new permission; make reads public; application-only uniqueness; count only active machines for deletion; broaden the database checks in this task |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -442,190 +444,29 @@ Task 1.5 added all service enums and ticket/record/schedule models, the deferred
 
 Task 1.6 added the closed attachment enum and mapped audit, notification, preference, attachment and app-settings models plus shared event schemas. Its additive migration enforced checked evolving identifiers, bounded JSON/inet audit data, an immediate append-only trigger, preference defaults/composite identity, polymorphic attachment safeguards, stable indexes, restrictive user relations and four non-overwriting settings defaults. A fresh disposable branch and Neon dev applied the six-migration chain with zero drift; 39 guarded integration tests plus all hermetic quality gates passed before PR #14 delivery. D38–D42, the object-lifecycle/least-privilege follow-ups and existing known issues remain authoritative.
 
-### [2026-10-21 15:46 EAT] — Task(s): 1.6 — Hosted verification and delivery
-- **Prompt summary:** Complete the Task 1.6 Git lifecycle after implementation and live-database verification.
-- **What I did:** Pushed the task branch, opened PR #14, monitored the hosted quality workflow, merged with a merge commit only after it passed, and synchronized local `main`; then corrected §9 to the delivered branch state.
-- **How:** Followed the repository Git ownership policy in D18; application/schema scope did not change.
-- **Files touched:** this handoff only in the follow-up; Task 1.6 implementation files were delivered by PR #14
-- **Migrations:** none in this follow-up; `20261021180000_support_tables` was already verified and delivered
-- **Verification:** GitHub `CI / Quality` completed successfully in 1m27s for PR #14; the PR merged as `fced378`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean before this append-only status correction.
-- **Result:** Task 1.6 remains complete and is now delivered on `main`.
-- **Progress after this session:** 13 / 71 (18.3%)
-- **Left undone / follow-ups:** No change from the Task 1.6 implementation entry, including the Neon password-rotation follow-up.
-- **Next task:** 1.7 Indexes, seed script and migration review
-- **Branch / commit:** `phase-1/task-1.6-handoff-finalize` / `docs: finalize Task 1.6 delivery`
+### Historical summary — Task 1.7 — Seed and index review
 
-### [2026-10-21 16:29 EAT] — Task(s): 1.7 — Deterministic seed and migration/index review
-- **Prompt summary:** Secure Neon credential handling, review the complete migration/index chain, add a guarded idempotent hospital demo seed, prove repeatability and representative query plans on a fresh disposable branch, seed `dev`, compact historical session entries, and complete the Git lifecycle without starting authentication.
-- **What I did:** Added handoff rule 19 before implementation; added a credential-capturing `--no-secrets` Neon helper/orchestrator; added six non-authenticating seed-user support fields/checks; implemented deterministic departments, locations, categories, 60 machines, users, bookings, sessions, status history, tickets, records and schedules; advanced the asset sequence safely; added seed guards/tests/catalog/consistency/EXPLAIN verification; documented seed/reset/index behavior and compacted Phase 0/Tasks 1.1–1.5 into one paragraph each while retaining the last three full entries.
-- **How:** Fixed hash-derived IDs plus upserts refresh relative dates without duplication; explicit branch and matching-host confirmation, mandatory protected hosts and a CI refusal prevent unsafe targets (D44). Seed users are flagged, use `@example.invalid`, have no Supabase identity and are constrained against sign-in (D45). Neon commands keep credentials captured and redact errors (D43). The corrected realistic 3,000-machine fixture used existing indexes for all five query shapes, so no speculative index was added (D46).
-- **Files touched:** handoff, README, API env example and seed-safety test; Prisma schema, `20261021190000_seed_user_support`, seed/safety/catalog/Neon verification scripts; root package/lockfile; architecture
-- **Migrations:** `20261021190000_seed_user_support`; reviewed as a safe relaxation of `supabase_user_id`, one non-null boolean default, and named identity-consistency check; the complete seven-migration chain applied from empty on a disposable child of `main`, then the new migration applied to `dev`
-- **Verification:** Credential-safe CLI access saw three branches without displaying a connection value. A protected-host seed attempt exited 1 before connection with `Refusing to seed a protected main or staging database host`. On fresh branch `ci/task-1.7-seed-202610211321`, all seven migrations applied in order; seed and immediate reseed each reported 5 departments, 20 locations, 8 categories, 60 machines and 6 placeholders; verification found 12 bookings, 14 sessions and 15 tickets, exact condition mix and every required scenario/invariant; the next generated tag was 61. All 32 documented indexes existed (catalog check added after this run); seed and 3,000-machine EXPLAINs showed the intended machine, session, exclusion, My Bookings and technician indexes with no large primary-table sequential scan. Guarded `pnpm test:integration` passed 39/39 and drift printed `No difference detected.` The branch was deleted. Neon `dev` applied migration/seed, passed the same counts, reported seven migrations current and zero drift. Both install modes, format check, lint, typecheck, hermetic tests (53 total: 42 API, 11 web), build and `git diff --check` passed. The first disposable review used an unrealistic single-department load fixture and correctly failed on a machine sequential scan; the branch was deleted, distribution was corrected without adding an index, and the full fresh proof passed.
-- **Result:** Task 1.7 ticked complete locally; commit, PR, hosted CI, merge and final main synchronization remain in this turn.
-- **Progress after this session:** 14 / 71 (19.7%)
-- **Left undone / follow-ups:** Task 2.1 owns Supabase Auth setup. Task 2.2 must replace/link the seed placeholders. Existing tooling, Docker, branch-protection, Prisma raw-constraint, least-privilege and PostgreSQL SSL issues remain tracked; the exposed inherited-role password issue is resolved.
-- **Next task:** 2.1 Supabase Auth project setup and config
-- **Branch / commit:** `phase-1/task-1.7-indexes-seed-review` / `feat(db): add deterministic demo seed and index review`
+Task 1.7 added the guarded deterministic demo seed, fixed hash-derived identities, 60 realistic Kenyan hospital machines, relative bookings/sessions/service data, sequence advancement, protected-host/CI refusal and credential-safe Neon automation. Fresh-branch migrate/seed/reseed, dev seed, 39 live integration cases, zero drift and five 3,000-row EXPLAIN query shapes all passed without a speculative index; the rotated Neon password and D43 output policy resolved the earlier credential incident. PR #16 delivered the task and D43–D46 plus all recorded follow-ups remain authoritative.
 
-### [2026-10-21 16:34 EAT] — Task(s): 1.7 — Hosted verification and delivery
-- **Prompt summary:** Complete the Task 1.7 Git lifecycle after implementation, live migration/seed verification and the owner-requested session-log compaction.
-- **What I did:** Pushed the task branch, opened PR #16, monitored the hosted quality workflow, merged with a merge commit only after it passed, synchronized local `main`, corrected §9 to the delivered state, and summarized the now-older Task 1.6 implementation entry so exactly the last three session entries remain in full.
-- **How:** Followed the repository Git ownership policy in D18 and credential-output policy in D43; application/schema scope did not change after the verified implementation commit.
-- **Files touched:** this handoff only in the delivery follow-up; Task 1.7 implementation files were delivered by PR #16
-- **Migrations:** none in this follow-up; `20261021190000_seed_user_support` was already verified and delivered
-- **Verification:** GitHub `CI / Quality` completed successfully in 1m00s for PR #16; the PR merged as `febab56`; `git pull --ff-only origin main` synchronized local `main` and the worktree was clean before this handoff-only update.
-- **Result:** Task 1.7 remains complete and is delivered on `main`; Phase 1 schema/seed work is complete.
-- **Progress after this session:** 14 / 71 (19.7%)
-- **Left undone / follow-ups:** No change from the Task 1.7 implementation entry. Task 2.1 is next; Task 2.2 owns replacement/linkage of seed placeholders.
-- **Next task:** 2.1 Supabase Auth project setup and config
-- **Branch / commit:** `phase-1/task-1.7-handoff-finalize` / `docs: finalize Task 1.7 delivery`
+### Historical summary — Task 2.1 — Supabase Auth foundation
 
-### [2026-10-24 11:15 EAT] — Task(s): 2.1 — Supabase Auth project setup and configuration
-- **Prompt summary:** Independently re-audit the corrected hosted Supabase Auth project, configure only the Task 2.1 repository foundation, prove invite-only email/password authentication without exposing credentials, and complete the Git lifecycle.
-- **What I did:** Re-audited the hosted project through the authenticated CLI and Supabase plugin; added modern server/public env validation, derived issuer/JWKS values, hermetic test/CI placeholders, a credential-safe live proof command, `docs/SUPABASE_SETUP.md`, browser-bundle leak checks, and Auth architecture/setup documentation. No guard, `/me`, provisioning, RBAC, route protection, Supabase data tables or Storage feature was added.
-- **How:** The web accepts only `NEXT_PUBLIC_SUPABASE_URL` and an `sb_publishable_` key; the API requires `SUPABASE_URL` and an `sb_secret_` key and derives the ES256 issuer/JWKS endpoints. The verifier reads the mode-600 ignored test credential file plus an in-memory publishable key, emits safe JWT metadata only, checks the JWT `kid` against JWKS, and performs wrong-password/public-signup negative probes (D47–D48).
-- **Files touched:** API/web env schemas, tests, setup files and examples; CI safe build env; root scripts/typecheck/lint scope; credential-safe verification script; `.gitignore`; README; Supabase setup and architecture docs; handoff
-- **Migrations:** none; Supabase's `public` schema remained empty and no Storage bucket was created
-- **Verification:** Hosted config re-pull reported local Site URL (Supabase-normalized trailing slash), only `http://localhost:3000/**`, 3600-second access tokens, refresh rotation/reuse 10, global/anonymous sign-up disabled, email enabled/confirmed and minimum password 12. CLI reported modern publishable+secret keys without displaying them; plugin access succeeded, found zero public tables and zero buckets. Live password sign-in returned HTTP 200 with ES256, `kid`, expected issuer/audience/role/expiry and a JWKS key match; wrong password returned 400 `invalid_credentials`; public sign-up returned 422 `signup_disabled`. The credential file was ignored and mode 600. Frozen install passed with the known pnpm warning; format, lint, typecheck, hermetic tests (58 total: 44 API, 14 web) and build passed. Both a build sentinel and the hosted server secret were absent from browser assets. `actionlint` was not installed locally; GitHub CI remains the hosted workflow proof.
-- **Result:** Task 2.1 ticked complete locally; commit, PR, hosted CI, merge and final main synchronization remain in this turn.
-- **Progress after this session:** 15 / 71 (21.1%)
-- **Left undone / follow-ups:** Task 2.2 owns JWT verification, global auth, `/me`, identity linking/provisioning and the first real SUPER_ADMIN bootstrap. Task 2.5 owns invitations, and custom Resend SMTP is required before real staff invitations. Exact staging/production redirects wait for real domains. Existing known tooling and branch-protection issues remain unchanged.
-- **Next task:** 2.2 API JWT guard and user provisioning
-- **Branch / commit:** `phase-2/task-2.1-supabase-auth` / `feat(auth): configure Supabase Auth foundation` (pending)
+Task 2.1 configured and independently verified invite-only confirmed email/password Supabase Auth with public sign-up disabled, 12-character passwords, rotation, exact localhost redirects, modern publishable/secret keys and ES256 JWKS. Repository env validation, setup guidance, hermetic placeholders, bundle-secret checks and a credential-safe sign-in/wrong-password/signup-disabled verifier were added; Supabase remained Auth-only with no application tables. PR #18 delivered the task; custom SMTP, deployed URLs and invitation flow remain pending where recorded, and D47–D48 remain authoritative.
 
-### [2026-10-24 11:18 EAT] — Task(s): 2.1 — Hosted verification and delivery
-- **Prompt summary:** Complete Task 2.1 delivery after the repository implementation and credential-safe live Supabase proofs passed.
-- **What I did:** Pushed the task branch, opened PR #18, monitored the repository `Quality` workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
-- **How:** Used the full Git workflow authorized by D18. Supabase Preview correctly skipped because Task 2.1 introduced no Supabase database migration; the repository's required quality workflow was the merge gate.
-- **Files touched:** this handoff only in the delivery follow-up; Task 2.1 implementation and setup documentation were delivered by PR #18
-- **Migrations:** none
-- **Verification:** GitHub `Quality` passed in 1m05s for PR #18; Supabase Preview reported skipped as expected; the PR merged as `43748fa`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
-- **Result:** Task 2.1 is complete and delivered on `main`.
-- **Progress after this session:** 15 / 71 (21.1%)
-- **Left undone / follow-ups:** Unchanged from the implementation entry: Task 2.2 owns JWT guard/provisioning/bootstrap; Task 2.5 owns invitations; custom SMTP and exact deployed redirect URLs remain pending at their scheduled points.
-- **Next task:** 2.2 API JWT guard and user provisioning
-- **Branch / commit:** `phase-2/task-2.1-handoff-finalize` / `docs: finalize Task 2.1 delivery` (pending)
+### Historical summary — Task 2.2 — API JWT guard and identity resolution
 
-### [2026-10-24 11:45 EAT] — Task(s): 2.2 — API JWT guard and local identity resolution (partial)
-- **Prompt summary:** Add the default-deny Supabase JWKS guard, safe `/me` context, identity-only local lookup and transactional first-administrator bootstrap; prove security failures hermetically and the hosted flow on a disposable branch without exposing secrets.
-- **What I did:** Added the global guard, `@Public()` and typed `CurrentUser`; strict ES256/JWKS verification; 401/403/503 auth exceptions; API-only Supabase Admin lookup; identity-only Neon resolution; five-minute conditional login touches; guarded bootstrap; exact `/me` response; public health, OPTIONS and non-production Swagger handling; production Swagger suppression; Bearer OpenAPI support; server-secret env validation; architecture/setup documentation; and comprehensive unit/e2e coverage. No RBAC, web session, invitation, Redis cache or Task 2.3 work was added.
-- **How:** The guard is registered through `APP_GUARD`, permits only the two root health controller routes plus non-production Swagger infrastructure, and validates ES256, `kid`, exact issuer, `authenticated` audience/role, expiry and UUID subject with 30-second tolerance. Remote JWKS uses a one-second request timeout, 30-second cooldown and 10-minute cache. The seed-identity check makes email linking impossible without weakening the schema, so D49 supersedes the replacement/linkage portion of D45. Bootstrap confirms the hosted user's verified email via the Admin API and serializes creation with a PostgreSQL advisory transaction lock; logs contain only the created user ID.
-- **Files touched:** API Auth module/services/decorators/controller/tests, app/bootstrap/Swagger/health wiring, pino redaction test, env schema/example/tests, dependency manifests/lockfile, README, Supabase setup and architecture docs, handoff
-- **Migrations:** none
-- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (91 API + 14 web = 105 tests) and the full build with CI-safe validation variables passed; the first build without required web variables correctly failed validation. Hosted sign-in/JWKS proof passed with ES256/authenticated claims, wrong-password 400 and public-sign-up 422. A real hosted JWT against a disposable Neon child of `dev` reached `/api/v1/me` and returned the expected HTTP 403 `USER_NOT_PROVISIONED`; the branch was deleted and the Authorization header was redacted. Browser assets contained neither API secret identifiers nor the safe server-only sentinel. Two earlier disposable attempts were deleted: the first exposed a cold connection timeout and the second verifier command had an ESM-evaluation mistake; the corrected third proof passed.
-- **Result:** Implementation and hermetic acceptance behavior are green, but Task 2.2 remains partial and uncommitted under §7 because the available confirmed proof account ends in `.invalid`, which the required bootstrap correctly rejects. No live bootstrap success is claimed.
-- **Progress after this session:** 15 / 71 (21.1%)
-- **Left undone / follow-ups:** Privately create or select a confirmed non-seed, non-`.invalid` Supabase user and place its address/password only in the ignored mode-600 proof file, with `BOOTSTRAP_SUPER_ADMIN_EMAIL` matching it. Then run the disposable-branch bootstrap proof, tick 2.2, commit, push, open/monitor/merge the PR and synchronize `main`.
-- **Next task:** Resume and finish Task 2.2; do not start 2.3.
-- **Branch / commit:** `phase-2/task-2.2-api-jwt-guard` / uncommitted pending live bootstrap proof
+Task 2.2 added the global strict-Bearer ES256/JWKS authentication guard, explicit public/authenticated metadata, typed current-user context, minimized `GET /me`, identity-only Neon lookup, inactive/unprovisioned handling, bounded JWKS outage semantics, five-minute login touches and race-safe one-time SUPER_ADMIN bootstrap. Hermetic local-key/JWKS coverage plus sequential and concurrent disposable-Neon hosted proofs passed without exposing identity data or secrets; all proof branches were deleted and protected branches retained no test row. PR #20 delivered the task; the private real-owner bootstrap remains an operational dev/production step, and D49–D51 remain authoritative.
 
-### [2026-10-24 15:13 EAT] — Task(s): 2.2 — Live bootstrap verification and completion
-- **Prompt summary:** Resume with a private confirmed non-reserved proof identity; prove sequential, repeat and concurrent first-admin behavior on disposable Neon, prove bootstrap inertia and route-coverage enforcement, preserve long-lived branches, then complete delivery.
-- **What I did:** Added an explicit all-controller route inventory test and a different-identity bootstrap-inert unit case; corrected the advisory-lock query for Prisma 7 by casting PostgreSQL's `void` result to text; ran sequential and concurrent hosted-JWT bootstrap proofs on fresh disposable Neon branches; and documented the post-Task-2.4 real `dev` and production bootstrap procedure. No Task 2.3 work was added.
-- **How:** The private file was confirmed ignored, mode 600, complete, internally matching and non-reserved without displaying any value. The first live call created one SUPER_ADMIN and returned HTTP 200; a repeat returned the same local user ID and left one row. On a second fresh branch, two simultaneous first requests both returned HTTP 200, the same local ID and exactly one row, proving the advisory transaction lock. A distinct identity with an existing admin is covered hermetically and returns `USER_NOT_PROVISIONED`. A temporary unreviewed controller route made the explicit inventory test fail with exit 1, then was removed and the test passed.
-- **Files touched:** Task 2.2 Auth implementation/tests and wiring; API env/docs; dependency lockfiles; README; architecture/Supabase setup; handoff
-- **Migrations:** none
-- **Verification:** Both disposable proof branches were deleted. The tested identity had zero rows in `dev`; `staging` and `main` have no `users` table yet and therefore zero bootstrap rows. Authorization remained redacted. Frozen install, format, lint, typecheck, hermetic tests (92 API + 14 web = 106) and the full build with safe CI values passed. The first raw lock attempt exposed Prisma's unsupported `void` deserialization before any insert; the text cast was verified live. A cold pooled connection affected the first concurrency attempt; warming the API pool made the bounded live concurrency proof deterministic, and every failed-attempt branch was deleted.
-- **Result:** Task 2.2 acceptance criteria are verified and the checklist is ticked complete; Git delivery remains in this turn.
-- **Progress after this session:** 16 / 71 (22.5%)
-- **Left undone / follow-ups:** Task 2.4 owns web login, after which the real owner is bootstrapped once on `dev` from the API's own ignored `.env`; production repeats the one-time step via its deployment secret store. Task 2.3 is otherwise next.
-- **Next task:** 2.3 RBAC
-- **Branch / commit:** `phase-2/task-2.2-api-jwt-guard` / `feat(auth): add Supabase JWT guard` (pending)
+### Historical summary — Task 2.3 — Exhaustive scoped RBAC
 
-### [2026-10-24 15:16 EAT] — Task(s): 2.2 — Hosted verification and delivery
-- **Prompt summary:** Deliver the completed Task 2.2 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.3.
-- **What I did:** Committed the verified implementation, pushed the task branch, opened PR #20, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
-- **How:** Used the D18 Git lifecycle and D43/Task-2.1 credential-output rules. Supabase Preview correctly skipped because Task 2.2 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
-- **Files touched:** this handoff only in the delivery follow-up; Task 2.2 implementation and documentation were delivered by PR #20
-- **Migrations:** none
-- **Verification:** GitHub `Quality` passed in 1m09s; Supabase Preview reported skipped as expected; PR #20 merged as `f6d257c`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
-- **Result:** Task 2.2 is complete and delivered on `main`.
-- **Progress after this session:** 16 / 71 (22.5%)
-- **Left undone / follow-ups:** The real first-admin operational bootstrap remains scheduled after Task 2.4 for `dev` and at production deployment as recorded in D51. Task 2.3 owns RBAC and is next.
-- **Next task:** 2.3 RBAC
-- **Branch / commit:** `phase-2/task-2.2-handoff-finalize` / `docs: finalize Task 2.2 delivery` (pending)
+Task 2.3 added the browser-safe exhaustive role × permission × scope matrix, fail-closed global authorization guard, typed decorators, department-scope helpers and shared administrator policy functions with independent table-driven unit/e2e coverage. Roles, active state and department stay Neon-authoritative, no implicit inheritance exists, production excludes test-only controllers, and changes take effect on the next request pending Task 7.2 cache invalidation. PR #22 delivered the task; proposed later ownership/capability mappings remain pending and D52–D53 remain authoritative.
 
-### [2026-10-24 15:33 EAT] — Task(s): 2.3 — Exhaustive scoped RBAC
-- **Prompt summary:** Implement only Task 2.3: the complete shared role/permission matrix, fail-closed API authorization, department scope, future user-management policies, exhaustive hermetic tests, documentation and the full Git delivery workflow.
-- **What I did:** Added the browser-safe shared roles, 14 permissions and explicit scope matrix; `can`/`getPermissionScope`; role-assignment, self-deactivation and last-SUPER_ADMIN policy functions; `@RequirePermission()` and `@AuthenticatedOnly()`; the globally ordered permission guard; department assertion/list-filter helpers; standard denial logging/error handling; and a test-only RBAC controller excluded from production output. `/me` is now explicitly authenticated-only, while health, Swagger infrastructure and CORS preflight retain their documented behavior. No web login, invitation, CRUD, cache or Task 2.4 work was added.
-- **How:** Authentication loads the active Neon user first, then authorization fails closed unless a handler is public, authenticated-only or declares one known permission. All role entries are explicit—there is no role inheritance. The shared matrix returns `GLOBAL`, `OWN_DEPARTMENT` or `NONE`; DEPT_MANAGER scope uses only the department on the Neon user context. A reserved optional authorization context permits later `isOwner` inputs without breaking callers, but Task 2.3 grants no inferred ownership access (D52–D53).
-- **Files touched:** `packages/shared/src/permissions.ts` and exports; API authorization module/decorators/guard/helpers/error logging; `/me` and global guard wiring; independent unit/e2e tests and fixtures; production-build fixture check; architecture and handoff
-- **Migrations:** none
-- **Verification:** Frozen install passed with the known pnpm `DEP0169` warning. Format check, lint, typecheck, hermetic tests (125 API + 14 web = 139) and the full build passed. The independent hand-written matrix test covers every role × permission and both key directions, the shared roles equal Prisma's generated enum, negative guard/scope/error paths pass, role changes take effect on the next request, and `pnpm build` reports `API production build excludes the test-only RBAC controller`.
-- **Result:** Task 2.3 acceptance criteria are verified locally and the checklist is ticked; Git delivery remains in this turn.
-- **Progress after this session:** 17 / 71 (23.9%)
-- **Left undone / follow-ups:** Six architecture gaps for later own-resource/new-permission behavior are proposed in Pending for owner approval; Task 7.2 must invalidate cached role/department/active state. Existing known issues remain unchanged.
-- **Next task:** 2.4 Web auth
-- **Branch / commit:** `phase-2/task-2.3-rbac` / `feat(auth): add role-based access control`
+### Historical summary — Task 2.4 — Web authentication
 
-### [2026-10-24 15:38 EAT] — Task(s): 2.3 — Hosted verification and delivery
-- **Prompt summary:** Deliver the completed Task 2.3 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.4.
-- **What I did:** Committed the verified RBAC implementation, pushed the task branch, opened PR #22, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
-- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.3 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
-- **Files touched:** this handoff only in the delivery follow-up; Task 2.3 implementation and architecture changes were delivered by PR #22
-- **Migrations:** none
-- **Verification:** GitHub `Quality` passed in 1m15s for PR #22; Supabase Preview reported skipped as expected; the PR merged as `c383839`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
-- **Result:** Task 2.3 is complete and delivered on `main`.
-- **Progress after this session:** 17 / 71 (23.9%)
-- **Left undone / follow-ups:** The six proposed capability mappings remain pending owner approval at their scheduled tasks, and Task 7.2 must invalidate cached role/department/active state. Existing known issues remain unchanged.
-- **Next task:** 2.4 Web auth
-- **Branch / commit:** `phase-2/task-2.3-handoff-finalize` / `docs: finalize Task 2.3 delivery`
+Task 2.4 added supported Supabase SSR browser/server clients, Next.js 16 `proxy.ts`, validated server trust, accessible login/logout, exact-origin bearer attachment, one-refresh 401 handling, distinct forbidden/no-access/unavailable UX, role-aware navigation and cache-clearing cross-tab sign-out. Hermetic tests, secret-bundle checks, responsive Playwright QA and a credential-safe disposable-Neon live flow proved login, reload, role-aware navigation, forbidden hard navigation and logout without exposing cookies or identities. PR #24 delivered the task; idle logout/rate limiting and private owner bootstrap remain pending, and D54–D56 remain authoritative.
 
-### [2026-10-24 23:01 EAT] — Task(s): 2.4 — Web authentication
-- **Prompt summary:** Add supported Supabase/Next.js 16 email-password sessions, protected App Router pages, authenticated API calls, role-aware navigation, distinct auth failure UX, hermetic tests, credential-safe browser proof and the full Git delivery workflow—without starting Task 2.5.
-- **What I did:** Added `@supabase/ssr` browser/server clients and cookie refresh through `proxy.ts`; accessible login and complete logout; a server trust boundary based on `getClaims()` plus API `/me`; an exact authenticated-user provider; origin-confined bearer injection with one 401 refresh; distinct forbidden, no-access and unavailable experiences; validated return paths; shared-permission navigation; an authenticated shell and guarded `/admin` proof route; documentation and 44 new web tests. The existing responsive shell, status language, health display and global boundaries remain intact. No invitation, user CRUD, password reset, magic link, database migration or Task 2.5 behavior was added.
-- **How:** Supabase's browser-readable cookie contract is documented honestly and hardened with Lax/production-Secure options, private refresh responses, short-lived rotated tokens, exact-origin attachment and complete TanStack cache clearing. Proxy performs optimistic redirects only; protected leaf/server data loads validate claims and the NestJS API remains authoritative for role, department and active state. Future navigation destinations are visible only where permitted but disabled as “coming soon,” so none leads to a 404 (D54–D56).
-- **Files touched:** web auth/Supabase/API-client modules, App Router groups and auth-state pages, shell/navigation/provider/login components and tests, web dependencies/lockfile, README, Supabase setup, architecture, generated Next.js agent guidance and handoff
-- **Migrations:** none; live proof used a disposable Neon child of `dev`, applied the existing chain, and deleted the branch afterwards
-- **Verification:** Frozen install passed with the known pnpm warning. An initial format check identified one new test file; Prettier corrected it, then format check, lint and typecheck passed. Hermetic tests passed: 125 API + 58 web = 183. The production build passed and excluded the test-only RBAC controller; neither the server-secret variable name nor a synthetic server-only sentinel appeared in browser assets. Automated browser QA at 360, 768 and 1280 px proved the login UI had no horizontal overflow, contained no registration/reset/magic-link path and rejected a hostile return URL; screenshots remain ignored. The in-app browser service was unavailable, so the repo's installed Playwright/Chromium was used and this limitation is stated rather than hidden.
-- **Live proof:** A credential-safe Playwright run used the ignored mode-600 Task 2.1 identity and a disposable Neon branch without displaying identity data, credentials, keys, tokens, cookies, connection strings or traces. It proved unauthenticated `/` redirected to `/login`; a wrong password showed only the generic message; first valid login bootstrapped exactly one non-seed SUPER_ADMIN; the app returned a local UUID/role and browser `/health` HTTP 200; SUPER_ADMIN navigation rendered; a hard reload stayed signed in; changing only the disposable local role to STAFF hid administration and direct `/admin` rendered `/forbidden`; logout returned to `/login` and browser Back exposed no application data. The proof branch was deleted, and a final branch query found zero Task 2.4 disposable branches. Supabase project settings were not changed.
-- **Result:** Task 2.4 acceptance criteria are verified locally and live, and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
-- **Progress after this session:** 18 / 71 (25.4%)
-- **Left undone / follow-ups:** The owner bootstrap is now operationally possible and remains a one-time private `dev` step followed by the equivalent production secret-store step. Idle sign-out policy and application login throttling remain pending at their recorded tasks. Task 2.5 owns invitations/user management; no live staff identity or seed identity was provisioned here.
-- **Next task:** 2.5 User management
-- **Branch / commit:** `phase-2/task-2.4-web-auth` / `feat(auth): add web authentication` (pending)
+### Historical summary — Task 2.5 — User management
 
-### [2026-10-24 23:06 EAT] — Task(s): 2.4 — Hosted verification and delivery
-- **Prompt summary:** Deliver the completed Task 2.4 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.5.
-- **What I did:** Committed the verified web-auth implementation, pushed the task branch, opened PR #24, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
-- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.4 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
-- **Files touched:** this handoff only in the delivery follow-up; Task 2.4 implementation, tests and documentation were delivered by PR #24
-- **Migrations:** none
-- **Verification:** GitHub `Quality` passed in 1m40s for PR #24; Supabase Preview reported skipped as expected; the PR merged as `89d9706`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
-- **Result:** Task 2.4 is complete and delivered on `main`.
-- **Progress after this session:** 18 / 71 (25.4%)
-- **Left undone / follow-ups:** The one-time real-owner bootstrap on `dev` and production remains an operational step using private environment/deployment secrets. Task 2.5 owns invitations and user management; idle sign-out policy and application login throttling remain pending at their recorded tasks.
-- **Next task:** 2.5 User management
-- **Branch / commit:** `phase-2/task-2.4-handoff-finalize` / `docs: finalize Task 2.4 delivery` (pending)
-
-### [2026-10-25 07:14 EAT] — Task(s): 2.5 — User management
-- **Prompt summary:** Add permission-gated ADMIN/SUPER_ADMIN user management, compensated Supabase/Neon invitations, minimal invite acceptance, race-safe administrator protection, transaction-owned audits, responsive administration UI, hermetic coverage, credential-safe live proof and full Git delivery—without starting Task 2.6.
-- **What I did:** Added paginated/searchable user and department endpoints; invitation, edit, deactivate and reactivate operations; strict shared Zod contracts; a minimal transaction-aware audit service; Supabase Admin invitation/identity operations; a read-only orphan reconciliation command; invite confirmation and 12-character password setup; and a responsive `/admin` user-management interface with accessible loading, empty, error and confirmation states. Seed users are excluded and immutable, browser responses omit identity/internal fields, and the API remains authoritative. No password reset, public registration, magic links, Redis caching/rate limiting or Task 2.6 consolidation was added.
-- **How:** Invitations authorize and validate before checking lowercase Neon duplicates and existing Auth identities, create Auth first, then create the Neon row and audit record transactionally; a failed Neon write deletes only the identity created by that request. User changes lock active real SUPER_ADMIN rows before the last-admin decision, enforce self/role/department rules, remain Neon-only for activation, and write minimal same-transaction audits. Invite acceptance uses server-side `verifyOtp` before an authenticated password update (D57–D59).
-- **Files touched:** shared user-management schemas/policies/event identifiers; API audit, users and Supabase Admin services/controllers/tests; web invite routes, typed user client, shadcn primitives and administration UI/tests; credential-safe live verifier; dependency manifests/lockfile; README, Supabase setup, architecture and handoff
-- **Migrations:** none; live proof applied the existing complete migration chain to a disposable Neon child branch and deleted it afterwards
-- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (142 API + 70 web = 212) and the full production build passed. Hermetic tests cover list/search/minimization, invitation/retry/duplicates, compensation and compensation failure, every role-assignment/management rule, department assignment, seed/self/final-admin denial, concurrent final-two-admin changes, audit rollback, next-request role effect, invite confirmation/password UX and responsive controls. Credential-safe Playwright screenshots at 360, 768 and 1280 px showed no horizontal overflow or unmasked identity data.
-- **Live proof:** `pnpm verify:users:live` used the existing private proof identity plus a temporary non-delivered Admin-generated invite and a disposable Neon branch. Safe output proved bootstrap and repeat `/me` HTTP 200 with the same local UUID and exactly one SUPER_ADMIN; exactly one linked non-seed invited row; browser invite acceptance/password setup; forbidden ADMIN-over-SUPER_ADMIN HTTP 403 `SUPER_ADMIN_PROTECTED`; role/department changes visible on the target's next request; STAFF navigation hiding administration and hard `/admin` reaching `/forbidden`; and three audit rows. The temporary identity and disposable branch were deleted, and protected `dev`, `staging` and `main` each retained zero proof rows. Real email delivery was not claimed or attempted.
-- **Result:** Task 2.5 acceptance criteria are verified locally and live, and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
-- **Progress after this session:** 19 / 71 (26.8%)
-- **Left undone / follow-ups:** Custom SMTP and a non-staff delivery test remain mandatory before inviting real staff; orphan identities require deliberate reconciliation; invite throttling belongs to Task 7.3. The real owner bootstrap remains a private one-time `dev` operation and later production secret-store operation. Task 2.6 is next.
-- **Next task:** 2.6 Auth/RBAC test suite
-- **Branch / commit:** `phase-2/task-2.5-user-management` / `feat(users): add user management` (pending)
-
-### [2026-10-25 07:17 EAT] — Task(s): 2.5 — Hosted verification and delivery
-- **Prompt summary:** Deliver the completed Task 2.5 implementation through the owned Git workflow and leave the repository and handoff synchronized for Task 2.6.
-- **What I did:** Committed the verified user-management implementation, pushed the task branch, opened PR #26, monitored the repository quality workflow, merged only after it passed, synchronized local `main`, and corrected §9 to the delivered state.
-- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.5 changes no Supabase database schema; the repository `Quality` job was the required merge gate.
-- **Files touched:** this handoff only in the delivery follow-up; Task 2.5 implementation, tests and documentation were delivered by PR #26
-- **Migrations:** none
-- **Verification:** GitHub `Quality` passed in 1m42s for PR #26; Supabase Preview reported skipped as expected; the PR merged as `16d08e1`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
-- **Result:** Task 2.5 is complete and delivered on `main`.
-- **Progress after this session:** 19 / 71 (26.8%)
-- **Left undone / follow-ups:** Custom SMTP and a non-staff delivery test remain mandatory before real invitations; orphan reconciliation and Task 7.3 invitation throttling remain pending. The one-time real-owner bootstrap remains an operational `dev` and production step using private environment/deployment secrets.
-- **Next task:** 2.6 Auth/RBAC test suite
-- **Branch / commit:** `phase-2/task-2.5-handoff-finalize` / `docs: finalize Task 2.5 delivery` (pending)
-
+Task 2.5 added permission-gated paginated user administration, compensated Supabase/Neon invitations, race-safe role/department/active changes, same-transaction minimal audits, invite acceptance/password setup, orphan reconciliation and an accessible responsive admin UI. Hermetic concurrency/denial/compensation tests and a credential-safe disposable-Neon browser proof verified one linked row, acceptance, immediate policy changes, ADMIN/SUPER_ADMIN boundaries and audit rows; the temporary identity and branch were removed. PR #26 delivered the task; custom SMTP, reconciliation, rate limiting and the real-owner bootstrap remain pending exactly as recorded, and D57–D59 remain authoritative.
 ### [2026-10-25 09:20 EAT] — Task(s): 2.6 — Consolidated Auth/RBAC test suite
 - **Prompt summary:** Add a hermetic consolidated API e2e suite covering every current route family, all six roles, authentication/authorization ordering, hostile request variants, token abuse, response hygiene, department scope and production exposure; prove the independent oracle and route declarations with temporary mutations; fix only defects the suite exposes.
 - **What I did:** Added an independently hand-authored route-access table with one row per production handler/infrastructure route and all six role outcomes; runtime route discovery and declaration coverage; real local ES256/JWKS verification; authentication, scope, ordering, bypass, CORS, Swagger/build, response-envelope and token-abuse cases; two additional test-only guard fixtures; and the conditional Task 7.2 cache-invalidation sentinel. The suite exposed and fixed one real defect: disallowed origins previously received a mismatched configured CORS header instead of no allow-origin header.
@@ -652,10 +493,25 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 3.1 Categories CRUD (API + UI)
 - **Branch / commit:** `phase-2/task-2.6-handoff-finalize` / `docs: finalize Task 2.6 delivery` (pending)
 
+### [2026-10-25 16:31 EAT] — Task(s): 3.1 — Categories CRUD
+- **Prompt summary:** Add only category CRUD API/UI with shared validation, exact authorization, referential deletion safety, audit events, route-inventory coverage, responsive proof, a case-insensitive uniqueness migration only if needed, credential-safe Neon verification, Session Log compaction and complete Git delivery.
+- **What I did:** Added shared category schemas/types and audit actions; the NestJS category module/service/controller with grouped counts, stable errors and in-transaction audits; the typed web client and accessible responsive `/admin/reference` category interface; a typed navigation entry; unit/e2e/component and all-role route-manifest coverage; the safe live verifier; and the single approved lower-name index migration. I also corrected the shell so only the current available navigation entry receives selected styling and `aria-current`.
+- **How:** Reads use existing `machine:read` for all six active roles and mutations use only `reference:manage`. One grouped read reports non-retired, non-deleted `machine_count` without N+1 queries and derives `is_deletable` from all references. Deletes pre-check every reference and map `P2003`; writes map `P2002`; create/update/delete audit the category-only before/after state in the mutation transaction. The React Hook Form uses the shared Zod schema, and Task 7.2 can wrap the service read boundary/invalidate writes without controller changes (D62).
+- **Files touched:** shared category/event contracts; API category module/controller/service/errors/DTOs/tests and app/audit wiring; web category client/UI/tests, textarea, route, navigation and shell; migration/live verifier/root scripts; architecture and handoff
+- **Migrations:** `20261025093000_category_name_case_insensitive`; full reviewed SQL was `CREATE UNIQUE INDEX "machine_categories_name_lower_key" ON "machine_categories" (lower("name"));`. Preflight found zero case-fold collision groups. This is the only schema change; the existing Prisma-visible exact-name unique index remains, and post-apply drift reported `No difference detected.`
+- **Verification:** Frozen install, format check, lint and clean-generated-state typecheck passed. `pnpm test` passed 180 API and 77 web tests (257 passing total) with the pre-existing intentional Task 7.2 skip. The first build invocation intentionally had no required env values and failed with the complete validation list; the final CI-safe production build passed, included `/admin/reference`, and confirmed the test-only RBAC controller is absent. Headless Chromium rendered 360/768/1280 px with populated masked/mock categories and no horizontal overflow; ignored screenshots were visually inspected and contain no real identity or secret. The in-app browser was unavailable, so the repository Playwright/Chromium fallback was used explicitly. A first post-proof typecheck exposed a stale ignored Next development route manifest; regenerating from clean `.next` output resolved it, and the clean rerun passed.
+- **Live proof:** Neon `dev` had zero lower-name collision groups and accepted the migration. A fresh disposable child of `main` applied the complete migration chain, ran the guarded demo seed, proved a failed audit rolled the category write back to zero rows, created/edited/deleted an unused category, returned 409 `CATEGORY_NAME_TAKEN` for a lower-case seeded duplicate, allowed a case-only rename of the same row, returned 409 `CATEGORY_IN_USE` with the exact all-reference count for a seeded category, and showed `machine_count=0`, `is_deletable=false`, and all-reference count 1 independently for soft-deleted-only and retired-only machine references. Prisma printed `No difference detected`; the disposable branch was deleted; `dev`, `staging` and `main` each contained zero proof categories. An initial cold-start verifier attempt timed out before mutation and another exposed an overly literal whitespace probe; both branches were deleted, the verifier was hardened, and only the final complete run is claimed.
+- **Result:** Task 3.1 acceptance criteria are verified and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
+- **Progress after this session:** 21 / 71 (29.6%)
+- **Left undone / follow-ups:** Reference-data caching/invalidation remains assigned to Task 7.2. Department/location CRUD is Task 3.2; no placeholder UI or later machine feature was added. Existing known issues remain unchanged.
+- **Next task:** 3.2 Departments & locations CRUD (API + UI)
+- **Branch / commit:** `phase-3/task-3.1-categories-crud` / `feat(categories): add category management` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- **Resolved in Task 3.1:** the shell styled every available navigation link as current. It now marks and styles only the route returned by `usePathname()`, with a focused regression assertion and responsive visual proof.
 - **Resolved in Task 2.6:** a fixed string CORS origin setting emitted the configured `Access-Control-Allow-Origin` value when a request supplied a different Origin. Exact-origin callback evaluation now omits the header for disallowed origins while retaining server-to-server requests without an Origin; consolidated regression coverage proves both cases.
 - **Resolved in Task 2.2:** a private confirmed non-reserved proof identity verified the sequential and concurrent bootstrap behavior on disposable branches; the real owner bootstrap remains an intentional post-Task-2.4 operational step rather than an acceptance blocker.
 - **Resolved in Task 1.7:** the owner rotated the inherited Neon role password and refreshed legitimate development configuration. Rule 19 and the safe Neon helper now use `--no-secrets`, capture connection output without displaying it, redact database URLs from failures, and emit only safe metadata; both Task 1.7 disposable runs deleted their branches.
@@ -736,6 +592,7 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Run the credential-safe Task 1.7 disposable/dev proof: `NEON_PROJECT_ID=<project-id> pnpm verify:neon:task-1.7`
 - Run the credential-safe hosted Auth proof: `pnpm verify:supabase:auth`
 - Run the credential-safe Task 2.5 invite/bootstrap/browser proof: `NEON_PROJECT_ID=<project-id> pnpm verify:users:live`
+- Run the credential-safe Task 3.1 category migration/seed/CRUD proof: `NEON_PROJECT_ID=<project-id> pnpm verify:categories:live`
 - List Supabase identity IDs without matching Neon users (read-only, never addresses): `pnpm users:reconcile-auth`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
@@ -751,6 +608,8 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Invite/provision user: `POST /api/v1/users`
 - Edit user role/department/name: `PATCH /api/v1/users/:id`
 - Deactivate/reactivate user: `POST /api/v1/users/:id/deactivate`, `POST /api/v1/users/:id/reactivate`
+- List/create categories: `GET /api/v1/categories`, `POST /api/v1/categories`
+- Read/update/delete a category: `GET /api/v1/categories/:id`, `PATCH /api/v1/categories/:id`, `DELETE /api/v1/categories/:id`
 - OpenAPI UI: `GET /api/docs`
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`

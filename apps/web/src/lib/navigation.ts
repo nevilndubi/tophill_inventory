@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   MonitorCog,
   Settings,
+  Tags,
   Stethoscope,
 } from 'lucide-react';
 import type { AppRole, Permission } from '@app/shared';
@@ -61,6 +62,13 @@ export const NAVIGATION_ENTRIES = [
     label: 'Reports',
     permission: 'report:read',
     status: 'coming-soon',
+  },
+  {
+    href: '/admin/reference',
+    icon: Tags,
+    label: 'Reference data',
+    permission: 'reference:manage',
+    status: 'available',
   },
   {
     href: '/admin',

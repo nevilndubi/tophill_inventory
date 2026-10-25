@@ -96,7 +96,12 @@ department membership uses `ON DELETE RESTRICT`, while department management use
 NULL`. Locations also use `ON DELETE RESTRICT`, so deleting a department never cascades into users
 or locations.
 
-**machine_categories** — `id`, `name` (unique), `description`, `default_service_interval_days` (nullable), `default_max_booking_minutes` (nullable)
+**machine_categories** — `id`, `name` (case-insensitively unique through
+`machine_categories_name_lower_key`), `description`, `default_service_interval_days` (nullable),
+`default_max_booking_minutes` (nullable). The API applies stricter practical bounds than the
+original positive-only database checks: service intervals are 1–3650 days and booking limits are
+5–1440 minutes. Category names are Unicode NFC-normalized, trimmed and whitespace-collapsed before
+write.
 
 **machines**
 - identity: `id`, `asset_tag` (unique, human-readable e.g. `HM-000123`), `name`, `category_id`, `manufacturer`, `model`, `serial_number` (unique per manufacturer), `description`
@@ -283,6 +288,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Area | Endpoints |
 |---|---|
 | Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `GET /users/departments`, `POST /users/:id/{deactivate,reactivate}` |
+| Reference data | `GET/POST /categories`, `GET/PATCH/DELETE /categories/:id` |
 | Reference | `/departments`, `/locations`, `/categories` (CRUD) |
 | Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `GET /machines/:id/history` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
@@ -424,6 +430,12 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 - **Bearer boundary:** access tokens stay inside Supabase clients, are never stored in application React state or localStorage by application code, and are attached only to the exact validated API origin. Server calls obtain the bearer from their request-scoped server client after `getClaims()` succeeds.
 - **Navigation:** one typed config maps every item to a `@app/shared` permission and renders it through `can()`/`getPermissionScope()` without role inheritance. Until their feature tasks land, visible future destinations are disabled “coming soon” items; overview and the permission-guarded `/admin` user-management workspace are the implemented links.
 - **User management:** `/admin` supplies accessible search/filter/pagination, invitation, role/department editing and activation controls with responsive table/card layouts. UI controls mirror the shared policy helpers, but the API remains authoritative. Invite acceptance uses the server `/auth/confirm` route to exchange a one-time `token_hash` with `verifyOtp`, then an authenticated set-password page enforces the hosted 12-character minimum and follows only validated same-origin return paths.
+- **Reference data:** `/admin/reference` starts with category management and is structured for the
+  department/location sections added by Task 3.2. Category reads require `machine:read` (held by all
+  six active roles); mutations require `reference:manage`. List `machine_count` includes non-retired,
+  non-deleted machines, while `is_deletable` and `CATEGORY_IN_USE.details.machine_count` consider
+  every database reference, including retired and soft-deleted machines. Category errors are
+  `CATEGORY_NAME_TAKEN`, `CATEGORY_IN_USE`, and `CATEGORY_NOT_FOUND`.
 - **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes and `javascript:` input fall back to `/`.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.
