@@ -211,6 +211,7 @@ export class UsersService {
   ): Promise<ManagedUser> {
     return this.prisma.$transaction(async (transaction) => {
       const lockedAdmins = await this.lockActiveSuperAdmins(transaction);
+      await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const target = await transaction.user.findUnique({
         select: { ...managedUserSelection, departmentId: true },
         where: { id: userId },
@@ -257,6 +258,13 @@ export class UsersService {
       });
       const after = stateOf(updated);
 
+      if (
+        target.role === 'DEPT_MANAGER' &&
+        (updated.role !== 'DEPT_MANAGER' || updated.departmentId !== target.departmentId)
+      ) {
+        await this.clearManagedDepartments(transaction, actor, target.id, requestId);
+      }
+
       if (target.role !== updated.role) {
         await this.audit.record(transaction, {
           action: 'user.role_changed',
@@ -299,6 +307,7 @@ export class UsersService {
   ): Promise<ManagedUser> {
     return this.prisma.$transaction(async (transaction) => {
       const lockedAdmins = await this.lockActiveSuperAdmins(transaction);
+      await transaction.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const target = await transaction.user.findUnique({
         select: { ...managedUserSelection, departmentId: true },
         where: { id: userId },
@@ -340,6 +349,9 @@ export class UsersService {
         select: { ...managedUserSelection, departmentId: true },
         where: { id: userId },
       });
+      if (!updated.isActive) {
+        await this.clearManagedDepartments(transaction, actor, target.id, requestId);
+      }
       await this.audit.record(transaction, {
         action: isActive ? 'user.reactivated' : 'user.deactivated',
         actorUserId: actor.id,
@@ -389,5 +401,32 @@ export class UsersService {
       ORDER BY id
       FOR UPDATE
     `;
+  }
+
+  private async clearManagedDepartments(
+    transaction: Prisma.TransactionClient,
+    actor: AuthenticatedUser,
+    managerUserId: string,
+    requestId: string,
+  ): Promise<void> {
+    const departments = await transaction.department.findMany({
+      select: { code: true, id: true, managerUserId: true, name: true },
+      where: { managerUserId },
+    });
+    for (const department of departments) {
+      await transaction.department.update({
+        data: { managerUserId: null },
+        where: { id: department.id },
+      });
+      await this.audit.record(transaction, {
+        action: 'department.manager_cleared',
+        actorUserId: actor.id,
+        after: { code: department.code, managerUserId: null, name: department.name },
+        before: { code: department.code, managerUserId, name: department.name },
+        entityId: department.id,
+        entityType: 'department',
+        requestId,
+      });
+    }
   }
 }

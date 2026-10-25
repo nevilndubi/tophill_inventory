@@ -20,6 +20,26 @@ export {
 } from './event-types';
 
 export {
+  createDepartmentSchema,
+  createLocationSchema,
+  departmentIdParamsSchema,
+  listLocationsQuerySchema,
+  locationIdParamsSchema,
+  updateDepartmentSchema,
+  updateLocationSchema,
+  type CreateDepartmentInput,
+  type CreateLocationInput,
+  type DepartmentSummary,
+  type EligibleManager,
+  type ListLocationsQuery,
+  type ManagedDepartmentReference,
+  type ManagedLocation,
+  type ManagedLocationPage,
+  type UpdateDepartmentInput,
+  type UpdateLocationInput,
+} from './reference-management';
+
+export {
   can,
   canAssignRole,
   canDeactivateUser,

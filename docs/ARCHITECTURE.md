@@ -86,9 +86,13 @@ case-insensitively, and paginate server-side (25 by default, 100 maximum). Email
 invitation. Full names are trimmed and bounded to 120 characters, and `DEPT_MANAGER` always requires
 a department.
 
-**departments** — `id`, `name` (unique), `code` (unique), `manager_user_id` (nullable FK)
+**departments** — `id`, `name` (case-insensitively unique through
+`departments_name_ci_key`), `code` (case-insensitively unique through
+`departments_code_ci_key`), `manager_user_id` (nullable FK)
 
-**locations** — `id`, `department_id` (FK), `name` (e.g. "ICU Bay 3"), `building`, `floor`, `room`; unique (`department_id`, `name`)
+**locations** — `id`, `department_id` (FK), `name` (e.g. "ICU Bay 3"), `building`,
+`floor`, `room`; case-insensitively unique within a department through
+`locations_department_id_name_ci_key`
 
 Core-table constraints: user email is normalized to lowercase by a database trigger and protected by
 a unique index on `lower(email)`. The two user/department relationships are named independently:
@@ -288,8 +292,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Area | Endpoints |
 |---|---|
 | Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `GET /users/departments`, `POST /users/:id/{deactivate,reactivate}` |
-| Reference data | `GET/POST /categories`, `GET/PATCH/DELETE /categories/:id` |
-| Reference | `/departments`, `/locations`, `/categories` (CRUD) |
+| Reference data | Category CRUD; department CRUD plus `GET /departments/:id/eligible-managers`; location CRUD with paginated/filterable lists |
 | Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `GET /machines/:id/history` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
 | Usage | `POST /machines/:id/check-out`, `POST /machines/:id/check-in` |
@@ -309,7 +312,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Status board snapshot | `board:v1:{filterHash}` | 15–30s | Deleted on any condition change, check-in/out, booking state change (use key-set `board:keys` or version counter `board:ver` to invalidate by bumping version) |
 | Machine detail | `machine:{id}:v1` | 5 min | Deleted on machine update/condition/usage change |
 | Machine status (single) | `status:{id}` | 30s | Same triggers as board |
-| Reference data (categories, departments, locations) | `ref:{type}:v1` | 10 min | Deleted on CRUD |
+| Reference data (categories, departments, locations) | `ref:{type}:v1` (`ref:departments:v1`, `ref:locations:v1`) | 10 min | Deleted on every successful write when Task 7.2 adds cache-aside behavior |
 | Availability grid | `avail:{machineId}:{date}` | 30s | Deleted on booking change for that machine |
 | User + role lookup | `user:{supabaseId}` | 60s | Deleted on role/active change |
 | Rate limiting | `rl:{route}:{userOrIp}` | window | Via Nest throttler Redis storage; stricter limits on auth-adjacent and booking endpoints |
@@ -431,11 +434,21 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 - **Navigation:** one typed config maps every item to a `@app/shared` permission and renders it through `can()`/`getPermissionScope()` without role inheritance. Until their feature tasks land, visible future destinations are disabled “coming soon” items; overview and the permission-guarded `/admin` user-management workspace are the implemented links.
 - **User management:** `/admin` supplies accessible search/filter/pagination, invitation, role/department editing and activation controls with responsive table/card layouts. UI controls mirror the shared policy helpers, but the API remains authoritative. Invite acceptance uses the server `/auth/confirm` route to exchange a one-time `token_hash` with `verifyOtp`, then an authenticated set-password page enforces the hosted 12-character minimum and follows only validated same-origin return paths.
 - **Reference data:** `/admin/reference` starts with category management and is structured for the
-  department/location sections added by Task 3.2. Category reads require `machine:read` (held by all
-  six active roles); mutations require `reference:manage`. List `machine_count` includes non-retired,
-  non-deleted machines, while `is_deletable` and `CATEGORY_IN_USE.details.machine_count` consider
-  every database reference, including retired and soft-deleted machines. Category errors are
-  `CATEGORY_NAME_TAKEN`, `CATEGORY_IN_USE`, and `CATEGORY_NOT_FOUND`.
+  department/location sections added by Task 3.2. Reads require `machine:read` (held by all six
+  active roles); mutations and eligible-manager discovery require `reference:manage`. Category list
+  `machine_count` includes non-retired, non-deleted machines, while deletion state/count considers
+  every database reference. Department and location counts used for deletion likewise include
+  retired and soft-deleted machines and are fetched through grouped queries rather than N+1 reads.
+  A department manager must be an active, non-seed `DEPT_MANAGER` assigned to that same department;
+  the candidate row is locked while a changed manager is validated. User deactivation, movement to
+  another department, or a role change away from `DEPT_MANAGER` clears an existing manager reference
+  and audits that change in the same transaction. Existing stale managers do not prevent unrelated
+  department edits. Location ownership is immutable after creation because re-parenting would alter
+  historical placement/report meaning; department codes remain editable and are presented with an
+  explicit reporting warning. Task 3.2 errors are `DEPARTMENT_NAME_TAKEN`,
+  `DEPARTMENT_CODE_TAKEN`, `LOCATION_NAME_TAKEN`, `DEPARTMENT_NOT_FOUND`, `LOCATION_NOT_FOUND`,
+  `DEPARTMENT_IN_USE`, `LOCATION_IN_USE`, `MANAGER_NOT_ELIGIBLE`, `USER_NOT_FOUND`, and
+  `LOCATION_DEPARTMENT_IMMUTABLE`.
 - **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes and `javascript:` input fall back to `/`.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.

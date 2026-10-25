@@ -204,7 +204,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 3 — Machine Registry
 - [x] 3.1 Categories CRUD (API + UI)
-- [ ] 3.2 Departments & locations CRUD (API + UI)
+- [x] 3.2 Departments & locations CRUD (API + UI)
 - [ ] 3.3 Machines CRUD API (pagination, filter, search, sort)
 - [ ] 3.4 Machines UI (list, detail, create/edit)
 - [ ] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 21 / 71 tasks (29.6%) |
-| Current phase | Phase 3 — Task 3.1 complete and delivered |
-| Last updated | 2026-10-25 16:33 EAT |
-| Branch | `main` |
-| Last commit | `3ad3b23 Merge pull request #30 from nevilndubi/phase-3/task-3.1-categories-crud` |
-| Repo state | Task 3.1 is merged after green hosted CI; local `main` is synchronized with `origin/main` and the next implementation task is 3.2 |
-| **Next task** | **3.2 Departments & locations CRUD (API + UI)** |
+| Overall progress | 22 / 71 tasks (31.0%) |
+| Current phase | Phase 3 — Task 3.2 acceptance criteria verified; delivery in progress |
+| Last updated | 2026-10-25 21:51 EAT |
+| Branch | `phase-3/task-3.2-departments-locations-crud` |
+| Last commit | `feat(reference): add department and location management` (pending) |
+| Repo state | Task 3.2 implementation, hermetic checks, Neon proof and responsive browser proof pass; conventional commit/PR/hosted CI/merge remain in this turn |
+| **Next task** | **3.3 Machines CRUD API (pagination, filter, search, sort)** |
 
 ---
 
@@ -313,6 +313,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 3.5 — upload attachments:** proposed new `attachment:upload` permission for SUPER_ADMIN, ADMIN, BIOMED_TECH, DEPT_MANAGER and STAFF, with entity access checked by the service; VIEWER remains read-only pending approval.
 - **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
 - **Task 7.2 — reference-data caching:** place cache-aside behind the category service's read method and invalidate every category list/detail key after each successful create, update or delete; Task 3.1 deliberately adds no cache.
+- **Task 7.2 — department/location reference caching:** add cache-aside at the Task 3.2 service read boundaries and invalidate `ref:departments:v1` and `ref:locations:v1` after every successful relevant write, including manager changes caused through user administration.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -391,6 +392,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D60 | 2026-10-25 | Keep one independently hand-authored route-access manifest for Task 2.6 and compare it one-to-one with runtime controller discovery; execute its role matrix through locally signed ES256 tokens and a controlled loopback JWKS server, and retain a conditional skipped sentinel for Task 7.2 cache invalidation | The test oracle must not derive expected access from production permissions, new handlers cannot disappear from coverage silently, and the full suite remains hermetic while exercising the real JWT/guard stack | Reuse the shared permission map as expected data; maintain a disconnected route list; contact hosted Supabase; defer cache coverage without an executable reminder |
 | D61 | 2026-10-25 | Evaluate CORS with an exact-origin callback: requests without an Origin remain usable by server clients, the configured `WEB_ORIGIN` receives CORS headers, and every other origin receives no allow-origin header | The consolidated bypass tests exposed that a fixed string configuration emitted the configured allow-origin value even for a different request Origin; browsers still rejected the mismatch, but omitting the header is the precise allow-list contract | Keep the fixed string behavior; reject non-browser requests that omit Origin; allow multiple or wildcard origins |
 | D62 | 2026-10-25 | Let every active authenticated role read categories through its existing `machine:read` grant, reserve mutations for `reference:manage`, normalize category names with shared NFC/trim/whitespace rules, and enforce case-insensitive uniqueness with `machine_categories_name_lower_key`; list counts include non-retired, non-deleted machines while deletion state/count includes every machine reference | All six roles need reference data to view machines, the documented matrix already grants only ADMIN/SUPER_ADMIN reference management, shared normalization keeps form/API behavior identical, and the foreign key blocks deletion even for retired or soft-deleted machines. The API's 1–3650 day and 5–1440 minute limits intentionally narrow the original database checks, which enforce positivity only | Add a new permission; make reads public; application-only uniqueness; count only active machines for deletion; broaden the database checks in this task |
+| D63 | 2026-10-25 | Return `MANAGER_NOT_ELIGIBLE` as HTTP 422 and permit a department manager only when the locked user is active, non-seed, has role `DEPT_MANAGER`, and belongs to that department; validate only when the manager value changes | Eligibility is a semantically invalid relationship rather than a conflict with current state, row locking closes concurrent user-change races, and unrelated department edits must remain possible when old/demo data contains an ineligible manager | HTTP 409; validate without a lock; block every edit until a stale manager is repaired; allow broader manager roles |
+| D64 | 2026-10-25 | Clear `departments.manager_user_id` with a same-transaction audit whenever user administration deactivates that manager, moves them to another department, or changes their role away from `DEPT_MANAGER`; a department may have no manager | Maintaining the relation from both mutation paths prevents stale authority while preserving an explicit valid unassigned state | Leave stale managers for manual cleanup; database trigger; reject the user mutation until a replacement manager is selected |
+| D65 | 2026-10-25 | Enforce department name/code and per-department location-name uniqueness with the explicit lower-case expression indexes from migration `20261025130000_department_location_case_insensitive`; keep a location's department immutable, while allowing an explicitly warned department-code rename | Shared normalization plus database case-folding closes concurrent duplicates; re-parenting a physical location would silently rewrite placement/report meaning for machines, whereas a code rename does not alter existing relations | Application-only duplicate checks; `citext`; allow location re-parenting; make department codes immutable |
+| D66 | 2026-10-25 | Read departments/locations through centralized services, calculate dependency counts without N+1 queries, count every machine reference for deletion, and reserve `ref:departments:v1` / `ref:locations:v1` cache-aside plus write invalidation for Task 7.2 | The API can report precise race-safe deletion conflicts now while retaining one future cache boundary and honoring restrictive foreign keys for retired/soft-deleted machines | Cache in Task 3.2; count only active machines; expose raw Prisma relations; query counts per row |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -467,31 +472,9 @@ Task 2.4 added supported Supabase SSR browser/server clients, Next.js 16 `proxy.
 ### Historical summary — Task 2.5 — User management
 
 Task 2.5 added permission-gated paginated user administration, compensated Supabase/Neon invitations, race-safe role/department/active changes, same-transaction minimal audits, invite acceptance/password setup, orphan reconciliation and an accessible responsive admin UI. Hermetic concurrency/denial/compensation tests and a credential-safe disposable-Neon browser proof verified one linked row, acceptance, immediate policy changes, ADMIN/SUPER_ADMIN boundaries and audit rows; the temporary identity and branch were removed. PR #26 delivered the task; custom SMTP, reconciliation, rate limiting and the real-owner bootstrap remain pending exactly as recorded, and D57–D59 remain authoritative.
-### [2026-10-25 09:20 EAT] — Task(s): 2.6 — Consolidated Auth/RBAC test suite
-- **Prompt summary:** Add a hermetic consolidated API e2e suite covering every current route family, all six roles, authentication/authorization ordering, hostile request variants, token abuse, response hygiene, department scope and production exposure; prove the independent oracle and route declarations with temporary mutations; fix only defects the suite exposes.
-- **What I did:** Added an independently hand-authored route-access table with one row per production handler/infrastructure route and all six role outcomes; runtime route discovery and declaration coverage; real local ES256/JWKS verification; authentication, scope, ordering, bypass, CORS, Swagger/build, response-envelope and token-abuse cases; two additional test-only guard fixtures; and the conditional Task 7.2 cache-invalidation sentinel. The suite exposed and fixed one real defect: disallowed origins previously received a mismatched configured CORS header instead of no allow-origin header.
-- **How:** D60 keeps expected access independent from `@app/shared` and checks it bidirectionally against controller discovery. D61 uses exact-origin CORS evaluation. The temporary permission mutation changed BIOMED_TECH `user:manage` from `NONE` to `GLOBAL` and failed with `Access mismatch for BIOMED_TECH GET /api/v1/users: expected DENY, received 200`; removing one `@RequirePermission()` failed route inventory with zero declarations. Both mutations were reverted before verification and commit.
-- **Files touched:** `apps/api/test/auth-rbac-consolidated.e2e-spec.ts`, `apps/api/test/rbac-test-only.controller.ts`, `apps/api/test/rbac.e2e-spec.ts`, `apps/api/src/bootstrap/configure-application.ts`, `docs/ARCHITECTURE.md`, `project_model_handoff.md`
-- **Migrations:** none
-- **Verification:** `pnpm install --frozen-lockfile` passed (known pnpm DEP0169 warning only); `pnpm format:check`, `pnpm lint` and `pnpm typecheck` passed; focused consolidated suite passed 12 tests with one intentional Task 7.2 skip in 5.27 seconds wall time; complete API e2e passed 64 tests with the same one skip in 8.27 seconds wall time; `pnpm test` passed 224 tests (154 API + 70 web) with one intentional skip in 20.465 seconds; production `pnpm build` passed with the test-only controller exclusion assertion. An initial build invocation sourced development `NODE_ENV` from the API example and Next rejected the non-production build context; rerunning with `NODE_ENV=production`, matching CI, passed.
-- **Result:** Task 2.6 acceptance criteria are verified and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
-- **Progress after this session:** 20 / 71 (28.2%)
-- **Left undone / follow-ups:** Task 7.2 must replace the intentional skipped sentinel with a real next-request cache-invalidation test. Existing authorization and security backlog items remain unchanged.
-- **Next task:** 3.1 Categories CRUD (API + UI)
-- **Branch / commit:** `phase-2/task-2.6-auth-rbac-test-suite` / `test(auth): consolidate Auth and RBAC coverage` (pending)
+### Historical summary — Task 2.6 — Consolidated Auth/RBAC test suite
 
-### [2026-10-25 09:25 EAT] — Task(s): 2.6 — Hosted verification and delivery
-- **Prompt summary:** Deliver the verified Task 2.6 suite through the owned Git workflow and leave the repository synchronized for Phase 3.
-- **What I did:** Committed the consolidated authorization suite and minimal CORS correction, pushed the task branch, opened PR #28, monitored every hosted quality stage, merged only after success, synchronized local `main`, and corrected §9 to the delivered state.
-- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.6 changes no Supabase database schema; GitHub `Quality` was the required merge gate.
-- **Files touched:** this handoff only in the delivery follow-up; the Task 2.6 suite, CORS regression fix and architecture clarification were delivered by PR #28
-- **Migrations:** none
-- **Verification:** GitHub `Quality` passed install, format, lint, typecheck, test and build in 1m28s for PR #28; Supabase Preview reported skipped as expected; PR #28 merged as `95b39a3`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
-- **Result:** Task 2.6 and Phase 2 are complete and delivered on `main`.
-- **Progress after this session:** 20 / 71 (28.2%)
-- **Left undone / follow-ups:** Task 7.2 must replace the deliberate cache-invalidation sentinel when user-context caching lands. The GitHub Ubuntu runner migration annotation is informational and requires no repository change now.
-- **Next task:** 3.1 Categories CRUD (API + UI)
-- **Branch / commit:** `phase-2/task-2.6-handoff-finalize` / `docs: finalize Task 2.6 delivery` (pending)
+Task 2.6 added the independently hand-authored six-role route-access oracle, production-handler discovery, strict declaration coverage, local ES256/JWKS e2e authentication, authorization ordering, hostile-path/token/CORS/Swagger/response-hygiene checks and the Task 7.2 cache sentinel. Its mutation proofs caught missing metadata and a deliberately widened permission, and the suite exposed/fixed the exact-origin CORS defect. Hermetic install/format/lint/typecheck/test/build and hosted GitHub Quality passed before PR #28 delivery; D60–D61 and the cache-invalidation follow-up remain authoritative.
 
 ### [2026-10-25 16:31 EAT] — Task(s): 3.1 — Categories CRUD
 - **Prompt summary:** Add only category CRUD API/UI with shared validation, exact authorization, referential deletion safety, audit events, route-inventory coverage, responsive proof, a case-insensitive uniqueness migration only if needed, credential-safe Neon verification, Session Log compaction and complete Git delivery.
@@ -519,6 +502,20 @@ Task 2.5 added permission-gated paginated user administration, compensated Supab
 - **Left undone / follow-ups:** Department/location CRUD remains Task 3.2 and reference-data caching remains Task 7.2. All previously recorded pending items and known issues remain unchanged.
 - **Next task:** 3.2 Departments & locations CRUD (API + UI)
 - **Branch / commit:** `main` / `3ad3b23 Merge pull request #30 from nevilndubi/phase-3/task-3.1-categories-crud`
+
+### [2026-10-25 21:51 EAT] — Task(s): 3.2 — Departments and locations CRUD
+- **Prompt summary:** Add only department/location CRUD API and the corresponding `/admin/reference` UI, with exact reference permissions, manager eligibility/consistency, normalized shared validation, dependency-safe deletes, audits, route coverage, responsive and disposable-Neon proof, and complete owned Git delivery.
+- **What I did:** Added shared department/location schemas, DTO types and audit actions; complete NestJS controllers/services/errors with manager candidates, grouped dependency counts, pagination/search and minimized responses; same-transaction manager cleanup in user administration; a typed web client and accessible URL-addressable Departments/Locations tabs; hermetic API/web tests and the expanded independent authorization inventory; the single approved case-insensitive uniqueness migration; and a credential-safe live verifier.
+- **How:** Reads use `machine:read`; writes and the candidate endpoint use only `reference:manage`. Changed managers are validated against a locked active non-seed same-department `DEPT_MANAGER` row and rejected as 422; user deactivation, role removal and department movement clear the manager plus audit in the same transaction. Location ownership is immutable, department codes remain editable with a reporting warning, all delete counts include retired/soft-deleted machine references, and writes map `P2002`/`P2003` race backstops. Service boundaries preserve the future Task 7.2 cache seam (D63–D66).
+- **Files touched:** shared reference/event contracts; API reference module/controllers/services/errors/DTOs/tests, app wiring, user manager-cleanup regression; web typed client, responsive reference UI/tests and tabs component; authorization inventories; migration/live verifier/root scripts; architecture and handoff
+- **Migrations:** `20261025130000_department_location_case_insensitive` adds `departments_name_ci_key`, `departments_code_ci_key`, and `locations_department_id_name_ci_key`. Preflight found zero collisions; the full chain applied to a fresh disposable branch and Neon `dev`; post-apply Prisma diff reported `No difference detected.`
+- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint` and `pnpm typecheck` passed. `pnpm test` passed 24 API suites (191 passed, one intentional Task 7.2 skip) and 16 web files (82 passed), for 273 passing tests. An env-less build correctly failed with the complete required-variable list; the CI-equivalent safe-placeholder `pnpm build` then passed, generated `/admin/reference`, and excluded the test-only RBAC controller. The unclassified-route mutation failed route inventory, and granting STAFF `reference:manage` failed with `Access mismatch for STAFF POST /api/v1/categories: expected DENY, received 201`; both changes were reverted and the focused suite passed. Headless Chromium/Playwright covered populated 360/768/1280 px screens with ignored, identity-safe screenshots; all six were visually inspected with no horizontal overflow. The in-app browser runtime had no browser available, so the permitted repository fallback was used.
+- **Live proof:** A fresh disposable Neon child applied the complete chain and guarded seed, then proved eligible manager assign/clear; rejection of STAFF, inactive, seed and other-department candidates; same-transaction audited manager clearing on deactivation; same-department duplicate location rejection and cross-department allowance; exact department/location dependency counts; unchanged machine placement across department rename; clean empty-location deletion; failed-audit rollback; category create/rename/delete through the signed-in UI; and clean protected branches. The branch was deleted. Neon `dev` accepted only the reviewed index migration; `main`, `staging` and `dev` contain no Task 3.2 proof rows.
+- **Result:** Task 3.2 acceptance criteria are verified and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
+- **Progress after this session:** 22 / 71 (31.0%)
+- **Left undone / follow-ups:** Task 7.2 owns reference-data cache-aside/invalidation. Machine CRUD remains Task 3.3. Session Log housekeeping was completed now: Task 2.6 was compacted to one historical paragraph, leaving the two Task 3.1 entries and this Task 3.2 entry as the last three full entries without changing checklist, decisions, pending items or known issues.
+- **Next task:** 3.3 Machines CRUD API (pagination, filter, search, sort)
+- **Branch / commit:** `phase-3/task-3.2-departments-locations-crud` / `feat(reference): add department and location management` (pending)
 
 ---
 
@@ -606,6 +603,7 @@ Task 2.5 added permission-gated paginated user administration, compensated Supab
 - Run the credential-safe hosted Auth proof: `pnpm verify:supabase:auth`
 - Run the credential-safe Task 2.5 invite/bootstrap/browser proof: `NEON_PROJECT_ID=<project-id> pnpm verify:users:live`
 - Run the credential-safe Task 3.1 category migration/seed/CRUD proof: `NEON_PROJECT_ID=<project-id> pnpm verify:categories:live`
+- Run the credential-safe Task 3.2 migration/seed/CRUD/UI proof: `NEON_PROJECT_ID=<project-id> pnpm verify:reference:live`
 - List Supabase identity IDs without matching Neon users (read-only, never addresses): `pnpm users:reconcile-auth`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
@@ -623,6 +621,11 @@ Task 2.5 added permission-gated paginated user administration, compensated Supab
 - Deactivate/reactivate user: `POST /api/v1/users/:id/deactivate`, `POST /api/v1/users/:id/reactivate`
 - List/create categories: `GET /api/v1/categories`, `POST /api/v1/categories`
 - Read/update/delete a category: `GET /api/v1/categories/:id`, `PATCH /api/v1/categories/:id`, `DELETE /api/v1/categories/:id`
+- List/create departments: `GET /api/v1/departments`, `POST /api/v1/departments`
+- Read/update/delete a department: `GET /api/v1/departments/:id`, `PATCH /api/v1/departments/:id`, `DELETE /api/v1/departments/:id`
+- List eligible managers: `GET /api/v1/departments/:id/eligible-managers`
+- List/create locations: `GET /api/v1/locations`, `POST /api/v1/locations`
+- Read/update/delete a location: `GET /api/v1/locations/:id`, `PATCH /api/v1/locations/:id`, `DELETE /api/v1/locations/:id`
 - OpenAPI UI: `GET /api/docs`
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`
