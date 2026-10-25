@@ -200,7 +200,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
 - [x] 2.4 Web auth: login/logout, session handling, route protection
 - [x] 2.5 User management (invite, assign role/department, deactivate)
-- [ ] 2.6 Auth/RBAC test suite
+- [x] 2.6 Auth/RBAC test suite
 
 ### Phase 3 — Machine Registry
 - [ ] 3.1 Categories CRUD (API + UI)
@@ -238,7 +238,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 7 — Redis Caching & Realtime
 - [ ] 7.1 Cache service (cache-aside helper, key naming, TTL, graceful degradation)
-- [ ] 7.2 Cache status board, machine detail, lookups + invalidation
+- [ ] 7.2 Cache status board, machine detail, lookups + invalidation; replace the Task 2.6 skipped role/active-state cache sentinel with a passing next-request invalidation test
 - [ ] 7.3 Redis-backed rate limiting
 - [ ] 7.4 Pub/sub + SSE stream; live updates in web
 - [ ] 7.5 Booking contention helper (short Redis lock; DB remains authority)
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 19 / 71 tasks (26.8%) |
-| Current phase | Phase 2 — Task 2.5 complete and delivered |
-| Last updated | 2026-10-25 07:17 EAT |
-| Branch | `main` (Task 2.5 delivered through PR #26) |
-| Last commit | `feat(users): add user management` (`31d2e20`) |
-| Repo state | PR #26 passed GitHub `Quality` and merged as `16d08e1`; local `main` matched `origin/main` with a clean worktree before this handoff-only delivery update |
-| **Next task** | **2.6 Auth/RBAC test suite** |
+| Overall progress | 20 / 71 tasks (28.2%) |
+| Current phase | Phase 2 — Task 2.6 verified; delivery pending |
+| Last updated | 2026-10-25 09:20 EAT |
+| Branch | `phase-2/task-2.6-auth-rbac-test-suite` |
+| Last commit | `test(auth): consolidate Auth and RBAC coverage` (pending) |
+| Repo state | Task 2.6 implementation and verification are complete locally; commit, hosted CI, merge and final `main` synchronization remain in this turn |
+| **Next task** | **3.1 Categories CRUD (API + UI)** |
 
 ---
 
@@ -311,7 +311,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 5.4 — edit own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`, subject to booking-state and overlap checks.
 - **Task 9.3 — read own notifications:** proposed new `notification:read-own` permission for every authenticated application role, enforced with ownership rather than a global notification-read grant.
 - **Task 3.5 — upload attachments:** proposed new `attachment:upload` permission for SUPER_ADMIN, ADMIN, BIOMED_TECH, DEPT_MANAGER and STAFF, with entity access checked by the service; VIEWER remains read-only pending approval.
-- **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced.
+- **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -387,6 +387,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D57 | 2026-10-25 | Invite in this order: authorize/validate, reject a lowercase Neon duplicate, reject a pre-existing Supabase identity, create Auth identity, then create the Neon user and audit row transactionally; compensate a failed Neon write by deleting only the newly created identity | There is no distributed transaction across Supabase and Neon, so strict ownership of the created identity plus database uniqueness makes retries deterministic and avoids deleting pre-existing identities | Insert Neon first; auto-link existing Auth identities; leave orphan identities after database failure; use eventual background provisioning |
 | D58 | 2026-10-25 | Keep deactivation Neon-only and make role/department/active changes immediately effective on the next request; lock active real SUPER_ADMIN rows before last-admin checks and commit each mutation with its minimal audit event | Neon already authorizes every request, avoiding a second Supabase failure boundary; row locks prevent concurrent removal of all administrators and same-transaction audit preserves mutation history | Ban/sign out Supabase users; cache user context now; application-only last-admin counts; audit after commit |
 | D59 | 2026-10-25 | Accept invitations through server-side `verifyOtp(token_hash, invite)` and an authenticated 12-character set-password page; require custom SMTP before real staff delivery, while live Task 2.5 proof uses non-delivering Admin `generateLink` and deletes the temporary identity | The token hash never enters client application state, expired/reused links fail generically, and the feature can be verified without using Supabase's restricted built-in sender or exposing one-time links | Put an access token in the URL; add public password reset/magic links; send a real staff invite through the built-in sender; defer acceptance to another task |
+| D60 | 2026-10-25 | Keep one independently hand-authored route-access manifest for Task 2.6 and compare it one-to-one with runtime controller discovery; execute its role matrix through locally signed ES256 tokens and a controlled loopback JWKS server, and retain a conditional skipped sentinel for Task 7.2 cache invalidation | The test oracle must not derive expected access from production permissions, new handlers cannot disappear from coverage silently, and the full suite remains hermetic while exercising the real JWT/guard stack | Reuse the shared permission map as expected data; maintain a disconnected route list; contact hosted Supabase; defer cache coverage without an executable reminder |
+| D61 | 2026-10-25 | Evaluate CORS with an exact-origin callback: requests without an Origin remain usable by server clients, the configured `WEB_ORIGIN` receives CORS headers, and every other origin receives no allow-origin header | The consolidated bypass tests exposed that a fixed string configuration emitted the configured allow-origin value even for a different request Origin; browsers still rejected the mismatch, but omitting the header is the precise allow-list contract | Keep the fixed string behavior; reject non-browser requests that omit Origin; allow multiple or wildcard origins |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -624,10 +626,24 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 2.6 Auth/RBAC test suite
 - **Branch / commit:** `phase-2/task-2.5-handoff-finalize` / `docs: finalize Task 2.5 delivery` (pending)
 
+### [2026-10-25 09:20 EAT] — Task(s): 2.6 — Consolidated Auth/RBAC test suite
+- **Prompt summary:** Add a hermetic consolidated API e2e suite covering every current route family, all six roles, authentication/authorization ordering, hostile request variants, token abuse, response hygiene, department scope and production exposure; prove the independent oracle and route declarations with temporary mutations; fix only defects the suite exposes.
+- **What I did:** Added an independently hand-authored route-access table with one row per production handler/infrastructure route and all six role outcomes; runtime route discovery and declaration coverage; real local ES256/JWKS verification; authentication, scope, ordering, bypass, CORS, Swagger/build, response-envelope and token-abuse cases; two additional test-only guard fixtures; and the conditional Task 7.2 cache-invalidation sentinel. The suite exposed and fixed one real defect: disallowed origins previously received a mismatched configured CORS header instead of no allow-origin header.
+- **How:** D60 keeps expected access independent from `@app/shared` and checks it bidirectionally against controller discovery. D61 uses exact-origin CORS evaluation. The temporary permission mutation changed BIOMED_TECH `user:manage` from `NONE` to `GLOBAL` and failed with `Access mismatch for BIOMED_TECH GET /api/v1/users: expected DENY, received 200`; removing one `@RequirePermission()` failed route inventory with zero declarations. Both mutations were reverted before verification and commit.
+- **Files touched:** `apps/api/test/auth-rbac-consolidated.e2e-spec.ts`, `apps/api/test/rbac-test-only.controller.ts`, `apps/api/test/rbac.e2e-spec.ts`, `apps/api/src/bootstrap/configure-application.ts`, `docs/ARCHITECTURE.md`, `project_model_handoff.md`
+- **Migrations:** none
+- **Verification:** `pnpm install --frozen-lockfile` passed (known pnpm DEP0169 warning only); `pnpm format:check`, `pnpm lint` and `pnpm typecheck` passed; focused consolidated suite passed 12 tests with one intentional Task 7.2 skip in 5.27 seconds wall time; complete API e2e passed 64 tests with the same one skip in 8.27 seconds wall time; `pnpm test` passed 224 tests (154 API + 70 web) with one intentional skip in 20.465 seconds; production `pnpm build` passed with the test-only controller exclusion assertion. An initial build invocation sourced development `NODE_ENV` from the API example and Next rejected the non-production build context; rerunning with `NODE_ENV=production`, matching CI, passed.
+- **Result:** Task 2.6 acceptance criteria are verified and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
+- **Progress after this session:** 20 / 71 (28.2%)
+- **Left undone / follow-ups:** Task 7.2 must replace the intentional skipped sentinel with a real next-request cache-invalidation test. Existing authorization and security backlog items remain unchanged.
+- **Next task:** 3.1 Categories CRUD (API + UI)
+- **Branch / commit:** `phase-2/task-2.6-auth-rbac-test-suite` / `test(auth): consolidate Auth and RBAC coverage` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- **Resolved in Task 2.6:** a fixed string CORS origin setting emitted the configured `Access-Control-Allow-Origin` value when a request supplied a different Origin. Exact-origin callback evaluation now omits the header for disallowed origins while retaining server-to-server requests without an Origin; consolidated regression coverage proves both cases.
 - **Resolved in Task 2.2:** a private confirmed non-reserved proof identity verified the sequential and concurrent bootstrap behavior on disposable branches; the real owner bootstrap remains an intentional post-Task-2.4 operational step rather than an acceptance blocker.
 - **Resolved in Task 1.7:** the owner rotated the inherited Neon role password and refreshed legitimate development configuration. Rule 19 and the safe Neon helper now use `--no-secrets`, capture connection output without displaying it, redact database URLs from failures, and emit only safe metadata; both Task 1.7 disposable runs deleted their branches.
 - Prisma cannot represent PostgreSQL partial unique indexes or exclusion constraints in its schema. The reviewed Task 1.4/1.5 migrations and live integration tests are authoritative; `Booking.usageSessions` is typed as a list despite database cardinality, and the one-active-maintenance-schedule rule exists only in raw SQL. Later services must continue mapping named database violations rather than relying on Prisma relation cardinality alone.
