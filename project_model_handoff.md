@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 22 / 71 tasks (31.0%) |
-| Current phase | Phase 3 — Task 3.2 acceptance criteria verified; delivery in progress |
-| Last updated | 2026-10-25 21:51 EAT |
-| Branch | `phase-3/task-3.2-departments-locations-crud` |
-| Last commit | `feat(reference): add department and location management` (pending) |
-| Repo state | Task 3.2 implementation, hermetic checks, Neon proof and responsive browser proof pass; conventional commit/PR/hosted CI/merge remain in this turn |
+| Current phase | Phase 3 — Task 3.2 complete and delivered |
+| Last updated | 2026-10-25 21:55 EAT |
+| Branch | `main` |
+| Last commit | `0a9e662 Merge pull request #32 from nevilndubi/phase-3/task-3.2-departments-locations-crud` |
+| Repo state | Task 3.2 is merged after green hosted CI; local `main` is synchronized with `origin/main` and the next implementation task is 3.3 |
 | **Next task** | **3.3 Machines CRUD API (pagination, filter, search, sort)** |
 
 ---
@@ -476,19 +476,9 @@ Task 2.5 added permission-gated paginated user administration, compensated Supab
 
 Task 2.6 added the independently hand-authored six-role route-access oracle, production-handler discovery, strict declaration coverage, local ES256/JWKS e2e authentication, authorization ordering, hostile-path/token/CORS/Swagger/response-hygiene checks and the Task 7.2 cache sentinel. Its mutation proofs caught missing metadata and a deliberately widened permission, and the suite exposed/fixed the exact-origin CORS defect. Hermetic install/format/lint/typecheck/test/build and hosted GitHub Quality passed before PR #28 delivery; D60–D61 and the cache-invalidation follow-up remain authoritative.
 
-### [2026-10-25 16:31 EAT] — Task(s): 3.1 — Categories CRUD
-- **Prompt summary:** Add only category CRUD API/UI with shared validation, exact authorization, referential deletion safety, audit events, route-inventory coverage, responsive proof, a case-insensitive uniqueness migration only if needed, credential-safe Neon verification, Session Log compaction and complete Git delivery.
-- **What I did:** Added shared category schemas/types and audit actions; the NestJS category module/service/controller with grouped counts, stable errors and in-transaction audits; the typed web client and accessible responsive `/admin/reference` category interface; a typed navigation entry; unit/e2e/component and all-role route-manifest coverage; the safe live verifier; and the single approved lower-name index migration. I also corrected the shell so only the current available navigation entry receives selected styling and `aria-current`.
-- **How:** Reads use existing `machine:read` for all six active roles and mutations use only `reference:manage`. One grouped read reports non-retired, non-deleted `machine_count` without N+1 queries and derives `is_deletable` from all references. Deletes pre-check every reference and map `P2003`; writes map `P2002`; create/update/delete audit the category-only before/after state in the mutation transaction. The React Hook Form uses the shared Zod schema, and Task 7.2 can wrap the service read boundary/invalidate writes without controller changes (D62).
-- **Files touched:** shared category/event contracts; API category module/controller/service/errors/DTOs/tests and app/audit wiring; web category client/UI/tests, textarea, route, navigation and shell; migration/live verifier/root scripts; architecture and handoff
-- **Migrations:** `20261025093000_category_name_case_insensitive`; full reviewed SQL was `CREATE UNIQUE INDEX "machine_categories_name_lower_key" ON "machine_categories" (lower("name"));`. Preflight found zero case-fold collision groups. This is the only schema change; the existing Prisma-visible exact-name unique index remains, and post-apply drift reported `No difference detected.`
-- **Verification:** Frozen install, format check, lint and clean-generated-state typecheck passed. `pnpm test` passed 180 API and 77 web tests (257 passing total) with the pre-existing intentional Task 7.2 skip. The first build invocation intentionally had no required env values and failed with the complete validation list; the final CI-safe production build passed, included `/admin/reference`, and confirmed the test-only RBAC controller is absent. Headless Chromium rendered 360/768/1280 px with populated masked/mock categories and no horizontal overflow; ignored screenshots were visually inspected and contain no real identity or secret. The in-app browser was unavailable, so the repository Playwright/Chromium fallback was used explicitly. A first post-proof typecheck exposed a stale ignored Next development route manifest; regenerating from clean `.next` output resolved it, and the clean rerun passed.
-- **Live proof:** Neon `dev` had zero lower-name collision groups and accepted the migration. A fresh disposable child of `main` applied the complete migration chain, ran the guarded demo seed, proved a failed audit rolled the category write back to zero rows, created/edited/deleted an unused category, returned 409 `CATEGORY_NAME_TAKEN` for a lower-case seeded duplicate, allowed a case-only rename of the same row, returned 409 `CATEGORY_IN_USE` with the exact all-reference count for a seeded category, and showed `machine_count=0`, `is_deletable=false`, and all-reference count 1 independently for soft-deleted-only and retired-only machine references. Prisma printed `No difference detected`; the disposable branch was deleted; `dev`, `staging` and `main` each contained zero proof categories. An initial cold-start verifier attempt timed out before mutation and another exposed an overly literal whitespace probe; both branches were deleted, the verifier was hardened, and only the final complete run is claimed.
-- **Result:** Task 3.1 acceptance criteria are verified and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
-- **Progress after this session:** 21 / 71 (29.6%)
-- **Left undone / follow-ups:** Reference-data caching/invalidation remains assigned to Task 7.2. Department/location CRUD is Task 3.2; no placeholder UI or later machine feature was added. Existing known issues remain unchanged.
-- **Next task:** 3.2 Departments & locations CRUD (API + UI)
-- **Branch / commit:** `phase-3/task-3.1-categories-crud` / `feat(categories): add category management` (pending)
+### Historical summary — Task 3.1 — Categories CRUD implementation
+
+Task 3.1 added shared category validation/audit contracts, permission-correct NestJS CRUD with grouped active/all-reference counts and stable conflict mapping, and the accessible responsive `/admin/reference` category UI plus typed navigation. The reviewed `machine_categories_name_lower_key` migration applied to Neon dev and a fresh disposable branch with zero drift; guarded live CRUD, soft-deleted/retired reference blocking, audit rollback, authorization mutations, responsive Playwright and 257 hermetic tests passed before the implementation commit. The shell selected-state bug was fixed, Task 7.2 cache work stayed deferred, and D62 remains authoritative.
 
 ### [2026-10-25 16:33 EAT] — Task(s): 3.1 — Hosted verification and delivery
 - **Prompt summary:** Deliver the verified categories API/UI, migration and documentation through the complete owned Git workflow.
@@ -516,6 +506,19 @@ Task 2.6 added the independently hand-authored six-role route-access oracle, pro
 - **Left undone / follow-ups:** Task 7.2 owns reference-data cache-aside/invalidation. Machine CRUD remains Task 3.3. Session Log housekeeping was completed now: Task 2.6 was compacted to one historical paragraph, leaving the two Task 3.1 entries and this Task 3.2 entry as the last three full entries without changing checklist, decisions, pending items or known issues.
 - **Next task:** 3.3 Machines CRUD API (pagination, filter, search, sort)
 - **Branch / commit:** `phase-3/task-3.2-departments-locations-crud` / `feat(reference): add department and location management` (pending)
+
+### [2026-10-25 21:55 EAT] — Task(s): 3.2 — Hosted verification and delivery
+- **Prompt summary:** Deliver the verified department/location API, UI, migration and documentation through the complete owned Git workflow and leave the repository ready for Task 3.3.
+- **What I did:** Committed the complete implementation as `db4a258`, pushed the task branch, opened PR #32, monitored the required checks, merged only after success, deleted the remote task branch, and synchronized local `main` with `origin/main`.
+- **How:** Followed D18. GitHub Actions independently repeated frozen installation, formatting, linting, typechecking, all hermetic tests and the production build; the Supabase Preview integration correctly skipped because the additive expression indexes belong to Prisma/Neon rather than the Supabase database.
+- **Files touched:** this handoff only in the delivery follow-up; PR #32 delivered the shared contracts, API/UI, user-manager consistency update, migration, tests, verifier and architecture clarification
+- **Migrations:** `20261025130000_department_location_case_insensitive` was delivered only after successful Neon `dev`, fresh-disposable-chain and zero-drift verification
+- **Verification:** GitHub `Quality` passed in 1m50s for PR #32; Supabase Preview skipped as expected; PR #32 merged as `0a9e662`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 3.2 is complete and delivered on `main`.
+- **Progress after this session:** 22 / 71 (31.0%)
+- **Left undone / follow-ups:** Machine CRUD remains Task 3.3; reference caching remains Task 7.2. The Session Log now retains exactly the last three entries in full (Task 3.1 delivery and the two Task 3.2 entries); older Task 3.1 implementation detail is compacted into one paragraph. Checklist, decisions, pending items and known issues remain intact.
+- **Next task:** 3.3 Machines CRUD API (pagination, filter, search, sort)
+- **Branch / commit:** `main` / `0a9e662 Merge pull request #32 from nevilndubi/phase-3/task-3.2-departments-locations-crud`
 
 ---
 
