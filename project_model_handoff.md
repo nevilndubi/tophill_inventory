@@ -199,7 +199,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 2.2 API JWT guard (JWKS verification) + local user provisioning/sync
 - [x] 2.3 RBAC: roles, permissions map, `@RequirePermission()` guard
 - [x] 2.4 Web auth: login/logout, session handling, route protection
-- [ ] 2.5 User management (invite, assign role/department, deactivate)
+- [x] 2.5 User management (invite, assign role/department, deactivate)
 - [ ] 2.6 Auth/RBAC test suite
 
 ### Phase 3 — Machine Registry
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 18 / 71 tasks (25.4%) |
-| Current phase | Phase 2 — Task 2.4 delivered |
-| Last updated | 2026-10-24 23:06 EAT |
-| Branch | `main` (Task 2.4 delivered via `phase-2/task-2.4-web-auth`) |
-| Last commit | `feat(auth): add web authentication` |
-| Repo state | Task 2.4 merged by PR #24 as `89d9706`; local/hermetic verification, credential-safe live browser proof and GitHub `Quality` passed, and local `main` synchronized cleanly before this handoff-only update |
-| **Next task** | **2.5 User management** |
+| Overall progress | 19 / 71 tasks (26.8%) |
+| Current phase | Phase 2 — Task 2.5 verified; Git delivery in progress |
+| Last updated | 2026-10-25 07:14 EAT |
+| Branch | `phase-2/task-2.5-user-management` |
+| Last commit | `feat(users): add user management` (pending) |
+| Repo state | Task 2.5 API/UI, hermetic tests and credential-safe disposable Neon/Supabase browser proof are verified; conventional commit, PR, hosted CI, merge and local `main` synchronization remain in this turn |
+| **Next task** | **2.6 Auth/RBAC test suite** |
 
 ---
 
@@ -298,12 +298,13 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - Add a booking `needs_attention` marker/reason migration in Task 6.5 when service outages are coupled to affected bookings.
 - Enforce append-only `machine_status_history` and `audit_logs` privileges for a dedicated least-privilege application role in Task 10.1; the current owner role must retain migration privileges and can disable the audit trigger.
 - In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
-- In Task 2.5, create real invited-user rows with Supabase identities; the six `@example.invalid` seed placeholders remain inert examples and are never linked or promoted.
-- Before inviting real users in Task 2.5, configure custom SMTP using the Resend capability planned for Phase 9; Supabase's built-in sender is rate-limited and unsuitable for staff invitations. Task 2.5 owns the invitation flow itself.
+- **Before inviting real staff:** configure custom SMTP with the Phase 9 Resend account, paste the exact invite template from `docs/SUPABASE_SETUP.md`, retain exact environment redirect allow-lists, and complete one non-staff delivery/acceptance test. Task 2.5 implemented and mock-tested delivery, but live email delivery remains intentionally unverified because the built-in sender is organisation-member-only/rate-limited.
+- **Orphaned Auth identity reconciliation:** `AUTH_IDENTITY_EXISTS` is deliberately not auto-linked. Run the read-only `pnpm users:reconcile-auth` command (IDs/counts only), investigate ownership, and perform any approved manual repair without logging addresses. Automated reconciliation/linking requires a separately approved task.
 - Task 2.4 now supplies web login; bootstrap the owner's real first SUPER_ADMIN once against `dev` using `BOOTSTRAP_SUPER_ADMIN_EMAIL` in the API's own ignored `.env`, not the task credential file; repeat once for production using its deployment secret store, then remove the setting in each environment.
 - When staging and production domains exist, add their exact Supabase Site/redirect URLs and verify each environment; do not add wildcard Vercel preview redirects.
 - **Hospital shared-device security:** decide the idle/inactivity sign-out policy before production hardening (candidate owner: Task 10.2). Task 2.4 deliberately implements explicit and cross-tab logout only.
 - **Task 7.3 — login rate limiting:** add the application-owned Redis control when the rate-limiting task lands; Supabase's hosted Auth limits are the only login throttle until then.
+- **Task 7.3 — invitation rate limiting:** add an application-owned Redis limit for `POST /api/v1/users`; until then, the endpoint is permission-gated, uses a 16 KiB JSON body limit and inherits Supabase's service limits.
 - **Task 3.8 — restore retired machine:** proposed new `machine:restore` permission, initially `GLOBAL` for SUPER_ADMIN and ADMIN only; do not alias restore to edit/retire until the owner approves the state-transition policy.
 - **Task 5.4 — cancel own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`; administrative or department cancellation remains a separate decision for that service.
 - **Task 4.2 — check in a session you hold:** proposed ownership rule layered on `usage:check-in-out` with `isOwner = true`; force-ending another user's session remains governed by `usage:force-end`.
@@ -383,6 +384,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D54 | 2026-10-24 | Implement web sessions with `@supabase/ssr` request-scoped server clients, a browser singleton and Next.js 16 `proxy.ts`; use `getClaims()` for every server trust decision and use `getSession()` only after validation to retrieve the opaque bearer | This is the current supported Supabase/Next.js App Router convention, refreshes cookies correctly with private cache headers and keeps Proxy optimistic while the API remains authoritative | Deprecated `middleware.ts`; trust `getSession()` server-side; custom JWT cookies; use Proxy as authorization authority |
 | D55 | 2026-10-24 | Accept Supabase's browser-readable SSR auth cookies with `SameSite=Lax`, production `Secure` and no false HttpOnly claim; compensate with one-hour access tokens, refresh rotation, exact-origin bearer attachment, full query-cache clearing/cross-tab logout and Task 10.2 CSP | Supabase documents that its browser client needs the refresh token; pretending the cookie is HttpOnly would break supported refresh behavior and misstate the security model | Force HttpOnly and lose browser refresh; store tokens in localStorage/React state; omit the tradeoff |
 | D56 | 2026-10-24 | Map web auth failures explicitly: retry one 401 then sign out, retain the session for permission 403s and auth/network 503s, route unprovisioned/inactive users to a dedicated no-access screen, and render navigation from one shared-permission config with unbuilt entries disabled | Invalid identity, missing local access, insufficient permission and upstream outage require different recovery; shared permissions prevent UI drift and disabled placeholders avoid 404s without starting later features | Treat every failure as logout; infer access from JWT; duplicate role strings; link unfinished pages |
+| D57 | 2026-10-25 | Invite in this order: authorize/validate, reject a lowercase Neon duplicate, reject a pre-existing Supabase identity, create Auth identity, then create the Neon user and audit row transactionally; compensate a failed Neon write by deleting only the newly created identity | There is no distributed transaction across Supabase and Neon, so strict ownership of the created identity plus database uniqueness makes retries deterministic and avoids deleting pre-existing identities | Insert Neon first; auto-link existing Auth identities; leave orphan identities after database failure; use eventual background provisioning |
+| D58 | 2026-10-25 | Keep deactivation Neon-only and make role/department/active changes immediately effective on the next request; lock active real SUPER_ADMIN rows before last-admin checks and commit each mutation with its minimal audit event | Neon already authorizes every request, avoiding a second Supabase failure boundary; row locks prevent concurrent removal of all administrators and same-transaction audit preserves mutation history | Ban/sign out Supabase users; cache user context now; application-only last-admin counts; audit after commit |
+| D59 | 2026-10-25 | Accept invitations through server-side `verifyOtp(token_hash, invite)` and an authenticated 12-character set-password page; require custom SMTP before real staff delivery, while live Task 2.5 proof uses non-delivering Admin `generateLink` and deletes the temporary identity | The token hash never enters client application state, expired/reused links fail generically, and the feature can be verified without using Supabase's restricted built-in sender or exposing one-time links | Put an access token in the URL; add public password reset/magic links; send a real staff invite through the built-in sender; defer acceptance to another task |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -593,6 +597,20 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Next task:** 2.5 User management
 - **Branch / commit:** `phase-2/task-2.4-handoff-finalize` / `docs: finalize Task 2.4 delivery` (pending)
 
+### [2026-10-25 07:14 EAT] — Task(s): 2.5 — User management
+- **Prompt summary:** Add permission-gated ADMIN/SUPER_ADMIN user management, compensated Supabase/Neon invitations, minimal invite acceptance, race-safe administrator protection, transaction-owned audits, responsive administration UI, hermetic coverage, credential-safe live proof and full Git delivery—without starting Task 2.6.
+- **What I did:** Added paginated/searchable user and department endpoints; invitation, edit, deactivate and reactivate operations; strict shared Zod contracts; a minimal transaction-aware audit service; Supabase Admin invitation/identity operations; a read-only orphan reconciliation command; invite confirmation and 12-character password setup; and a responsive `/admin` user-management interface with accessible loading, empty, error and confirmation states. Seed users are excluded and immutable, browser responses omit identity/internal fields, and the API remains authoritative. No password reset, public registration, magic links, Redis caching/rate limiting or Task 2.6 consolidation was added.
+- **How:** Invitations authorize and validate before checking lowercase Neon duplicates and existing Auth identities, create Auth first, then create the Neon row and audit record transactionally; a failed Neon write deletes only the identity created by that request. User changes lock active real SUPER_ADMIN rows before the last-admin decision, enforce self/role/department rules, remain Neon-only for activation, and write minimal same-transaction audits. Invite acceptance uses server-side `verifyOtp` before an authenticated password update (D57–D59).
+- **Files touched:** shared user-management schemas/policies/event identifiers; API audit, users and Supabase Admin services/controllers/tests; web invite routes, typed user client, shadcn primitives and administration UI/tests; credential-safe live verifier; dependency manifests/lockfile; README, Supabase setup, architecture and handoff
+- **Migrations:** none; live proof applied the existing complete migration chain to a disposable Neon child branch and deleted it afterwards
+- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (142 API + 70 web = 212) and the full production build passed. Hermetic tests cover list/search/minimization, invitation/retry/duplicates, compensation and compensation failure, every role-assignment/management rule, department assignment, seed/self/final-admin denial, concurrent final-two-admin changes, audit rollback, next-request role effect, invite confirmation/password UX and responsive controls. Credential-safe Playwright screenshots at 360, 768 and 1280 px showed no horizontal overflow or unmasked identity data.
+- **Live proof:** `pnpm verify:users:live` used the existing private proof identity plus a temporary non-delivered Admin-generated invite and a disposable Neon branch. Safe output proved bootstrap and repeat `/me` HTTP 200 with the same local UUID and exactly one SUPER_ADMIN; exactly one linked non-seed invited row; browser invite acceptance/password setup; forbidden ADMIN-over-SUPER_ADMIN HTTP 403 `SUPER_ADMIN_PROTECTED`; role/department changes visible on the target's next request; STAFF navigation hiding administration and hard `/admin` reaching `/forbidden`; and three audit rows. The temporary identity and disposable branch were deleted, and protected `dev`, `staging` and `main` each retained zero proof rows. Real email delivery was not claimed or attempted.
+- **Result:** Task 2.5 acceptance criteria are verified locally and live, and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
+- **Progress after this session:** 19 / 71 (26.8%)
+- **Left undone / follow-ups:** Custom SMTP and a non-staff delivery test remain mandatory before inviting real staff; orphan identities require deliberate reconciliation; invite throttling belongs to Task 7.3. The real owner bootstrap remains a private one-time `dev` operation and later production secret-store operation. Task 2.6 is next.
+- **Next task:** 2.6 Auth/RBAC test suite
+- **Branch / commit:** `phase-2/task-2.5-user-management` / `feat(users): add user management` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -629,7 +647,7 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 | `SEED_ALLOWED_BRANCH` | Prisma seed | Explicit seed only | Must be `dev` or a disposable `ci/`, `test/`, `ephemeral/`, or `demo/` branch; `main`/`staging` are rejected |
 | `SEED_ALLOWED_HOST` | Prisma seed | Explicit seed only | Exact host confirmation that must match the target `DATABASE_URL` host |
 | `SEED_PROTECTED_HOSTS` | Prisma seed | Explicit seed only | Comma-separated production `main` and `staging` hosts that the seed must reject |
-| `NEON_PROJECT_ID` | Task 1.7 verification helper | Explicit live verification only | Non-secret Neon project identifier; connection output remains captured |
+| `NEON_PROJECT_ID` | Task 1.7 / 2.5 verification helpers | Explicit live verification only | Non-secret Neon project identifier; connection output remains captured |
 | `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
 | `SUPABASE_URL` | api | Yes | Supabase project URL; source for the derived issuer/JWKS endpoints |
 | `SUPABASE_SECRET_KEY` | api only | Yes | Modern server-side administration/storage key — never expose or print |
@@ -675,6 +693,8 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Review seed sequence and five EXPLAIN query shapes: `pnpm db:index-review`
 - Run the credential-safe Task 1.7 disposable/dev proof: `NEON_PROJECT_ID=<project-id> pnpm verify:neon:task-1.7`
 - Run the credential-safe hosted Auth proof: `pnpm verify:supabase:auth`
+- Run the credential-safe Task 2.5 invite/bootstrap/browser proof: `NEON_PROJECT_ID=<project-id> pnpm verify:users:live`
+- List Supabase identity IDs without matching Neon users (read-only, never addresses): `pnpm users:reconcile-auth`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`
@@ -684,6 +704,11 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - Liveness: `GET /health`
 - Readiness: `GET /health/ready`
 - Authenticated local profile: `GET /api/v1/me`
+- User list/search: `GET /api/v1/users`
+- User-management department choices: `GET /api/v1/users/departments`
+- Invite/provision user: `POST /api/v1/users`
+- Edit user role/department/name: `PATCH /api/v1/users/:id`
+- Deactivate/reactivate user: `POST /api/v1/users/:id/deactivate`, `POST /api/v1/users/:id/reactivate`
 - OpenAPI UI: `GET /api/docs`
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`

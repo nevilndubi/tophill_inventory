@@ -21,6 +21,10 @@ export const AUDIT_ACTIONS = [
   'service_ticket.created',
   'service_ticket.updated',
   'user.created',
+  'user.department_changed',
+  'user.deactivated',
+  'user.invited',
+  'user.reactivated',
   'user.role_changed',
   'user.updated',
 ] as const;

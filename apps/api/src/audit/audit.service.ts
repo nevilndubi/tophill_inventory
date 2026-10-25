@@ -1,0 +1,29 @@
+import { Injectable } from '@nestjs/common';
+import type { AuditAction } from '@app/shared';
+import type { Prisma } from '../generated/prisma/client';
+
+export type AuditRecordInput = {
+  action: AuditAction;
+  actorUserId: string;
+  after?: Prisma.InputJsonObject;
+  before?: Prisma.InputJsonObject;
+  entityId: string;
+  requestId: string;
+};
+
+@Injectable()
+export class AuditService {
+  async record(transaction: Prisma.TransactionClient, input: AuditRecordInput): Promise<void> {
+    await transaction.auditLog.create({
+      data: {
+        action: input.action,
+        actorUserId: input.actorUserId,
+        after: input.after,
+        before: input.before,
+        entityId: input.entityId,
+        entityType: 'user',
+        requestId: input.requestId,
+      },
+    });
+  }
+}

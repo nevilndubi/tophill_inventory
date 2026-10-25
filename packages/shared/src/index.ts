@@ -14,6 +14,7 @@ export {
   can,
   canAssignRole,
   canDeactivateUser,
+  canManageUser,
   getPermissionScope,
   isAppRole,
   isLastActiveSuperAdmin,
@@ -28,3 +29,18 @@ export {
   type PermissionMatrix,
   type PermissionScope,
 } from './permissions';
+
+export {
+  inviteUserSchema,
+  listUsersQuerySchema,
+  updateUserSchema,
+  userIdParamsSchema,
+  USER_PAGE_SIZE_DEFAULT,
+  USER_PAGE_SIZE_MAX,
+  type InviteUserInput,
+  type ListUsersQuery,
+  type ManagedDepartment,
+  type ManagedUser,
+  type ManagedUserPage,
+  type UpdateUserInput,
+} from './user-management';

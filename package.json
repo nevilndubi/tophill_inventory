@@ -29,13 +29,17 @@
     "db:index-review": "tsx prisma/verify-seed.ts --sequence-proof --index-review",
     "verify:neon:task-1.7": "tsx prisma/verify-neon-task-1-7.ts",
     "verify:supabase:auth": "tsx scripts/verify-supabase-auth.ts",
+    "verify:users:live": "tsx scripts/verify-user-management-live.ts",
+    "users:reconcile-auth": "pnpm --filter @app/api exec tsx src/scripts/reconcile-auth-identities.ts",
     "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
     "@prisma/adapter-pg": "7.10.1",
+    "@supabase/supabase-js": "2.118.0",
     "@types/node": "24.19.2",
     "@types/pg": "8.16.0",
     "dotenv": "18.0.8",
