@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 20 / 71 tasks (28.2%) |
-| Current phase | Phase 2 — Task 2.6 verified; delivery pending |
-| Last updated | 2026-10-25 09:20 EAT |
-| Branch | `phase-2/task-2.6-auth-rbac-test-suite` |
-| Last commit | `test(auth): consolidate Auth and RBAC coverage` (pending) |
-| Repo state | Task 2.6 implementation and verification are complete locally; commit, hosted CI, merge and final `main` synchronization remain in this turn |
+| Current phase | Phase 2 — Task 2.6 complete and delivered |
+| Last updated | 2026-10-25 09:25 EAT |
+| Branch | `main` (Task 2.6 delivered through PR #28) |
+| Last commit | `test(auth): consolidate Auth and RBAC coverage` (`7b1d8d5`) |
+| Repo state | PR #28 passed GitHub `Quality` and merged as `95b39a3`; local `main` matched `origin/main` with a clean worktree before this handoff-only delivery update |
 | **Next task** | **3.1 Categories CRUD (API + UI)** |
 
 ---
@@ -638,6 +638,19 @@ Task 1.6 added the closed attachment enum and mapped audit, notification, prefer
 - **Left undone / follow-ups:** Task 7.2 must replace the intentional skipped sentinel with a real next-request cache-invalidation test. Existing authorization and security backlog items remain unchanged.
 - **Next task:** 3.1 Categories CRUD (API + UI)
 - **Branch / commit:** `phase-2/task-2.6-auth-rbac-test-suite` / `test(auth): consolidate Auth and RBAC coverage` (pending)
+
+### [2026-10-25 09:25 EAT] — Task(s): 2.6 — Hosted verification and delivery
+- **Prompt summary:** Deliver the verified Task 2.6 suite through the owned Git workflow and leave the repository synchronized for Phase 3.
+- **What I did:** Committed the consolidated authorization suite and minimal CORS correction, pushed the task branch, opened PR #28, monitored every hosted quality stage, merged only after success, synchronized local `main`, and corrected §9 to the delivered state.
+- **How:** Used the D18 Git lifecycle. Supabase Preview correctly skipped because Task 2.6 changes no Supabase database schema; GitHub `Quality` was the required merge gate.
+- **Files touched:** this handoff only in the delivery follow-up; the Task 2.6 suite, CORS regression fix and architecture clarification were delivered by PR #28
+- **Migrations:** none
+- **Verification:** GitHub `Quality` passed install, format, lint, typecheck, test and build in 1m28s for PR #28; Supabase Preview reported skipped as expected; PR #28 merged as `95b39a3`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 2.6 and Phase 2 are complete and delivered on `main`.
+- **Progress after this session:** 20 / 71 (28.2%)
+- **Left undone / follow-ups:** Task 7.2 must replace the deliberate cache-invalidation sentinel when user-context caching lands. The GitHub Ubuntu runner migration annotation is informational and requires no repository change now.
+- **Next task:** 3.1 Categories CRUD (API + UI)
+- **Branch / commit:** `phase-2/task-2.6-handoff-finalize` / `docs: finalize Task 2.6 delivery` (pending)
 
 ---
 
