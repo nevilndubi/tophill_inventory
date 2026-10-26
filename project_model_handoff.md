@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 23 / 71 tasks (32.4%) |
-| Current phase | Phase 3 — Task 3.3 acceptance criteria verified; delivery in progress |
-| Last updated | 2026-10-26 06:16 EAT |
-| Branch | `phase-3/task-3.3-machines-crud-api` |
-| Last commit | `feat(api): add machine registry CRUD` (pending) |
-| Repo state | Task 3.3 implementation, hermetic checks and disposable-Neon proof pass; commit/PR/hosted CI/merge remain in this turn |
+| Current phase | Phase 3 — Task 3.3 complete and delivered |
+| Last updated | 2026-10-26 06:21 EAT |
+| Branch | `main` |
+| Last commit | `614aa72 Merge pull request #38 from nevilndubi/phase-3/task-3.3-machines-crud-api` |
+| Repo state | Task 3.3 is merged after green hosted CI; local `main` is synchronized with `origin/main` and the next implementation task is 3.4 |
 | **Next task** | **3.4 Machines list and detail UI** |
 
 ---
@@ -541,6 +541,19 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** The Machines UI is Task 3.4. Tasks 4.2/5.3 must take the matching machine lock before creating work, Tasks 6.2/6.3 own service progression, Task 7.2 owns caching/invalidation, and Task 3.8 owns restore. No migration was needed.
 - **Next task:** 3.4 Machines list and detail UI
 - **Branch / commit:** `phase-3/task-3.3-machines-crud-api` / `feat(api): add machine registry CRUD` (pending)
+
+### [2026-10-26 06:21 EAT] — Task(s): 3.3 — Hosted verification and delivery
+- **Prompt summary:** Deliver the verified machine CRUD API, shared contracts, tests and documentation through the complete owned Git workflow and leave the repository ready for Task 3.4.
+- **What I did:** Committed the complete Task 3.3 implementation as `d4d68bb`, pushed the task branch, opened PR #38, monitored the required checks, merged only after success, deleted the remote task branch, and synchronized local `main` with `origin/main`.
+- **How:** Followed D18. GitHub Actions independently repeated frozen installation, formatting, linting, typechecking, all hermetic tests and the production build; the Supabase Preview integration correctly skipped because Task 3.3 adds neither a Supabase database change nor a Prisma migration.
+- **Files touched:** this handoff only in the delivery follow-up; PR #38 delivered the shared machine contracts, complete API module, tests, live verifier and architecture clarification
+- **Migrations:** none; the existing Task 1.3 schema and indexes remained sufficient and the live disposable database reported no drift
+- **Verification:** GitHub `Quality` passed in 1m13s for PR #38; Supabase Preview skipped as expected; PR #38 merged as `614aa72`; local `main` matched `origin/main` with a clean worktree before this handoff-only update.
+- **Result:** Task 3.3 is complete and delivered on `main`.
+- **Progress after this session:** 23 / 71 (32.4%)
+- **Left undone / follow-ups:** Machines list/detail UI remains Task 3.4. The Task 4.2/5.3 locking, Task 6.2/6.3 service ownership, Task 7.2 caching, and Task 3.8 restore follow-ups remain recorded in Pending.
+- **Next task:** 3.4 Machines list and detail UI
+- **Branch / commit:** `main` / `614aa72 Merge pull request #38 from nevilndubi/phase-3/task-3.3-machines-crud-api`
 
 ---
 
