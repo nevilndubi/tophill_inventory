@@ -25,7 +25,7 @@ function Navigation({ compact = false }: { compact?: boolean }) {
   return (
     <nav aria-label="Primary navigation" className="mt-8 space-y-1.5 px-3">
       {navigation.map(({ href, icon: Icon, label, status }) => {
-        const isCurrent = pathname === href;
+        const isCurrent = pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
         const classes = cn(
           'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium',
           status === 'available' && isCurrent
@@ -93,6 +93,14 @@ function Brand({ compact = false }: { compact?: boolean }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const heading = pathname.startsWith('/machines')
+    ? 'Machines'
+    : pathname.startsWith('/admin/reference')
+      ? 'Reference data'
+      : pathname.startsWith('/admin')
+        ? 'Administration'
+        : 'Overview';
   return (
     <div className="min-h-screen bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-20 border-r border-sidebar-border bg-sidebar md:block lg:w-64">
@@ -122,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Navigation />
             </SheetContent>
           </Sheet>
-          <p className="text-base font-semibold tracking-tight sm:text-lg">Overview</p>
+          <p className="text-base font-semibold tracking-tight sm:text-lg">{heading}</p>
           <div className="ml-auto">
             <LogoutButton />
           </div>

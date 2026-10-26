@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.prisma.json && pnpm --recursive --if-present run typecheck",
     "pretest": "pnpm prisma:generate",
     "test": "pnpm --filter @app/shared build && pnpm --recursive --if-present run test",
+    "test:e2e:machines": "pnpm --filter @app/web test:e2e:machines",
     "pretest:integration": "pnpm prisma:generate",
     "test:integration": "pnpm --filter @app/api test:integration",
     "prisma:generate": "prisma generate --config prisma7.config.ts",

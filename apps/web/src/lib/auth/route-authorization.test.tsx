@@ -12,6 +12,12 @@ describe('hard-navigation authorization', () => {
     expect(permissionFailureDestination('ADMIN', 'user:manage')).toBeNull();
   });
 
+  it('sends directly typed machine mutation routes to the forbidden page', () => {
+    expect(permissionFailureDestination('STAFF', 'machine:create')).toBe('/forbidden');
+    expect(permissionFailureDestination('VIEWER', 'machine:update')).toBe('/forbidden');
+    expect(permissionFailureDestination('BIOMED_TECH', 'machine:update')).toBeNull();
+  });
+
   it('renders the dedicated signed-in 403 experience', () => {
     render(<ForbiddenPage />);
     expect(screen.getByText('403 — Permission denied')).toBeInTheDocument();
