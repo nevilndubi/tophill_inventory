@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 23 / 71 tasks (32.4%) |
-| Current phase | Phase 3 — maintenance dependency sweep after Task 3.3 |
-| Last updated | 2026-10-26 21:57 EAT |
-| Branch | `maintenance/dependency-sweep` |
-| Last commit | `b7e20e6 Merge pull request #35 from nevilndubi/dependabot/npm_and_yarn/hookform/resolvers-6.0.0` |
-| Repo state | The ten-request Dependabot backlog is triaged; dependency/configuration verification and maintenance delivery are in progress without advancing the task checklist |
+| Current phase | Phase 3 — dependency maintenance complete after Task 3.3 |
+| Last updated | 2026-10-26 22:03 EAT |
+| Branch | `main` |
+| Last commit | `aac861e Merge pull request #44 from nevilndubi/maintenance/dependency-sweep` |
+| Repo state | The dependency sweep and future Dependabot policy are merged; local `main` is synchronized with `origin/main`, the task count is unchanged, and Task 3.4 remains next |
 | **Next task** | **3.4 Machines list and detail UI** |
 
 ---
@@ -571,6 +571,19 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Revisit the Node declaration and TypeScript majors only under the criteria recorded in Pending. Complete the maintenance configuration PR, confirm its hosted and post-merge main CI, and synchronize `main`.
 - **Next task:** 3.4 Machines list and detail UI
 - **Branch / commit:** `maintenance/dependency-sweep` / pending maintenance commit
+
+### [2026-10-26 22:03 EAT] — Task(s): Maintenance: dependency sweep — hosted delivery
+- **Prompt summary:** Deliver the verified dependency-policy and handoff update, confirm hosted and post-merge CI, synchronize `main`, and leave no requested Dependabot PR unresolved.
+- **What I did:** Committed the policy/handoff update as `2b9167f`, pushed it, opened PR #44, waited for its required Quality check, merged it only after success as `aac861e`, deleted the task branch, and synchronized local `main`. No checklist item was changed.
+- **How:** Followed D18 after completing the risk-ordered dependency merges and D71 policy change. GitHub Actions independently repeated the repository-wide frozen install, format, lint, typecheck, test and build gate.
+- **Files touched:** this handoff only in the final delivery follow-up; PR #44 delivered `.github/dependabot.yml` and the maintenance record
+- **Migrations:** none
+- **Verification:** PR #44 `Quality` passed in 1m20s. The push-to-`main` Quality run for merge `aac861e` passed in 1m37s before this entry was finalized. GitHub reports no open Dependabot PRs.
+- **Result:** Maintenance is complete: eight updates merged, two unsupported majors closed with reasons, the future PR policy is active, and `main` is synchronized.
+- **Progress after this session:** 23 / 71 (32.4%) — unchanged because this was maintenance, not a checklist task.
+- **Left undone / follow-ups:** The two deliberate major-version revisit criteria remain in Pending. Task 3.4 was not started.
+- **Next task:** 3.4 Machines list and detail UI
+- **Branch / commit:** `main` / `aac861e Merge pull request #44 from nevilndubi/maintenance/dependency-sweep`
 
 ---
 
