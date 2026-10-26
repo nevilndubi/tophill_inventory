@@ -40,6 +40,27 @@ export {
 } from './reference-management';
 
 export {
+  createMachineSchema,
+  listMachinesQuerySchema,
+  machineAssetTagSchema,
+  machineIdParamsSchema,
+  MACHINE_CONDITIONS,
+  MACHINE_PAGE_SIZE_DEFAULT,
+  MACHINE_PAGE_SIZE_MAX,
+  MACHINE_SORT_FIELDS,
+  updateMachineSchema,
+  type CreateMachineInput,
+  type ListMachinesQuery,
+  type MachineCondition,
+  type MachineDepartmentReference,
+  type MachineReference,
+  type MachineSortField,
+  type ManagedMachine,
+  type ManagedMachinePage,
+  type UpdateMachineInput,
+} from './machine-management';
+
+export {
   can,
   canAssignRole,
   canDeactivateUser,

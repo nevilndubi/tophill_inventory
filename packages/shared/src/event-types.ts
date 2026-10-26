@@ -23,6 +23,7 @@ export const AUDIT_ACTIONS = [
   'import.completed',
   'machine.condition_changed',
   'machine.created',
+  'machine.deleted',
   'machine.restored',
   'machine.retired',
   'machine.updated',
