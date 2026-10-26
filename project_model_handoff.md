@@ -205,7 +205,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 ### Phase 3 — Machine Registry
 - [x] 3.1 Categories CRUD (API + UI)
 - [x] 3.2 Departments & locations CRUD (API + UI)
-- [ ] 3.3 Machines CRUD API (pagination, filter, search, sort)
+- [x] 3.3 Machines CRUD API (pagination, filter, search, sort)
 - [ ] 3.4 Machines UI (list, detail, create/edit)
 - [ ] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
 - [ ] 3.6 Asset tag / QR label generation & scan-lookup page
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 22 / 71 tasks (31.0%) |
-| Current phase | Phase 3 — Task 3.2 complete and delivered |
-| Last updated | 2026-10-25 21:55 EAT |
-| Branch | `main` |
-| Last commit | `0a9e662 Merge pull request #32 from nevilndubi/phase-3/task-3.2-departments-locations-crud` |
-| Repo state | Task 3.2 is merged after green hosted CI; local `main` is synchronized with `origin/main` and the next implementation task is 3.3 |
-| **Next task** | **3.3 Machines CRUD API (pagination, filter, search, sort)** |
+| Overall progress | 23 / 71 tasks (32.4%) |
+| Current phase | Phase 3 — Task 3.3 acceptance criteria verified; delivery in progress |
+| Last updated | 2026-10-26 06:16 EAT |
+| Branch | `phase-3/task-3.3-machines-crud-api` |
+| Last commit | `feat(api): add machine registry CRUD` (pending) |
+| Repo state | Task 3.3 implementation, hermetic checks and disposable-Neon proof pass; commit/PR/hosted CI/merge remain in this turn |
+| **Next task** | **3.4 Machines list and detail UI** |
 
 ---
 
@@ -314,6 +314,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
 - **Task 7.2 — reference-data caching:** place cache-aside behind the category service's read method and invalidate every category list/detail key after each successful create, update or delete; Task 3.1 deliberately adds no cache.
 - **Task 7.2 — department/location reference caching:** add cache-aside at the Task 3.2 service read boundaries and invalidate `ref:departments:v1` and `ref:locations:v1` after every successful relevant write, including manager changes caused through user administration.
+- **Tasks 4.2 and 5.3 — close the machine/delete race:** checkout and booking creation must lock the machine row and reject a soft-deleted machine before inserting a session or booking; Task 3.3 deletion locks the same row before checking current sessions/bookings.
+- **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
+- **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, and any future asset-tag lookup key after successful create/update/delete. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
+- **Task 3.8 — machine restore:** add the approved restore workflow/UI and decide whether restored registry records need additional booking/session safeguards; Task 3.3 intentionally has no restore endpoint.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -396,6 +400,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D64 | 2026-10-25 | Clear `departments.manager_user_id` with a same-transaction audit whenever user administration deactivates that manager, moves them to another department, or changes their role away from `DEPT_MANAGER`; a department may have no manager | Maintaining the relation from both mutation paths prevents stale authority while preserving an explicit valid unassigned state | Leave stale managers for manual cleanup; database trigger; reject the user mutation until a replacement manager is selected |
 | D65 | 2026-10-25 | Enforce department name/code and per-department location-name uniqueness with the explicit lower-case expression indexes from migration `20261025130000_department_location_case_insensitive`; keep a location's department immutable, while allowing an explicitly warned department-code rename | Shared normalization plus database case-folding closes concurrent duplicates; re-parenting a physical location would silently rewrite placement/report meaning for machines, whereas a code rename does not alter existing relations | Application-only duplicate checks; `citext`; allow location re-parenting; make department codes immutable |
 | D66 | 2026-10-25 | Read departments/locations through centralized services, calculate dependency counts without N+1 queries, count every machine reference for deletion, and reserve `ref:departments:v1` / `ref:locations:v1` cache-aside plus write invalidation for Task 7.2 | The API can report precise race-safe deletion conflicts now while retaining one future cache boundary and honoring restrictive foreign keys for retired/soft-deleted machines | Cache in Task 3.2; count only active machines; expose raw Prisma relations; query counts per row |
+| D67 | 2026-10-26 | Keep machine identity/database state authoritative: require the schema's seven non-null registration fields, generate asset tags with the existing database default, normalize manufacturer/serial to lowercase, permit cross-department placement, and expose only minimized relation-aware DTOs | This preserves the Task 1.3 physical-identity and placement invariants under concurrency without leaking Prisma/internal fields. Database sequences are unique but intentionally not gapless because rolled-back registrations consume values | Client-generated tags; reuse deleted identities; require location ownership to match; expose raw rows |
+| D68 | 2026-10-26 | On registration, atomically create the OPERATIONAL machine, its first SYSTEM status-history row and `machine.created` audit; accept `last_serviced_at` for onboarding but calculate `next_service_due_at` only from it plus `service_interval_days` and leave schedule creation to Task 6.3 | A registered machine begins with explainable condition history, audit cannot diverge from the write, and one deterministic derived due date prevents client drift while later service workflows retain clear ownership | Let clients submit the due date; create maintenance schedules early; omit the first history row; separate transactions |
+| D69 | 2026-10-26 | Define DELETE as soft removal from the active registry, not retirement: lock the machine, reject open sessions/active bookings, preserve condition and identity, return 409 on repeated deletion, and hide deleted rows from every current read. RETIRED remains a Task 4.1 condition transition | Registration mistakes/decommissioned registry entries and genuine end-of-life are different events; row locking plus the future matching locks in Tasks 4.2/5.3 closes new-work races while historical identity and records remain intact | Hard delete; change condition to RETIRED; idempotent repeated 200; allow deletion with active work |
+| D70 | 2026-10-26 | Make machine PATCH field-level and semantically idempotent: write only supplied editable fields, treat an unchanged request as 200 without audit or timestamp movement, and allow BIOMED_TECH to edit every currently editable machine field while preserving the Architecture §7 create/delete restrictions | Partial writes reduce unrelated administrator overwrites, empty/forbidden fields remain fail-closed, and the documented matrix says BIOMED is edit-only without a narrower field list. Full optimistic locking is deferred until a demonstrated concurrent-edit need | Replace the entire record; audit/touch no-ops; silently accept internal fields; invent technician field restrictions |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -520,6 +528,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.3 Machines CRUD API (pagination, filter, search, sort)
 - **Branch / commit:** `main` / `0a9e662 Merge pull request #32 from nevilndubi/phase-3/task-3.2-departments-locations-crud`
 
+### [2026-10-26 06:16 EAT] — Task(s): 3.3 — Machines CRUD API
+- **Prompt summary:** Add only the complete machine registry API with exact shared validation, documented RBAC, stable listing/search/filter/sort, transactional history/audit/service-date handling, concurrency-safe soft deletion, exhaustive hermetic coverage, disposable-Neon evidence and owned Git delivery.
+- **What I did:** Added shared create/PATCH/query/ID/tag schemas and DTO contracts; a NestJS machine module with list/create/detail/by-tag/update/soft-delete endpoints and stable errors; atomic first history and audit writes; relation validation, service-due calculation and active-work delete guards; expanded the independent route/access inventory; unit/e2e coverage; and a credential-safe live verifier. No UI or later machine behavior was added.
+- **How:** Reads use `machine:read`, registration `machine:create`, PATCH `machine:update`, and DELETE `machine:retire`; the hand-written matrix proves BIOMED_TECH is update-only while DEPT_MANAGER/STAFF/VIEWER are read-only. The database generates immutable tags, and create/identity/delete concurrency is settled by existing constraints plus row locks. PATCH writes supplied fields only and skips audit/timestamp work for semantic no-ops. Soft deletion preserves condition/history/identity and rejects open sessions or active bookings (D67–D70).
+- **Files touched:** `packages/shared/src/{machine-management,event-types,index}.ts`; `apps/api/src/machines/*`; API app wiring and authorization inventories; `apps/api/test/machines.e2e-spec.ts`; `scripts/verify-machines-live.ts`; root scripts; architecture and this handoff
+- **Migrations:** none. The Task 1.3 schema, sequence/function, constraints and indexes were sufficient; disposable-branch `prisma migrate diff` reported `No difference detected.`
+- **Verification:** Frozen install, format check, lint and typecheck passed. `pnpm test` passed 26 API suites/223 tests plus the intentional Task 7.2 skip and 16 web files/82 tests (305 passing total); the production build passed and excluded the test-only RBAC controller. Focused machine/consolidated tests passed 44 plus the sentinel skip. A temporary unclassified machine route failed inventory by naming that route, and a temporary DEPT_MANAGER `machine:update` grant failed with `Access mismatch for DEPT_MANAGER PATCH /api/v1/machines/:id: expected DENY, received 200`; both mutations were reverted.
+- **Live proof:** A fresh disposable Neon child applied the complete chain and guarded seed. It proved pagination, every filter, 2-character/name/tag/serial search, stable sorting, due-service filtering, 20 concurrent unique tags continuing after the seed, exactly one row from concurrent identical creates, cross-department placement, case/whitespace identity collision, update/no-op/due recomputation, forbidden condition writes, audited rollback, active-booking/open-session deletion guards, and hidden-but-retained soft deletion. EXPLAIN used the due-date and asset-tag indexes where cost-effective; PostgreSQL preferred sequential scans for selective trigram searches at only 3,060 rows, so no speculative index was added. The branch was deleted and protected `dev`, `staging`, and `main` each had zero proof rows.
+- **Result:** Task 3.3 acceptance criteria are verified and the checklist is ticked; commit/PR/hosted CI/merge remain in this turn.
+- **Progress after this session:** 23 / 71 (32.4%)
+- **Left undone / follow-ups:** The Machines UI is Task 3.4. Tasks 4.2/5.3 must take the matching machine lock before creating work, Tasks 6.2/6.3 own service progression, Task 7.2 owns caching/invalidation, and Task 3.8 owns restore. No migration was needed.
+- **Next task:** 3.4 Machines list and detail UI
+- **Branch / commit:** `phase-3/task-3.3-machines-crud-api` / `feat(api): add machine registry CRUD` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -607,6 +629,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 2.5 invite/bootstrap/browser proof: `NEON_PROJECT_ID=<project-id> pnpm verify:users:live`
 - Run the credential-safe Task 3.1 category migration/seed/CRUD proof: `NEON_PROJECT_ID=<project-id> pnpm verify:categories:live`
 - Run the credential-safe Task 3.2 migration/seed/CRUD/UI proof: `NEON_PROJECT_ID=<project-id> pnpm verify:reference:live`
+- Run the credential-safe Task 3.3 machine API/concurrency/query-plan proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machines:live`
 - List Supabase identity IDs without matching Neon users (read-only, never addresses): `pnpm users:reconcile-auth`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
@@ -629,6 +652,9 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - List eligible managers: `GET /api/v1/departments/:id/eligible-managers`
 - List/create locations: `GET /api/v1/locations`, `POST /api/v1/locations`
 - Read/update/delete a location: `GET /api/v1/locations/:id`, `PATCH /api/v1/locations/:id`, `DELETE /api/v1/locations/:id`
+- List/register machines: `GET /api/v1/machines`, `POST /api/v1/machines`
+- Read a machine by asset tag: `GET /api/v1/machines/by-tag/:assetTag`
+- Read/update/remove a machine from the active registry: `GET /api/v1/machines/:id`, `PATCH /api/v1/machines/:id`, `DELETE /api/v1/machines/:id`
 - OpenAPI UI: `GET /api/docs`
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`
