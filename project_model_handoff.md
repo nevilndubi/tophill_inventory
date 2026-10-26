@@ -281,10 +281,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 24 / 71 tasks (33.8%) |
 | Current phase | Phase 3 — machine registry UI complete through Task 3.4 |
-| Last updated | 2026-10-26 22:51 EAT |
-| Branch | `phase-3/task-3.4-machines-ui-finalize` |
-| Last commit | `4ce644e Merge pull request #46 from nevilndubi/phase-3/task-3.4-machines-ui` |
-| Repo state | Task 3.4 is merged and both PR/main Quality gates are green; the requested workstation launch is waiting only for the two ignored runtime environment files listed below |
+| Last updated | 2026-10-26 22:56 EAT |
+| Branch | `main` |
+| Last commit | `docs: synchronize Task 3.4 delivery status` (final handoff follow-up) |
+| Repo state | Task 3.4 and its final handoff are merged with green PR/main Quality gates; the requested workstation launch is waiting only for the two ignored runtime environment files listed below |
 | **Next task** | **3.5 Attachments via Supabase Storage signed URLs** |
 
 ---
