@@ -127,6 +127,35 @@ Nullable booking and service intervals must be positive, retirement date and con
 and warranty expiry cannot precede commissioning when both dates are known. All machine relations
 use non-cascading `ON DELETE RESTRICT` behavior.
 
+Task 3.3 exposes machine registration and registry maintenance through minimized DTOs. Create
+requires `name`, `categoryId`, `manufacturer`, `model`, `serialNumber`, `departmentId`, and
+`locationId`; location is therefore required by the existing schema. Description, lifecycle dates,
+booking-policy overrides, and service fields are optional. Names/manufacturer/model/serial are
+bounded to 120 characters, description to 2,000, service intervals to 1–3,650 days, booking limits
+to 5–1,440 minutes, and buffers to 1–1,440 minutes. DATE columns accept and return only
+`YYYY-MM-DD`; `last_serviced_at` accepts an offset-bearing ISO-8601 instant. Manufacturer and serial
+are additionally lowercased after Unicode NFC/whitespace normalization. Clients cannot write asset
+tags, condition, retirement/deletion state, `next_service_due_at`, IDs, timestamps, or relation
+objects. These API maxima intentionally narrow the Task 1.3 database checks, which require only
+positive interval values; the database remains the final lower-bound/race backstop.
+
+Registration relies on the database asset-tag default, so concurrent writers are safe and rolled
+back inserts may leave harmless sequence gaps. It atomically creates the first SYSTEM history row
+(`NULL -> OPERATIONAL`, reason `Machine registered`) and the `machine.created` audit event.
+`next_service_due_at` is calculated in the same write from `last_serviced_at + service_interval_days`,
+or cleared when either source is null; Tasks 6.2/6.3 take ownership of
+service completion and maintenance schedules. PATCH writes only supplied fields. A semantically
+unchanged PATCH is a 200 no-op that neither updates `updated_at` nor writes an audit event; full
+optimistic locking remains deferred.
+
+DELETE means removal from the active registry, not a RETIRED condition transition: it locks the
+machine row, rejects an open usage session or any PENDING/CONFIRMED/IN_PROGRESS booking, sets only
+`deleted_at`, and writes `machine.deleted`. A repeated delete returns 409
+`MACHINE_ALREADY_DELETED`. True end-of-life remains the Task 4.1 RETIRED transition. Lists include
+RETIRED machines by default but all current list/detail/tag reads hide soft-deleted rows. To close
+the opposite side of the race, Task 4.2 checkout and Task 5.3 booking creation must lock the same
+machine row and reject a soft-deleted machine.
+
 **machine_status_history** — `id`, `machine_id`, `from_condition`, `to_condition`, `reason`, `changed_by_user_id`, `source` (`MANUAL | SERVICE_TICKET | SCHEDULE | SYSTEM`), `ticket_id` (nullable), `created_at`
 
 The first status-history record may have a null `from_condition`; subsequent records are immutable
@@ -235,6 +264,15 @@ availability used `bookings_no_overlap` plus machine identity lookup, My Booking
 scan of the primary queried tables, so no speculative index was added. Small seeded tables may use
 sequential scans when the planner correctly estimates that cheaper.
 
+Task 3.3 re-ran the concrete machine list/filter/search plans after API implementation on the seed
+plus a 3,000-machine disposable fixture. The due-service combination used
+`machines_next_service_due_at_idx`; deterministic asset-tag ordering could make the asset-tag
+unique index the cheapest path for a broad department result. Selective substring searches over
+name, asset tag, and serial number remained sequential at 3,060 rows because PostgreSQL estimated
+that cheaper than the existing trigram GIN indexes. This is an expected small-table planner choice,
+not evidence for a speculative replacement index; the existing `gin_trgm_ops` indexes remain the
+documented large-cardinality path.
+
 ---
 
 ## 4. State machines
@@ -303,6 +341,24 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Files | `POST /attachments/sign-upload`, `GET /attachments/:id/url` |
 | Ops | `GET /health` (liveness), `GET /health/ready` (db + redis) |
 
+Task 3.3 machine reads use `page`/`pageSize` (25 by default, 100 maximum), return `meta.total`, and
+allow only `asset_tag`, `name`, `manufacturer`, `serial_number`, `condition`, or
+`next_service_due_at` sorting with an ID tie-breaker. Filters are `department_id`, `category_id`,
+`location_id`, `condition`, `is_bookable`, and `service_due`; the latter means a non-null due instant
+at or before the request's current UTC time. `is_bookable` is the stored policy flag, not effective
+availability. Search is case-insensitive across name/tag/serial, parameterized with SQL wildcard
+characters escaped, and accepts 2–100 trimmed characters. One-character terms are rejected; two-
+character terms are permitted for exact operational usefulness but commonly use a sequential plan,
+while trigram selectivity becomes useful from three characters onward. Every unknown query/body
+field is rejected.
+
+Stable machine errors are `MACHINE_NOT_FOUND`, `MACHINE_IDENTITY_TAKEN`,
+`MACHINE_CATEGORY_NOT_FOUND`, `MACHINE_DEPARTMENT_NOT_FOUND`, `MACHINE_LOCATION_NOT_FOUND`,
+`MACHINE_ALREADY_DELETED`, `MACHINE_HAS_OPEN_SESSION`, `MACHINE_HAS_ACTIVE_BOOKINGS`,
+`MACHINE_DATES_INVALID`, and `MACHINE_VALUES_INVALID`. Prisma unique/FK/check failures are mapped to
+these contracts without exposing database metadata. `machine.created`, `machine.updated`, and
+`machine.deleted` audit snapshots contain business fields and relationship IDs only.
+
 ---
 
 ## 6. Redis usage (all uses, with rules)
@@ -310,7 +366,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Use | Key pattern | TTL | Invalidation / notes |
 |---|---|---|---|
 | Status board snapshot | `board:v1:{filterHash}` | 15–30s | Deleted on any condition change, check-in/out, booking state change (use key-set `board:keys` or version counter `board:ver` to invalidate by bumping version) |
-| Machine detail | `machine:{id}:v1` | 5 min | Deleted on machine update/condition/usage change |
+| Machine detail | `machine:{id}:v1` | 5 min | Task 7.2 deletes it on update/delete/condition/usage change; create/update/delete also invalidate future machine-list/status-board key sets, and asset-tag lookup keys if introduced |
 | Machine status (single) | `status:{id}` | 30s | Same triggers as board |
 | Reference data (categories, departments, locations) | `ref:{type}:v1` (`ref:departments:v1`, `ref:locations:v1`) | 10 min | Deleted on every successful write when Task 7.2 adds cache-aside behavior |
 | Availability grid | `avail:{machineId}:{date}` | 30s | Deleted on booking change for that machine |

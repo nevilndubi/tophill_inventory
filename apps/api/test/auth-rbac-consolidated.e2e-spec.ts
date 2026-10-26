@@ -36,6 +36,7 @@ import { UsersService } from '../src/users/users.service';
 import { CategoriesService } from '../src/categories/categories.service';
 import { DepartmentsService } from '../src/reference/departments.service';
 import { LocationsService } from '../src/reference/locations.service';
+import { MachinesService } from '../src/machines/machines.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -505,6 +506,102 @@ const EXPECTED_ACCESS_TABLE = [
     successStatus: 200,
     unauthenticated: 'DENY',
   },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/machines',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:create',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/machines/by-tag/:assetTag',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/machines/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:update',
+    inactive: 'DENY',
+    method: 'PATCH',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:retire',
+    inactive: 'DENY',
+    method: 'DELETE',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
 ] as const satisfies readonly ExpectedAccessRow[];
 
 type InventoryRow = {
@@ -605,6 +702,38 @@ const locationsService = {
   read: jest.fn(async () => managedLocation),
   update: jest.fn(async () => managedLocation),
 };
+const managedMachine = {
+  allowBookingWhenNeedsService: false,
+  assetTag: 'HM-000061',
+  bufferMinutes: null,
+  category: { id: TARGET_USER_ID, name: 'Ventilator' },
+  commissionedOn: null,
+  condition: 'OPERATIONAL' as const,
+  department: { code: 'ICU', id: DEPARTMENT_A, name: 'Intensive Care' },
+  description: null,
+  id: TARGET_USER_ID,
+  isBookable: true,
+  lastServicedAt: null,
+  location: { id: DEPARTMENT_B, name: 'Bay A' },
+  manufacturer: 'acme',
+  maxBookingMinutes: null,
+  model: 'V1',
+  name: 'Ventilator',
+  nextServiceDueAt: null,
+  purchaseDate: null,
+  requiresApproval: false,
+  serialNumber: 'sn-1',
+  serviceIntervalDays: null,
+  warrantyExpiresOn: null,
+};
+const machinesService = {
+  create: jest.fn(async () => managedMachine),
+  delete: jest.fn(async () => managedMachine),
+  list: jest.fn(async () => ({ items: [managedMachine], page: 1, pageSize: 25, total: 1 })),
+  read: jest.fn(async () => managedMachine),
+  readByAssetTag: jest.fn(async () => managedMachine),
+  update: jest.fn(async () => managedMachine),
+};
 
 const configForVerifier = (jwksUrl: string) =>
   ({
@@ -615,7 +744,8 @@ const configForVerifier = (jwksUrl: string) =>
     }),
   }) as unknown as ConfigService<ApiEnvironment, true>;
 
-const concreteRoute = (route: string): string => route.replace(':id', TARGET_USER_ID);
+const concreteRoute = (route: string): string =>
+  route.replace(':id', TARGET_USER_ID).replace(':assetTag', 'HM-000061');
 
 const requestFor = (app: INestApplication, method: HttpMethod, route: string): SupertestRequest => {
   const path = concreteRoute(route);
@@ -637,7 +767,9 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
             route.startsWith('/api/v1/departments') ||
             route.startsWith('/api/v1/locations')
             ? { name: 'Updated reference' }
-            : { fullName: 'Updated User' },
+            : route.startsWith('/api/v1/machines')
+              ? { name: 'Updated machine' }
+              : { fullName: 'Updated User' },
         );
       break;
     case 'POST':
@@ -656,6 +788,16 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
         builder = builder.send({ code: 'ICU', name: 'Intensive Care' });
       if (route === '/api/v1/locations')
         builder = builder.send({ departmentId: DEPARTMENT_A, name: 'Bay A' });
+      if (route === '/api/v1/machines')
+        builder = builder.send({
+          categoryId: TARGET_USER_ID,
+          departmentId: DEPARTMENT_A,
+          locationId: DEPARTMENT_B,
+          manufacturer: 'Acme',
+          model: 'V1',
+          name: 'Ventilator',
+          serialNumber: 'SN-1',
+        });
       break;
   }
 
@@ -779,6 +921,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(departmentsService)
         .overrideProvider(LocationsService)
         .useValue(locationsService)
+        .overrideProvider(MachinesService)
+        .useValue(machinesService)
         .compile();
 
     const productionModule = await createModule(false);

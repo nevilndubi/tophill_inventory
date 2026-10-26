@@ -32,6 +32,7 @@
     "verify:users:live": "tsx scripts/verify-user-management-live.ts",
     "verify:categories:live": "tsx scripts/verify-categories-live.ts",
     "verify:reference:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-reference-data-live.ts",
+    "verify:machines:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-machines-live.ts",
     "users:reconcile-auth": "pnpm --filter @app/api exec tsx src/scripts/reconcile-auth-identities.ts",
     "prepare": "husky"
   },
