@@ -33,7 +33,7 @@ export const NAVIGATION_ENTRIES = [
     icon: MonitorCog,
     label: 'Machines',
     permission: 'machine:read',
-    status: 'coming-soon',
+    status: 'available',
   },
   {
     href: '/status',

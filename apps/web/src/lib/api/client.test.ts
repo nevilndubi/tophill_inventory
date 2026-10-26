@@ -24,6 +24,20 @@ describe('API client', () => {
     expect(fetcher.mock.calls[1]?.[0]).toBe('http://api.example.test/api/v1/machines');
   });
 
+  it('preserves pagination metadata for typed list clients', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse({ data: [{ id: 'machine-1' }], meta: { page: 2, pageSize: 25, total: 31 } }),
+      );
+    const client = createApiClient({ origin: 'http://api.example.test', fetcher });
+
+    await expect(client.requestWithMeta('/machines?page=2')).resolves.toEqual({
+      data: [{ id: 'machine-1' }],
+      meta: { page: 2, pageSize: 25, total: 31 },
+    });
+  });
+
   it('adds an authorization header when the future token provider returns a token', async () => {
     const fetcher = vi
       .fn<typeof fetch>()

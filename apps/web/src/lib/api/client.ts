@@ -14,6 +14,11 @@ type ApiSuccessEnvelope<T> = {
   meta?: Record<string, unknown>;
 };
 
+export type ApiResult<T> = {
+  data: T;
+  meta: Record<string, unknown>;
+};
+
 export type HealthResponse = {
   status: 'ok';
   timestamp: string;
@@ -103,11 +108,11 @@ export function createApiClient({
 }: ApiClientOptions) {
   const apiOrigin = normalizeOrigin(origin);
 
-  const execute = async <T>(
+  const executeEnvelope = async <T>(
     url: string,
     options: RequestOptions = {},
     authenticated = true,
-  ): Promise<T> => {
+  ): Promise<ApiResult<T>> => {
     const headers = new Headers(options.headers);
 
     headers.set('accept', 'application/json');
@@ -198,8 +203,15 @@ export function createApiClient({
       );
     }
 
-    return (payload as ApiSuccessEnvelope<T>).data;
+    const envelope = payload as ApiSuccessEnvelope<T>;
+    return { data: envelope.data, meta: envelope.meta ?? {} };
   };
+
+  const execute = async <T>(
+    url: string,
+    options: RequestOptions = {},
+    authenticated = true,
+  ): Promise<T> => (await executeEnvelope<T>(url, options, authenticated)).data;
 
   return {
     rootUrl: (path: string) => `${apiOrigin}${normalizePath(path)}`,
@@ -208,6 +220,8 @@ export function createApiClient({
       execute<T>(`${apiOrigin}${normalizePath(path)}`, options, false),
     request: <T>(path: string, options?: RequestOptions) =>
       execute<T>(`${apiOrigin}/api/v1${normalizePath(path)}`, options),
+    requestWithMeta: <T>(path: string, options?: RequestOptions) =>
+      executeEnvelope<T>(`${apiOrigin}/api/v1${normalizePath(path)}`, options),
     health: () => execute<HealthResponse>(`${apiOrigin}/health`, {}, false),
   };
 }

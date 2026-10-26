@@ -505,6 +505,17 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   `DEPARTMENT_CODE_TAKEN`, `LOCATION_NAME_TAKEN`, `DEPARTMENT_NOT_FOUND`, `LOCATION_NOT_FOUND`,
   `DEPARTMENT_IN_USE`, `LOCATION_IN_USE`, `MANAGER_NOT_ELIGIBLE`, `USER_NOT_FOUND`, and
   `LOCATION_DEPARTMENT_IMMUTABLE`.
+- **Machine registry UI:** `/machines` consumes the shared Task 3.3 contracts through one paginated
+  list request plus cached category/department/location lookups. Validated URL parameters own
+  search, filters, sort and pagination so refresh, history and shared links reproduce the same
+  view. Desktop tables and mobile cards show only the stored condition using icon + text + colour;
+  usage-derived “Available/In use” language waits for Phase 4. Detail routes keep Overview live and
+  preserve accessible, URL-addressable “Coming soon” tabs for Status, Bookings, Service, Files and
+  History. Create/update visibility comes directly from `can()` (`machine:create` / `machine:update`),
+  while API authorization remains authoritative. DATE values are formatted from their plain parts,
+  timestamps use Africa/Nairobi, and `next_service_due_at` stays a labelled read-only calculation.
+  Task 3.4 Playwright runs against the real Next routes with a development-only auth seam and
+  browser-intercepted API responses; production builds cannot enable that seam.
 - **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes and `javascript:` input fall back to `/`.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.

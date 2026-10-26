@@ -206,7 +206,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 3.1 Categories CRUD (API + UI)
 - [x] 3.2 Departments & locations CRUD (API + UI)
 - [x] 3.3 Machines CRUD API (pagination, filter, search, sort)
-- [ ] 3.4 Machines UI (list, detail, create/edit)
+- [x] 3.4 Machines UI (list, detail, create/edit)
 - [ ] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
 - [ ] 3.6 Asset tag / QR label generation & scan-lookup page
 - [ ] 3.7 Bulk CSV import with validation report
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 23 / 71 tasks (32.4%) |
-| Current phase | Phase 3 — dependency maintenance complete after Task 3.3 |
-| Last updated | 2026-10-26 22:03 EAT |
-| Branch | `main` |
-| Last commit | `aac861e Merge pull request #44 from nevilndubi/maintenance/dependency-sweep` |
-| Repo state | The dependency sweep and future Dependabot policy are merged; local `main` is synchronized with `origin/main`, the task count is unchanged, and Task 3.4 remains next |
-| **Next task** | **3.4 Machines list and detail UI** |
+| Overall progress | 24 / 71 tasks (33.8%) |
+| Current phase | Phase 3 — machine registry UI complete through Task 3.4 |
+| Last updated | 2026-10-26 22:45 EAT |
+| Branch | `phase-3/task-3.4-machines-ui` |
+| Last commit | `feat: add machines registry UI` (current task commit) |
+| Repo state | Task 3.4 implementation and local verification are complete; delivery through the required green pull request is in progress |
+| **Next task** | **3.5 Attachments via Supabase Storage signed URLs** |
 
 ---
 
@@ -318,6 +318,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
 - **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, and any future asset-tag lookup key after successful create/update/delete. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
 - **Task 3.8 — machine restore:** add the approved restore workflow/UI and decide whether restored registry records need additional booking/session safeguards; Task 3.3 intentionally has no restore endpoint.
+- **Task 4.4 — derived machine status badges:** extend Task 3.4's stored-condition icon/text/colour badges with the derived availability and usage states only after the Phase 4 status service is authoritative; do not infer “Available” or “In use” from the current registry UI.
 - **Node type major:** revisit the ignored `@types/node` semver-major update only when the pinned runtime moves from Node 24; keep runtime and declaration majors aligned and verify the complete workspace during that runtime upgrade.
 - **TypeScript 6:** revisit the ignored TypeScript semver-major update in a dedicated toolchain task after Next.js, NestJS, Prisma, ts-jest, tsup and ESLint support is verified together and the hosted Quality pipeline passes.
 
@@ -408,6 +409,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D70 | 2026-10-26 | Make machine PATCH field-level and semantically idempotent: write only supplied editable fields, treat an unchanged request as 200 without audit or timestamp movement, and allow BIOMED_TECH to edit every currently editable machine field while preserving the Architecture §7 create/delete restrictions | Partial writes reduce unrelated administrator overwrites, empty/forbidden fields remain fail-closed, and the documented matrix says BIOMED is edit-only without a narrower field list. Full optimistic locking is deferred until a demonstrated concurrent-edit need | Replace the entire record; audit/touch no-ops; silently accept internal fields; invent technician field restrictions |
 | D71 | 2026-10-26 | Group npm minor and patch updates into one weekly Dependabot PR, cap npm PRs at five, retain separate GitHub Actions updates, and ignore semver-major updates for `@types/node` and TypeScript until their recorded upgrade criteria are met | The ten-PR backlog created avoidable merge/rebase churn; grouped compatible updates preserve review while major runtime/toolchain transitions need intentional verification | Keep one PR per package and a limit of ten; allow automatic Node-types/TypeScript major PRs; disable Dependabot |
 | D72 | 2026-10-26 | Accept `@hookform/resolvers` 6 only after checking its Zod-path release scope and declared peers against react-hook-form 7.90/Zod 4.6 plus form/full tests; accept `pg` 8.23 only after disposable-Neon migration, integration, drift and readiness proof | Major labels and runtime database libraries require evidence beyond a green lockfile-only PR, while both upgrades proved compatible without application changes | Close every major update; trust hosted CI alone; test database runtime changes against long-lived `dev` |
+| D73 | 2026-10-26 | Keep machine-list state in a strict shared-contract-derived URL model, load each page with one machine request plus stale-cached reference queries, and render only the stored condition until Task 4.4 supplies derived status | Refresh/back/shared-link behavior stays reproducible, list rendering avoids per-row reads, and the UI cannot imply usage availability before the backend owns that derivation | Keep filters only in component state; fetch relations per row; infer availability from condition |
+| D74 | 2026-10-26 | Run Task 3.4 browser smoke tests against real Next routes with a development-only production-disabled auth seam and browser-intercepted API responses; keep it as an explicit stable local command rather than the default CI gate | Technician/admin journeys and three responsive widths remain credential-free and deterministic without weakening production auth or making the existing Quality job browser-dependent | Hosted Supabase/Neon in default CI; a static HTML mock; skip browser coverage |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -585,10 +588,24 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.4 Machines list and detail UI
 - **Branch / commit:** `main` / `aac861e Merge pull request #44 from nevilndubi/maintenance/dependency-sweep`
 
+### [2026-10-26 22:46 EAT] — Task(s): 3.4 — Machines list and detail UI
+- **Prompt summary:** Add only the authenticated Machines list/detail/create/edit frontend on the Task 3.3 contracts, with URL-preserved listing state, exact permission-aware controls, accessible responsive behavior, hermetic component/browser proof, complete Git delivery, and a verified local platform run after merge.
+- **What I did:** Added typed machine API adapters, strict list-query URL parsing, Nairobi-safe date formatting, stored-condition badges, responsive desktop-table/mobile-card listing, cached reference selectors, permission-gated create/edit forms, and an overview/detail route with URL-addressed accessible placeholder tabs. Added real Next-route Playwright journeys for administrator creation, technician editing, forbidden direct navigation and 360/768/1280 px screenshots. Preserved all existing authentication failure behavior and added no delete, restore, condition-transition, attachment, booking, usage or caching feature. The initial repository was clean at `9cce628`, while §9 still recorded the earlier maintenance merge `aac861e`; repository history was trusted and this status was corrected.
+- **How:** List state is validated through the shared machine query schema and synchronized to the URL; search is debounced by 300 ms and short terms remain local hints. Each list page uses one machine request plus stale-cached category/department/location requests, with no per-row reads. Forms reuse the shared create/PATCH schemas, preserve omitted creation defaults, send only semantic edit changes, keep generated tags outside the URL in one-time session state, and render dates without timezone-shifting DATE values. `can()` remains the only UI capability source. A production-disabled `PLAYWRIGHT_MOCK_MODE=1` seam supplies deterministic auth while browser interception supplies API data; D73–D74 record these choices.
+- **Files touched:** root/web scripts; machine API, URL-state and formatting helpers; authenticated machine App Router routes; list/detail/form/status components and tests; navigation/shell/auth test seam; Vitest/Playwright configuration and browser suite; README; architecture; this handoff
+- **Migrations:** none; Task 3.4 is frontend-only and the Task 3.3 API/database contract was unchanged
+- **Verification:** Both normal and frozen installs passed (with the already documented pnpm warning). `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, and the production build passed. An env-less build first failed as designed with the aggregated required-variable list; the same build with CI-safe placeholders passed and emitted all Machines routes. `pnpm test` passed 26 API suites/223 tests plus the intentional Task 7.2 skip and 24 web files/116 tests, for 339 executed passing tests. `pnpm test:e2e:machines` passed six Chromium tests in 15.6 seconds; the 360, 768 and 1280 px screenshots were visually inspected, contained no identities/secrets and showed the expected card/table breakpoints. The in-app browser had no connected browser, so the explicitly permitted repository Playwright fallback was used.
+- **Result:** Task 3.4 acceptance criteria are locally verified and the checklist is ticked; commit/PR/hosted CI/merge and the post-merge local platform run remain in this turn.
+- **Progress after this session:** 24 / 71 (33.8%)
+- **Left undone / follow-ups:** Derived availability/usage badges remain Task 4.4. Attachments, QR scanning, imports, restore, transitions, usage/bookings/service and Redis caching remain their scheduled tasks. No live hosted-data browser proof was necessary because the secretless real-route Playwright suite covered the required journeys; the post-merge local run will validate the configured development platform without writing proof data.
+- **Next task:** 3.5 Attachments via Supabase Storage signed URLs
+- **Branch / commit:** `phase-3/task-3.4-machines-ui` / `feat: add machines registry UI` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- **Resolved in Task 3.4:** the typed web reference client treated the paginated locations endpoint's envelope as though pagination lived inside `data`, causing the first real-route browser render to fail. It now reconstructs the page from the standard `data` array plus envelope `meta`; component and Playwright regression coverage pass.
 - **Resolved in the 2026-10-26 dependency sweep:** the ten-request Dependabot backlog was reduced to zero by merging eight compatible updates and closing the two unsupported runtime/toolchain-major proposals; future npm minor/patch updates are grouped and capped at five open PRs.
 - **Resolved in Task 3.1:** the shell styled every available navigation link as current. It now marks and styles only the route returned by `usePathname()`, with a focused regression assertion and responsive visual proof.
 - **Resolved in Task 2.6:** a fixed string CORS origin setting emitted the configured `Access-Control-Allow-Origin` value when a request supplied a different Origin. Exact-origin callback evaluation now omits the header for disallowed origins while retaining server-to-server requests without an Origin; consolidated regression coverage proves both cases.
@@ -678,6 +695,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`
+- Run the credential-free Machines UI browser smoke and responsive screenshots: `pnpm test:e2e:machines`
 - Validate GitHub Actions workflows: `actionlint .github/workflows/ci.yml` (actionlint must be installed separately)
 
 **API operational endpoints:**

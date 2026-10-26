@@ -41,6 +41,7 @@ pnpm format
 pnpm format:check
 pnpm typecheck
 pnpm test
+pnpm test:e2e:machines
 pnpm test:integration
 pnpm prisma:generate
 pnpm prisma:migrate:dev
@@ -60,6 +61,42 @@ Vitest for component and API-client tests; the API uses Jest for unit and e2e co
 The local web shell reads `NEXT_PUBLIC_API_URL` in the browser and calls the API's root `/health`
 probe. Keep `WEB_ORIGIN` set to the exact web origin (the examples use `http://localhost:3000`) so
 the API permits that browser request through CORS.
+
+## Run the local platform
+
+Keep real values only in the ignored `apps/api/.env` and `apps/web/.env.local` files. The API
+database URLs must target the Neon `dev` branch; local Redis uses the Docker service.
+
+```bash
+docker compose up -d redis
+pnpm prisma:migrate:deploy
+pnpm dev
+```
+
+Open `http://localhost:3000` and sign in with a confirmed, administrator-provisioned Supabase
+account. The API listens on `http://localhost:3001`; its readiness probe is
+`http://localhost:3001/health/ready`. The working areas are Overview, Machines, Reference data and
+Administration. The machine detail Status, Bookings, Service, Files and History tabs are labelled
+“Coming soon” until their scheduled tasks.
+
+To stop the foreground workspace press Ctrl+C, then stop local Redis:
+
+```bash
+docker compose stop redis
+```
+
+To refresh deterministic demo data on `dev`, first set the three guarded seed confirmations in the
+ignored API environment (`SEED_ALLOWED_BRANCH=dev`, exact `SEED_ALLOWED_HOST`, and the protected
+main/staging hosts), load that environment privately, and run `pnpm db:seed`. The seed is idempotent;
+never run it against `main` or `staging`, and never echo database variables.
+
+The secretless machine UI browser smoke test starts its own test-only local web process, intercepts
+the API at the browser boundary, and writes responsive screenshots below the ignored
+`apps/web/.artifacts/` directory:
+
+```bash
+pnpm test:e2e:machines
+```
 
 ## Local Redis
 

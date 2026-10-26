@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ROLES } from '@app/shared';
 import { z } from 'zod';
@@ -9,6 +10,7 @@ import { createServerApi } from '@/lib/api/server-client';
 import { getValidatedAccessToken } from '@/lib/supabase/server';
 import { loginUrl, safeReturnPath } from './return-path';
 import type { AppUser } from './types';
+import { e2eMockUser, isE2EMockAuthEnabled } from './e2e-mock';
 
 const appUserSchema = z.object({
   department: z
@@ -32,6 +34,9 @@ type AppUserResult =
   | { kind: 'unavailable' };
 
 export const loadCurrentAppUser = cache(async (): Promise<AppUserResult> => {
+  if (isE2EMockAuthEnabled()) {
+    return { kind: 'authenticated', user: e2eMockUser((await headers()).get('x-e2e-role')) };
+  }
   const accessToken = await getValidatedAccessToken();
   if (accessToken.kind === 'unavailable') {
     return { kind: 'unavailable' };

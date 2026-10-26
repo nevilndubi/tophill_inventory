@@ -3,6 +3,7 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { publicEnv } from '@/env/public';
 import { loginUrl, safeReturnPath } from '@/lib/auth/return-path';
+import { isE2EMockAuthEnabled } from '@/lib/auth/e2e-mock';
 import { supabaseCookieOptions } from './cookie-options';
 
 type ProxyClientFactory = typeof createServerClient;
@@ -12,6 +13,8 @@ export async function updateSession(
   clientFactory: ProxyClientFactory = createServerClient,
 ) {
   let response = NextResponse.next({ request });
+
+  if (isE2EMockAuthEnabled()) return response;
 
   const supabase = clientFactory(
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
