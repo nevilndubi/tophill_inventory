@@ -280,11 +280,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 23 / 71 tasks (32.4%) |
-| Current phase | Phase 3 — Task 3.3 complete and delivered |
-| Last updated | 2026-10-26 06:21 EAT |
-| Branch | `main` |
-| Last commit | `614aa72 Merge pull request #38 from nevilndubi/phase-3/task-3.3-machines-crud-api` |
-| Repo state | Task 3.3 is merged after green hosted CI; local `main` is synchronized with `origin/main` and the next implementation task is 3.4 |
+| Current phase | Phase 3 — maintenance dependency sweep after Task 3.3 |
+| Last updated | 2026-10-26 21:57 EAT |
+| Branch | `maintenance/dependency-sweep` |
+| Last commit | `b7e20e6 Merge pull request #35 from nevilndubi/dependabot/npm_and_yarn/hookform/resolvers-6.0.0` |
+| Repo state | The ten-request Dependabot backlog is triaged; dependency/configuration verification and maintenance delivery are in progress without advancing the task checklist |
 | **Next task** | **3.4 Machines list and detail UI** |
 
 ---
@@ -318,6 +318,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
 - **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, and any future asset-tag lookup key after successful create/update/delete. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
 - **Task 3.8 — machine restore:** add the approved restore workflow/UI and decide whether restored registry records need additional booking/session safeguards; Task 3.3 intentionally has no restore endpoint.
+- **Node type major:** revisit the ignored `@types/node` semver-major update only when the pinned runtime moves from Node 24; keep runtime and declaration majors aligned and verify the complete workspace during that runtime upgrade.
+- **TypeScript 6:** revisit the ignored TypeScript semver-major update in a dedicated toolchain task after Next.js, NestJS, Prisma, ts-jest, tsup and ESLint support is verified together and the hosted Quality pipeline passes.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -404,6 +406,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D68 | 2026-10-26 | On registration, atomically create the OPERATIONAL machine, its first SYSTEM status-history row and `machine.created` audit; accept `last_serviced_at` for onboarding but calculate `next_service_due_at` only from it plus `service_interval_days` and leave schedule creation to Task 6.3 | A registered machine begins with explainable condition history, audit cannot diverge from the write, and one deterministic derived due date prevents client drift while later service workflows retain clear ownership | Let clients submit the due date; create maintenance schedules early; omit the first history row; separate transactions |
 | D69 | 2026-10-26 | Define DELETE as soft removal from the active registry, not retirement: lock the machine, reject open sessions/active bookings, preserve condition and identity, return 409 on repeated deletion, and hide deleted rows from every current read. RETIRED remains a Task 4.1 condition transition | Registration mistakes/decommissioned registry entries and genuine end-of-life are different events; row locking plus the future matching locks in Tasks 4.2/5.3 closes new-work races while historical identity and records remain intact | Hard delete; change condition to RETIRED; idempotent repeated 200; allow deletion with active work |
 | D70 | 2026-10-26 | Make machine PATCH field-level and semantically idempotent: write only supplied editable fields, treat an unchanged request as 200 without audit or timestamp movement, and allow BIOMED_TECH to edit every currently editable machine field while preserving the Architecture §7 create/delete restrictions | Partial writes reduce unrelated administrator overwrites, empty/forbidden fields remain fail-closed, and the documented matrix says BIOMED is edit-only without a narrower field list. Full optimistic locking is deferred until a demonstrated concurrent-edit need | Replace the entire record; audit/touch no-ops; silently accept internal fields; invent technician field restrictions |
+| D71 | 2026-10-26 | Group npm minor and patch updates into one weekly Dependabot PR, cap npm PRs at five, retain separate GitHub Actions updates, and ignore semver-major updates for `@types/node` and TypeScript until their recorded upgrade criteria are met | The ten-PR backlog created avoidable merge/rebase churn; grouped compatible updates preserve review while major runtime/toolchain transitions need intentional verification | Keep one PR per package and a limit of ten; allow automatic Node-types/TypeScript major PRs; disable Dependabot |
+| D72 | 2026-10-26 | Accept `@hookform/resolvers` 6 only after checking its Zod-path release scope and declared peers against react-hook-form 7.90/Zod 4.6 plus form/full tests; accept `pg` 8.23 only after disposable-Neon migration, integration, drift and readiness proof | Major labels and runtime database libraries require evidence beyond a green lockfile-only PR, while both upgrades proved compatible without application changes | Close every major update; trust hosted CI alone; test database runtime changes against long-lived `dev` |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -555,10 +559,24 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.4 Machines list and detail UI
 - **Branch / commit:** `main` / `614aa72 Merge pull request #38 from nevilndubi/phase-3/task-3.3-machines-crud-api`
 
+### [2026-10-26 21:57 EAT] — Task(s): Maintenance: dependency sweep
+- **Prompt summary:** Triage Dependabot PRs #2, #3, #34–#37 and #39–#42 in risk order; prove higher-risk compatibility, reduce future update noise, preserve the Phase 3 checklist state, and own the complete Git delivery.
+- **What I did:** Merged green patch PRs #42 (dotenv), #41 (Vite), #37 (Nest CLI) and #34 (Nest Swagger); locally validated and merged minor PRs #40 (lucide-react) and #39 (react-hook-form); merged #36 (`pg`/`@types/pg`) only after its hosted gate, then ran the live database proof; closed #2 (`@types/node` 26) and #3 (TypeScript 6) with explicit compatibility reasons; and rebased/conflict-resolved #35 (`@hookform/resolvers` 6) onto the current dependency set after Dependabot did not refresh it. The initial repository was clean at `dd6011c`, while §9 still recorded the earlier implementation merge `614aa72`; repository history was trusted and this status was corrected.
+- **How:** Every merged dependency first had a green hosted `Quality` check. PRs #40/#39 passed frozen install, format, lint, typecheck, 305 hermetic tests and build locally. Resolver v6 declared peers compatible with react-hook-form 7.90.0 and Zod 4.6.7; its five form-focused files passed 23 tests, the full 305-test suite passed, and hosted Quality passed after the manual refresh. The PostgreSQL upgrade used a credential-safe disposable Neon child: the complete migration chain, `pnpm test:integration`, zero-drift diff and live readiness (`database=up`, overall degraded only because Redis was intentionally unavailable) passed before branch deletion. D71–D72 record the maintenance policy.
+- **Files touched:** `.github/dependabot.yml`, dependency manifests/lockfile through the merged Dependabot PRs, and this handoff
+- **Migrations:** none; the full existing chain applied to the disposable PostgreSQL branch and `prisma migrate diff` reported `No difference detected.`
+- **Verification:** Patch PR Quality durations were #42 1m19s, #41 1m50s, #37 1m52s and #34 1m45s. Minor PR Quality durations were #40 1m51s and #39 1m53s; database PR #36 passed in 1m55s; refreshed resolver PR #35 passed in 1m34s. The updated Dependabot YAML passed Prettier and structural parsing, and `actionlint` 1.7.12 reported the CI workflow valid. On the fully updated dependency tree, frozen install, repository format/lint/typecheck, 305 hermetic tests (plus the intentional Task 7.2 skip) and the production build all passed; maintenance PR delivery remains to be recorded in the delivery follow-up.
+- **Result:** All ten requested dependency PRs are resolved: eight merged and two deliberately closed. No Dependabot PR remains open at this point, and Task 3.4 has not started.
+- **Progress after this session:** 23 / 71 (32.4%) — unchanged because this is maintenance, not a checklist task.
+- **Left undone / follow-ups:** Revisit the Node declaration and TypeScript majors only under the criteria recorded in Pending. Complete the maintenance configuration PR, confirm its hosted and post-merge main CI, and synchronize `main`.
+- **Next task:** 3.4 Machines list and detail UI
+- **Branch / commit:** `maintenance/dependency-sweep` / pending maintenance commit
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- **Resolved in the 2026-10-26 dependency sweep:** the ten-request Dependabot backlog was reduced to zero by merging eight compatible updates and closing the two unsupported runtime/toolchain-major proposals; future npm minor/patch updates are grouped and capped at five open PRs.
 - **Resolved in Task 3.1:** the shell styled every available navigation link as current. It now marks and styles only the route returned by `usePathname()`, with a focused regression assertion and responsive visual proof.
 - **Resolved in Task 2.6:** a fixed string CORS origin setting emitted the configured `Access-Control-Allow-Origin` value when a request supplied a different Origin. Exact-origin callback evaluation now omits the header for disallowed origins while retaining server-to-server requests without an Origin; consolidated regression coverage proves both cases.
 - **Resolved in Task 2.2:** a private confirmed non-reserved proof identity verified the sequential and concurrent bootstrap behavior on disposable branches; the real owner bootstrap remains an intentional post-Task-2.4 operational step rather than an acceptance blocker.
@@ -572,7 +590,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Next.js 16.4.2 development startup can print `Ready` immediately before `next.config.ts` environment validation reports an error. The process still exits with code 1 and lists all invalid variables; this is an output-order quirk, not a bypass of validation.
 - Jest 30 runs the NestJS 12 ESM packages with Node's `--experimental-vm-modules`, so Node 24 prints a non-fatal experimental-feature warning during tests. All unit/e2e tests pass; reassess when Jest's ESM runtime no longer requires the flag.
 - The Task 0.4 test dependency tree currently reports deprecated transitive `glob@10.5.0`. It is not a direct dependency and does not affect the passing test suite; monitor upstream Jest tooling releases.
-- Live Neon integration currently emits a `pg-connection-string` warning that `sslmode=require` is treated as `verify-full` today but will adopt weaker libpq semantics in its next major version. Current TLS verification remains strict; before upgrading to `pg` 9 / `pg-connection-string` 3, change managed connection URLs to explicit `sslmode=verify-full` or deliberately opt into libpq compatibility.
+- Live Neon integration still emits a `pg-connection-string` warning after the verified `pg` 8.23.1 update: `sslmode=require` is treated as `verify-full` today but will adopt weaker libpq semantics in its next major version. Current TLS verification remains strict; before upgrading to `pg` 9 / `pg-connection-string` 3, change managed connection URLs to explicit `sslmode=verify-full` or deliberately opt into libpq compatibility.
 - **Resolved in Task 0.6:** plain `pnpm test` previously required a developer-provided `WEB_ORIGIN` and could also pass locally only because ignored `@app/shared` output already existed. Test setup now owns safe required URLs, and the root test command builds shared first; a clean staged-tree export passes with no `.env` files.
 
 ---
