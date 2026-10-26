@@ -281,10 +281,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 24 / 71 tasks (33.8%) |
 | Current phase | Phase 3 — machine registry UI complete through Task 3.4 |
-| Last updated | 2026-10-26 22:45 EAT |
-| Branch | `phase-3/task-3.4-machines-ui` |
-| Last commit | `feat: add machines registry UI` (current task commit) |
-| Repo state | Task 3.4 implementation and local verification are complete; delivery through the required green pull request is in progress |
+| Last updated | 2026-10-26 22:51 EAT |
+| Branch | `phase-3/task-3.4-machines-ui-finalize` |
+| Last commit | `4ce644e Merge pull request #46 from nevilndubi/phase-3/task-3.4-machines-ui` |
+| Repo state | Task 3.4 is merged and both PR/main Quality gates are green; the requested workstation launch is waiting only for the two ignored runtime environment files listed below |
 | **Next task** | **3.5 Attachments via Supabase Storage signed URLs** |
 
 ---
@@ -601,10 +601,24 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.5 Attachments via Supabase Storage signed URLs
 - **Branch / commit:** `phase-3/task-3.4-machines-ui` / `feat: add machines registry UI` (pending)
 
+### [2026-10-26 22:51 EAT] — Task(s): 3.4 — Hosted delivery and local-run audit
+- **Prompt summary:** Deliver Task 3.4 through green hosted CI, synchronize `main`, then start and safely verify the configured local development platform without displaying credentials.
+- **What I did:** Pushed commit `f8b9638`, opened PR #46, merged only after its required Quality gate passed, synchronized local `main` to merge `4ce644e`, and waited for the resulting push-to-main Quality run to pass. Audited the requested local configuration by file existence, required variable names and Git ignore rules only; no values were printed.
+- **How:** GitHub Actions independently repeated frozen installation, formatting, linting, typechecking, all hermetic tests and the production build. The local audit found that both required ignored runtime files are absent, so no substitute placeholders were created and no Task 2.1 credentials were repurposed. Without those files it is impossible to prove the API URLs target Neon `dev`, run connected migrations/seed, start the authenticated platform, query the real SUPER_ADMIN count, or claim HTTP/readiness/redirect evidence.
+- **Files touched:** this handoff only; README local-run and guided-tour instructions were already delivered by PR #46
+- **Migrations:** none
+- **Verification:** PR #46 Quality passed in 1m49s; Supabase Preview skipped as expected. Push-to-main run `40390241802` passed Quality in 1m18s. `apps/api/.env` and `apps/web/.env.local` are both ignored by the committed rules but absent. Required API names are `WEB_ORIGIN`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, and `SUPABASE_SECRET_KEY`; required web names are `API_BASE_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- **Result:** Task 3.4 is implemented, tested, merged and green. The repository is ready for Task 3.5; local platform startup is an owner-environment action pending creation of the two ignored files with private values.
+- **Progress after this session:** 24 / 71 (33.8%)
+- **Left undone / follow-ups:** After the ignored files are created, follow README “Run the local platform”: confirm the API database URLs select Neon `dev`, deploy pending migrations if any, verify/refresh the guarded demo seed, start Redis/API/web, and check web 200, database/Redis `up`, login redirect and the count of active non-seed SUPER_ADMIN rows. If that count is zero, complete the documented one-time private bootstrap.
+- **Next task:** 3.5 Attachments via Supabase Storage signed URLs
+- **Branch / commit:** `main` / `4ce644e Merge pull request #46 from nevilndubi/phase-3/task-3.4-machines-ui`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- **Local-run configuration pending after Task 3.4:** this checkout has neither `apps/api/.env` nor `apps/web/.env.local`. Both paths are correctly ignored, but the development platform cannot be started or safely tied to Neon `dev` until the owner supplies the required private values named in §14. No acceptance result was claimed for that blocked operational run.
 - **Resolved in Task 3.4:** the typed web reference client treated the paginated locations endpoint's envelope as though pagination lived inside `data`, causing the first real-route browser render to fail. It now reconstructs the page from the standard `data` array plus envelope `meta`; component and Playwright regression coverage pass.
 - **Resolved in the 2026-10-26 dependency sweep:** the ten-request Dependabot backlog was reduced to zero by merging eight compatible updates and closing the two unsupported runtime/toolchain-major proposals; future npm minor/patch updates are grouped and capped at five open PRs.
 - **Resolved in Task 3.1:** the shell styled every available navigation link as current. It now marks and styles only the route returned by `usePathname()`, with a focused regression assertion and responsive visual proof.
@@ -723,7 +737,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 
 **Neon branches:** `main` (production), `staging`, `dev`; explicit database integration jobs create dedicated ephemeral branches, apply reviewed migrations, and remove the branches after the run. `INTEGRATION_DATABASE_BRANCH` and `INTEGRATION_DATABASE_URL` are guarded so the suite cannot use a long-lived or normally configured database. Default unit/e2e tests use localhost placeholders and never connect to Neon.
 
-**Services running locally:** Redis via `docker compose up -d redis` on `127.0.0.1:6379` (stopped after verification).
+**Services running locally:** none. Task 3.4's post-merge launch audit found both ignored runtime environment files absent, so Redis/API/web were not started and no connected-database claim was made.
 
 ---
 
