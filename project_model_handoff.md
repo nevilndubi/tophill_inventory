@@ -281,10 +281,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 25 / 71 tasks (35.2%) |
 | Current phase | Phase 3 — private machine attachments complete through Task 3.5 |
-| Last updated | 2026-10-27 04:15 EAT |
-| Branch | `main` |
-| Last commit | `docs: synchronize Task 3.5 delivery status` (final handoff follow-up) |
-| Repo state | Task 3.5 is merged; PR and push-to-main Quality gates are green; local Redis/API/web are running from merged `main` against verified Neon `dev` with database and Redis readiness `up` |
+| Last updated | 2026-10-27 07:05 EAT |
+| Branch | `maintenance/fix-local-admin-login` |
+| Last commit | `docs: record local admin login repair` (pending) |
+| Repo state | Task 3.5 remains merged and green; local Supabase web configuration now matches the verified API project, one dedicated non-staff test identity is the active `dev` SUPER_ADMIN, and browser login reaches `/machines` successfully |
 | **Next task** | **3.6 Asset tag / QR label generation and scan lookup** |
 
 ---
@@ -300,7 +300,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - In Tasks 3.5 and 6.6, validate each polymorphic attachment target in the same transaction before insert, and coordinate row/object deletion while writing the audit event.
 - **Before inviting real staff:** configure custom SMTP with the Phase 9 Resend account, paste the exact invite template from `docs/SUPABASE_SETUP.md`, retain exact environment redirect allow-lists, and complete one non-staff delivery/acceptance test. Task 2.5 implemented and mock-tested delivery, but live email delivery remains intentionally unverified because the built-in sender is organisation-member-only/rate-limited.
 - **Orphaned Auth identity reconciliation:** `AUTH_IDENTITY_EXISTS` is deliberately not auto-linked. Run the read-only `pnpm users:reconcile-auth` command (IDs/counts only), investigate ownership, and perform any approved manual repair without logging addresses. Automated reconciliation/linking requires a separately approved task.
-- Task 2.4 now supplies web login; bootstrap the owner's real first SUPER_ADMIN once against `dev` using `BOOTSTRAP_SUPER_ADMIN_EMAIL` in the API's own ignored `.env`, not the task credential file; repeat once for production using its deployment secret store, then remove the setting in each environment.
+- **Development owner handover:** the one-time `dev` bootstrap was consumed on 2026-10-27 by the dedicated non-staff test identity to restore local administrator access. Before treating `dev` as owner-operated, sign in with that test administrator and create the owner's real SUPER_ADMIN through the approved Task 2.5 user-management workflow; never remove the final active SUPER_ADMIN. Production still requires its own one-time real-owner bootstrap through the deployment secret store, followed by removal of the setting.
 - When staging and production domains exist, add their exact Supabase Site/redirect URLs and verify each environment; do not add wildcard Vercel preview redirects.
 - **Hospital shared-device security:** decide the idle/inactivity sign-out policy before production hardening (candidate owner: Task 10.2). Task 2.4 deliberately implements explicit and cross-tab logout only.
 - **Task 7.3 — login rate limiting:** add the application-owned Redis control when the rate-limiting task lands; Supabase's hosted Auth limits are the only login throttle until then.
@@ -645,11 +645,25 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.6 Asset tag / QR label generation and scan lookup
 - **Branch / commit:** `main` / `d5f95cb Merge pull request #49 from nevilndubi/phase-3/task-3.5-attachments`
 
+### [2026-10-27 07:05 EAT] — Task(s): Maintenance — local administrator login repair
+- **Prompt summary:** Diagnose and fix the generic invalid-credentials result at the local login without displaying the identity address, password, keys, token, cookies or connection strings.
+- **What I did:** Proved the private test credentials were valid directly against the configured Supabase password flow, then found that the ignored web environment carried a different Supabase URL/key pair from the verified API environment. Synchronized the two browser-safe web values privately, set the runtime bootstrap address to the same confirmed dedicated test identity, restarted both applications, completed the one-time `dev` bootstrap, removed the bootstrap setting, and completed the private proof file with its project URL/publishable-key inputs so the existing verifier is reproducible.
+- **How:** All comparisons emitted booleans or variable names only. The API received the access token only in memory. Browser validation used `http://localhost:3000`, matching the exact configured CORS/Supabase origin; a diagnostic attempt against `127.0.0.1` was correctly outside that allow-list and was discarded. The in-app Browser connection was unavailable, so the repository Playwright/Chromium fallback exercised the real local page without printing credentials or browser storage.
+- **Files touched:** ignored mode-600 `apps/api/.env`, `apps/api/.env.task-2.1.local` and `apps/web/.env.local`; this handoff only. No source, schema, public environment example or application behavior changed.
+- **Migrations:** none
+- **Verification:** Direct password sign-in returned 200; the official verifier confirmed ES256/JWKS, authenticated issuer/audience/role metadata, wrong-password rejection and public-signup rejection. First `/api/v1/me` returned 200 with `SUPER_ADMIN`; after removing the bootstrap variable, a repeat returned the same user ID and the database held exactly one active non-seed SUPER_ADMIN. Real Chromium login reached `/machines`, displayed the SUPER_ADMIN-only registration control and reported zero console errors. Frozen install, repository format/lint/typecheck, 247 API tests plus the intentional Task 7.2 skip, 132 web tests and the production build passed. The credential files remained mode 600, the screenshot stayed in the ignored artifacts directory, and no private value was emitted.
+- **Result:** Local administrator login is operational. The dedicated test identity is the sole active non-seed SUPER_ADMIN in Neon `dev`; it is not a production account.
+- **Progress after this session:** 25 / 71 (35.2%) — unchanged because this is operational maintenance, not a checklist task.
+- **Left undone / follow-ups:** Create the owner's real `dev` SUPER_ADMIN through the authenticated user-management workflow before retiring the test administrator. Production keeps the separate deployment-secret bootstrap step. Task 3.6 has not started.
+- **Next task:** 3.6 Asset tag / QR label generation and scan lookup
+- **Branch / commit:** `maintenance/fix-local-admin-login` / `docs: record local admin login repair` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
-- **Resolved before Task 3.5:** both ignored runtime files now exist with restricted permissions and the required variable names. Their database hosts were verified through safe Neon branch metadata as `dev`; migrations, seed verification, Redis/API/web readiness and the unauthenticated redirect passed without printing values. There is still no active non-seed SUPER_ADMIN in `dev`, so the private one-time bootstrap remains an operator step.
+- **Resolved on 2026-10-27:** local login showed the generic invalid-credentials message because the ignored web environment targeted a different Supabase project/key pair than the API and proof credentials. The web values now match the verified API project; the real browser login and repeat `/me` proof pass. Always use the exact configured `http://localhost:3000` origin—`127.0.0.1` is intentionally rejected by the CORS allow-list.
+- **Resolved before Task 3.5:** both ignored runtime files now exist with restricted permissions and the required variable names. Their database hosts were verified through safe Neon branch metadata as `dev`; migrations, seed verification, Redis/API/web readiness and the unauthenticated redirect passed without printing values. The later 2026-10-27 maintenance entry records completion of the `dev` bootstrap.
 - **Resolved in Task 3.4:** the typed web reference client treated the paginated locations endpoint's envelope as though pagination lived inside `data`, causing the first real-route browser render to fail. It now reconstructs the page from the standard `data` array plus envelope `meta`; component and Playwright regression coverage pass.
 - **Resolved in the 2026-10-26 dependency sweep:** the ten-request Dependabot backlog was reduced to zero by merging eight compatible updates and closing the two unsupported runtime/toolchain-major proposals; future npm minor/patch updates are grouped and capped at five open PRs.
 - **Resolved in Task 3.1:** the shell styled every available navigation link as current. It now marks and styles only the route returned by `usePathname()`, with a focused regression assertion and responsive visual proof.
