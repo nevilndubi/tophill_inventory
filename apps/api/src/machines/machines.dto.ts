@@ -1,6 +1,7 @@
 import {
   createMachineSchema,
   listMachinesQuerySchema,
+  machineImportQuerySchema,
   machineIdParamsSchema,
   updateMachineSchema,
   type MachineCondition,
@@ -66,4 +67,8 @@ export class ListMachinesQueryDto extends createZodDto(listMachinesQuerySchema) 
   declare search?: string;
   declare service_due?: boolean;
   declare sort: MachineSortField;
+}
+
+export class MachineImportQueryDto extends createZodDto(machineImportQuerySchema) {
+  declare mode: 'commit' | 'dry_run' | 'partial';
 }

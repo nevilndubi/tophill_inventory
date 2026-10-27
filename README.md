@@ -53,6 +53,7 @@ pnpm verify:supabase:auth
 pnpm storage:configure
 pnpm storage:reconcile
 NEON_PROJECT_ID=<project-id> pnpm verify:attachments:live
+NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live
 pnpm users:reconcile-auth
 NEON_PROJECT_ID=<project-id> pnpm verify:users:live
 ```
@@ -84,6 +85,15 @@ account. The API listens on `http://localhost:3001`; its readiness probe is
 Administration. The machine detail Files tab supports private photos, PDFs, signed downloads and
 permission-gated uploads/deletes. Status, Bookings, Service and History remain labelled “Coming
 soon” until their scheduled tasks.
+
+Administrators can open **Machines → Import CSV** to download the versioned blank template or a
+separate three-row example, preview row-level validation, and then choose an atomic full import or
+an explicit valid-rows-only import. Files must be comma-delimited CSV UTF-8, at most 1 MiB and 1,000
+data rows. Format serial-number columns as Text in Excel to preserve leading zeros. A commit always
+re-uploads and revalidates the file against the previewed SHA-256; after an edit or a full-import
+conflict, preview again. Existing manufacturer/serial identities are skipped and never overwritten,
+so retrying the same file does not create duplicates. Asset tags remain database-generated and may
+contain gaps.
 
 ### Asset tags, QR scanning and printing
 
@@ -124,6 +134,14 @@ the API at the browser boundary, and writes responsive screenshots below the ign
 
 ```bash
 pnpm test:e2e:machines
+```
+
+The Task 3.7 live verifier creates and deletes a disposable Neon child branch, applies the migration
+chain and guarded seed, and proves dry-run, commit, rerun idempotency, history/audits and concurrent
+rollback without writing to `dev`, `staging` or `main`:
+
+```bash
+NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live
 ```
 
 ## Local Redis

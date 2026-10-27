@@ -4,8 +4,11 @@ import type {
   ManagedMachine,
   ManagedMachinePage,
   UpdateMachineInput,
+  MachineImportMode,
+  MachineImportReport,
 } from '@app/shared';
-import { browserApi } from './browser-client';
+import { authenticatedBrowserFetch, browserApi } from './browser-client';
+import { ApiClientError } from './client';
 
 const queryString = (query: ListMachinesQuery): string => {
   const values = new URLSearchParams();
@@ -49,6 +52,34 @@ export const machinesApi = {
       pageSize: numericMeta(result.meta.pageSize, query.pageSize),
       total: numericMeta(result.meta.total, result.data.length),
     };
+  },
+  importCsv(
+    file: File,
+    mode: MachineImportMode,
+    previewHash?: string,
+  ): Promise<MachineImportReport> {
+    return browserApi.request<MachineImportReport>(`/machines/import?mode=${mode}`, {
+      body: file,
+      headers: {
+        'content-type': 'text/csv',
+        ...(previewHash === undefined ? {} : { 'x-import-file-sha256': previewHash }),
+      },
+      method: 'POST',
+    });
+  },
+  async template(kind: 'example' | 'template'): Promise<Blob> {
+    const response = await authenticatedBrowserFetch(`/machines/import/template?kind=${kind}`);
+    if (!response.ok) {
+      throw new ApiClientError(
+        {
+          code: 'TEMPLATE_DOWNLOAD_FAILED',
+          details: {},
+          message: 'The CSV template could not be downloaded.',
+        },
+        response.status,
+      );
+    }
+    return response.blob();
   },
   update(id: string, input: UpdateMachineInput): Promise<ManagedMachine> {
     return browserApi.request<ManagedMachine>(`/machines/${id}`, {
