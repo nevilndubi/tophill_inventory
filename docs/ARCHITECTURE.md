@@ -405,6 +405,8 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 
 **Connection foundation (Task 0.7):** the NestJS Redis module starts its ioredis connection in the background, disables the offline command queue, caps reconnect backoff at 2 seconds, and applies 1-second connection, command and readiness timeouts. Development defaults to `redis://127.0.0.1:6379`; production validation requires an explicit `rediss://` URL and enables TLS. Connection lifecycle events are logged without the URL or credentials. Shutdown attempts `QUIT` when ready and otherwise disconnects immediately. The readiness probe returns HTTP 200 with overall status `degraded` and `checks.redis = down` when Redis cannot answer; liveness and API startup are independent of Redis.
 
+**Database readiness bound (Task 3.6 maintenance):** `READINESS_DB_TIMEOUT_MS` bounds the Postgres readiness query and initial adapter connection. It defaults to 3000 ms and validation caps it at 10000 ms so Neon has a practical scale-to-zero wake window without allowing readiness to hang. Liveness remains independent of the database.
+
 ---
 
 ## 7. Authorization matrix (initial)
@@ -535,7 +537,8 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   timestamps use Africa/Nairobi, and `next_service_due_at` stays a labelled read-only calculation.
   Task 3.4 Playwright runs against the real Next routes with a development-only auth seam and
   browser-intercepted API responses; production builds cannot enable that seam.
-- **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes and `javascript:` input fall back to `/`.
+- **Asset labels and scan lookup:** QR labels are rendered in-browser as black-on-white SVG with error correction M and a four-module quiet zone; no third-party QR service receives data. The validated path-free `NEXT_PUBLIC_APP_ORIGIN` plus canonical upper-case asset tag forms the only QR payload. Print CSS provides a 100 mm × 50 mm single label and 3 × 8 A4 sheets of 70 mm × 37 mm cells with a configurable top offset and alignment test. Bulk selection is session-only, capped at 48, excludes retired/deleted machines, and reuses list data or one matching-list request. All `machine:read` roles may print. `/scan` and `/scan/[assetTag]` are authenticated/noindex, show only the stored condition plus placement, and leave Phase 4–6 actions visibly disabled.
+- **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes, encoded slash/backslash separators and `javascript:` input fall back to `/`. The proxy forwards its own validated current-path header to protected server layouts so deep scan paths survive both proxy login and server-side session recovery.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
 - **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.
 - **Calendar:** week/day timeline per machine; drag-to-select slot; conflicts shown inline from the availability endpoint.

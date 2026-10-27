@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppUser } from '@/lib/auth/types';
 import { AuthenticatedUserProvider, useAuthenticatedUser } from './authenticated-user-provider';
 import { LogoutButton } from './logout-button';
+import { LABEL_SELECTION_STORAGE_KEY } from '@/lib/machines/asset-labels';
 
 const mocks = vi.hoisted(() => ({
   authStateCallback: undefined as ((event: string) => void) | undefined,
@@ -56,6 +57,7 @@ const renderProvider = (queryClient: QueryClient, navigateToLogin = vi.fn()) =>
 
 describe('AuthenticatedUserProvider', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     mocks.authStateCallback = undefined;
     mocks.push.mockReset();
     mocks.refresh.mockReset();
@@ -72,12 +74,14 @@ describe('AuthenticatedUserProvider', () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(['previous-person', 'private'], { private: true });
     const navigate = vi.fn();
+    sessionStorage.setItem(LABEL_SELECTION_STORAGE_KEY, '[{"id":"private"}]');
     renderProvider(queryClient, navigate);
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'global' });
+    expect(sessionStorage.getItem(LABEL_SELECTION_STORAGE_KEY)).toBeNull();
     expect(navigate).toHaveBeenCalledWith('/login');
   });
 
@@ -85,11 +89,13 @@ describe('AuthenticatedUserProvider', () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(['previous-person'], { private: true });
     const navigate = vi.fn();
+    sessionStorage.setItem(LABEL_SELECTION_STORAGE_KEY, '[{"id":"private"}]');
     renderProvider(queryClient, navigate);
 
     act(() => mocks.authStateCallback?.('SIGNED_OUT'));
 
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(sessionStorage.getItem(LABEL_SELECTION_STORAGE_KEY)).toBeNull();
     expect(navigate).toHaveBeenCalledWith('/login');
   });
 

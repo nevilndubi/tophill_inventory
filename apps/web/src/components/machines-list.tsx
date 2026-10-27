@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   MACHINE_CONDITIONS,
@@ -16,6 +16,7 @@ import {
   ChevronRight,
   CircleAlert,
   ClockAlert,
+  Printer,
   Plus,
   Search,
   SlidersHorizontal,
@@ -45,6 +46,16 @@ import { departmentsApi, locationsApi } from '@/lib/api/reference';
 import { can } from '@app/shared';
 import { formatNairobiDateTime, isServiceOverdue } from '@/lib/machines/formatting';
 import { parseMachineListState, serializeMachineListState } from '@/lib/machines/url-state';
+import {
+  MAX_LABEL_SELECTION,
+  getLabelSelectionSnapshot,
+  getServerLabelSelectionSnapshot,
+  isLabelSelectable,
+  subscribeLabelSelection,
+  toLabelMachine,
+  writeLabelSelection,
+  type LabelMachine,
+} from '@/lib/machines/asset-labels';
 
 const CONDITION_LABELS: Record<(typeof MACHINE_CONDITIONS)[number], string> = {
   NEEDS_SERVICE: 'Needs service',
@@ -138,7 +149,18 @@ function DebouncedMachineSearch({
   );
 }
 
-function MachineCard({ machine, returnQuery }: { machine: ManagedMachine; returnQuery: string }) {
+function MachineCard({
+  machine,
+  returnQuery,
+  selected,
+  toggleSelected,
+}: {
+  machine: ManagedMachine;
+  returnQuery: string;
+  selected: boolean;
+  toggleSelected: (machine: ManagedMachine) => void;
+}) {
+  const selectable = isLabelSelectable(machine);
   return (
     <Card>
       <CardContent className="space-y-4 pt-6">
@@ -174,6 +196,16 @@ function MachineCard({ machine, returnQuery }: { machine: ManagedMachine; return
             </dd>
           </div>
         </dl>
+        <label className="flex min-h-11 items-center gap-3 border-t pt-4 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!selectable}
+            onChange={() => toggleSelected(machine)}
+            className="size-4 accent-primary"
+          />
+          {selectable ? 'Select for label printing' : 'Retired machines cannot be selected'}
+        </label>
       </CardContent>
     </Card>
   );
@@ -184,6 +216,13 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuthenticatedUser();
+  const labelSelection = useSyncExternalStore(
+    subscribeLabelSelection,
+    getLabelSelectionSnapshot,
+    getServerLabelSelectionSnapshot,
+  );
+  const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
+  const [selectingAll, setSelectingAll] = useState(false);
   const parsed = useMemo(() => parseMachineListState(searchParams), [searchParams]);
   const queryString = serializeMachineListState(parsed);
 
@@ -215,6 +254,25 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
     staleTime: 300_000,
   });
 
+  const commitSelection = (next: readonly LabelMachine[]) => {
+    const stored = writeLabelSelection(next);
+    return stored;
+  };
+  const toggleSelected = (machine: ManagedMachine) => {
+    if (!isLabelSelectable(machine)) return;
+    setSelectionMessage(null);
+    const exists = labelSelection.some((item) => item.id === machine.id);
+    if (!exists && labelSelection.length >= MAX_LABEL_SELECTION) {
+      setSelectionMessage(`A print batch can contain at most ${MAX_LABEL_SELECTION} labels.`);
+      return;
+    }
+    commitSelection(
+      exists
+        ? labelSelection.filter((item) => item.id !== machine.id)
+        : [...labelSelection, toLabelMachine(machine)],
+    );
+  };
+
   const page = machines.data ?? {
     items: [],
     page: initialState.page,
@@ -237,6 +295,37 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
   const sortBy = (sort: MachineSortField) => {
     const direction = parsed.sort === sort && parsed.direction === 'asc' ? 'desc' : 'asc';
     update({ direction, sort });
+  };
+
+  const selectPage = () => {
+    const eligible = page.items.filter(isLabelSelectable).map(toLabelMachine);
+    const stored = commitSelection([...labelSelection, ...eligible]);
+    const requested = new Set([...labelSelection, ...eligible].map((item) => item.id)).size;
+    setSelectionMessage(
+      requested > MAX_LABEL_SELECTION
+        ? `Selected the first ${MAX_LABEL_SELECTION} eligible machines; that is the print-batch limit.`
+        : `${stored.length} machine${stored.length === 1 ? '' : 's'} selected for printing.`,
+    );
+  };
+
+  const selectAllMatching = async () => {
+    setSelectingAll(true);
+    setSelectionMessage(null);
+    try {
+      const matching = await machinesApi.list({ ...parsed, page: 1, pageSize: 100 });
+      const eligible = matching.items.filter(isLabelSelectable).map(toLabelMachine);
+      const stored = commitSelection(eligible);
+      const capped = matching.total > MAX_LABEL_SELECTION || eligible.length > MAX_LABEL_SELECTION;
+      setSelectionMessage(
+        capped
+          ? `Selected the first ${MAX_LABEL_SELECTION} eligible matches; split larger jobs into another batch.`
+          : `${stored.length} matching machine${stored.length === 1 ? '' : 's'} selected.`,
+      );
+    } catch {
+      setSelectionMessage('Matching machines could not be selected. Try again.');
+    } finally {
+      setSelectingAll(false);
+    }
   };
 
   return (
@@ -411,6 +500,53 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
         </CardContent>
       </Card>
 
+      <section
+        className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+        aria-label="Asset label selection"
+      >
+        <div>
+          <p className="font-medium">Asset labels</p>
+          <p className="text-sm text-muted-foreground">
+            {labelSelection.length} of {MAX_LABEL_SELECTION} selected. Selection follows you across
+            pages in this session.
+          </p>
+          {selectionMessage ? (
+            <p className="mt-1 text-sm" role="status">
+              {selectionMessage}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={selectPage}
+            disabled={page.items.length === 0}
+          >
+            Select this page
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void selectAllMatching()}
+            disabled={selectingAll || page.total === 0}
+          >
+            {selectingAll ? 'Selecting…' : 'Select all matching'}
+          </Button>
+          {labelSelection.length === 0 ? (
+            <Button type="button" disabled>
+              <Printer aria-hidden="true" /> Print labels (0)
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link href="/machines/labels">
+                <Printer aria-hidden="true" /> Print labels ({labelSelection.length})
+              </Link>
+            </Button>
+          )}
+        </div>
+      </section>
+
       {machines.isPending ? (
         <LoadingRows />
       ) : machines.isError ? (
@@ -449,6 +585,9 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
               <caption className="sr-only">Machine inventory matching the selected filters</caption>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <span className="sr-only">Select for printing</span>
+                  </TableHead>
                   {(['asset_tag', 'name', 'condition'] as const).map((sort) => (
                     <TableHead
                       key={sort}
@@ -483,6 +622,21 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
               <TableBody>
                 {page.items.map((machine) => (
                   <TableRow key={machine.id}>
+                    <TableCell>
+                      <input
+                        aria-label={`Select ${machine.assetTag} for label printing`}
+                        type="checkbox"
+                        checked={labelSelection.some((item) => item.id === machine.id)}
+                        disabled={!isLabelSelectable(machine)}
+                        onChange={() => toggleSelected(machine)}
+                        className="size-4 accent-primary"
+                        title={
+                          isLabelSelectable(machine)
+                            ? undefined
+                            : 'Retired machines cannot be selected'
+                        }
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{machine.assetTag}</TableCell>
                     <TableCell>
                       <Link
@@ -513,7 +667,13 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
           </div>
           <div className="grid gap-4 md:hidden">
             {page.items.map((machine) => (
-              <MachineCard key={machine.id} machine={machine} returnQuery={queryString} />
+              <MachineCard
+                key={machine.id}
+                machine={machine}
+                returnQuery={queryString}
+                selected={labelSelection.some((item) => item.id === machine.id)}
+                toggleSelected={toggleSelected}
+              />
             ))}
           </div>
         </>

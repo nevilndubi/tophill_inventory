@@ -77,4 +77,15 @@ describe('LoginForm', () => {
     resolveSignIn?.({ error: null });
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/'));
   });
+
+  it('supports the development-only browser journey without contacting Supabase', async () => {
+    const user = userEvent.setup();
+    render(<LoginForm e2eMockMode returnTo="/scan/HM-000123" />);
+    await user.type(screen.getByLabelText('Email address'), 'browser@example.invalid');
+    await user.type(screen.getByLabelText('Password'), 'not-a-real-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(mocks.signInWithPassword).not.toHaveBeenCalled();
+    expect(document.cookie).toContain('tophill-e2e-auth=signed-in');
+    expect(mocks.replace).toHaveBeenCalledWith('/scan/HM-000123');
+  });
 });

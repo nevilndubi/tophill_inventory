@@ -203,6 +203,8 @@ export const machineAssetTagSchema = z
   .transform((value) => value.trim().toUpperCase())
   .pipe(z.string().regex(/^HM-\d{6,}$/));
 
+export const machineAssetTagParamsSchema = z.object({ assetTag: machineAssetTagSchema }).strict();
+
 export type MachineCondition = (typeof MACHINE_CONDITIONS)[number];
 export type MachineSortField = (typeof MACHINE_SORT_FIELDS)[number];
 export type CreateMachineInput = z.infer<typeof createMachineSchema>;

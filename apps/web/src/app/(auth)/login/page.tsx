@@ -46,7 +46,12 @@ export default async function LoginPage({
           <p className="mt-3 leading-7 text-muted-foreground">
             Use the email address and password issued by your administrator.
           </p>
-          <LoginForm returnTo={returnTo} />
+          <LoginForm
+            e2eMockMode={
+              process.env.NODE_ENV !== 'production' && process.env.PLAYWRIGHT_MOCK_MODE === '1'
+            }
+            returnTo={returnTo}
+          />
         </div>
       </section>
     </main>

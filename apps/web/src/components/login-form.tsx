@@ -9,7 +9,13 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
 
 const GENERIC_SIGN_IN_ERROR = 'Incorrect email or password';
 
-export function LoginForm({ returnTo }: { returnTo?: string }) {
+export function LoginForm({
+  e2eMockMode = false,
+  returnTo,
+}: {
+  e2eMockMode?: boolean;
+  returnTo?: string;
+}) {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -22,6 +28,13 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
     const form = new FormData(event.currentTarget);
     const email = String(form.get('email') ?? '');
     const password = String(form.get('password') ?? '');
+    if (e2eMockMode) {
+      document.cookie = 'tophill-e2e-auth=signed-in; Path=/; SameSite=Lax';
+      router.replace(safeReturnPath(returnTo));
+      router.refresh();
+      return;
+    }
+
     const { error } = await createBrowserSupabaseClient().auth.signInWithPassword({
       email,
       password,

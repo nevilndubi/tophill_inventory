@@ -15,6 +15,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { AppUser } from '@/lib/auth/types';
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
+import { clearLabelSelection } from '@/lib/machines/asset-labels';
 
 type AuthenticatedUserContextValue = {
   signOut: () => Promise<void>;
@@ -44,6 +45,7 @@ export function AuthenticatedUserProvider({
       if (handlingSignOut.current) return;
       handlingSignOut.current = true;
       queryClient.clear();
+      clearLabelSelection();
       await supabase.auth.signOut({ scope });
       navigateToLogin('/login');
     },
@@ -62,6 +64,7 @@ export function AuthenticatedUserProvider({
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
+        clearLabelSelection();
         if (!handlingSignOut.current) {
           handlingSignOut.current = true;
           navigateToLogin('/login');

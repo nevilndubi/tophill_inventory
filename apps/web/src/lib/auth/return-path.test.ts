@@ -14,6 +14,9 @@ describe('safeReturnPath', () => {
     ['/javascript:alert(1)', '/'],
     ['/dashboard', '/dashboard'],
     ['/machines?status=available#results', '/machines?status=available#results'],
+    ['/scan/HM-000123', '/scan/HM-000123'],
+    ['/scan%2fHM-000123', '/'],
+    ['/scan%5cHM-000123', '/'],
   ])('maps %s to %s', (input, expected) => {
     expect(safeReturnPath(input)).toBe(expected);
   });

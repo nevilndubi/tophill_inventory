@@ -12,9 +12,23 @@ export async function updateSession(
   request: NextRequest,
   clientFactory: ProxyClientFactory = createServerClient,
 ) {
+  const pathname = request.nextUrl.pathname;
+  const returnPath = safeReturnPath(`${pathname}${request.nextUrl.search}`);
+  request.headers.set('x-tophill-return-path', returnPath);
   let response = NextResponse.next({ request });
 
-  if (isE2EMockAuthEnabled()) return response;
+  if (isE2EMockAuthEnabled()) {
+    const signedOut =
+      request.headers.get('x-e2e-auth') === 'signed-out' &&
+      request.cookies.get('tophill-e2e-auth')?.value !== 'signed-in';
+    if (signedOut && pathname !== '/login') {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/login';
+      redirectUrl.search = new URL(loginUrl(returnPath), request.url).search;
+      return NextResponse.redirect(redirectUrl);
+    }
+    return response;
+  }
 
   const supabase = clientFactory(
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
@@ -38,8 +52,6 @@ export async function updateSession(
   // Supabase's validated claims call also refreshes an expiring session.
   const { data, error } = await supabase.auth.getClaims();
   const isAuthenticated = !error && Boolean(data?.claims);
-  const pathname = request.nextUrl.pathname;
-
   if (error && isAuthRetryableFetchError(error)) {
     // The proxy is only an optimistic UX boundary. Let the server page render
     // the retryable unavailable state without clearing or redirecting a session.

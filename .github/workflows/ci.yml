@@ -59,6 +59,7 @@ jobs:
           API_BASE_URL: http://127.0.0.1:3001
           DATABASE_URL: postgresql://test:test@127.0.0.1:5432/tophill_test
           DIRECT_URL: postgresql://test:test@127.0.0.1:5432/tophill_test
+          NEXT_PUBLIC_APP_ORIGIN: https://inventory.example.test
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_browser_safe
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
