@@ -13,6 +13,17 @@ describe('API environment', () => {
     expect(parseApiEnvironment(baseEnvironment).REDIS_URL).toBe('redis://127.0.0.1:6379');
   });
 
+  it('defaults the bounded database readiness timeout and validates overrides', () => {
+    expect(parseApiEnvironment(baseEnvironment).READINESS_DB_TIMEOUT_MS).toBe(3000);
+    expect(
+      parseApiEnvironment({ ...baseEnvironment, READINESS_DB_TIMEOUT_MS: '7500' })
+        .READINESS_DB_TIMEOUT_MS,
+    ).toBe(7500);
+    expect(() =>
+      parseApiEnvironment({ ...baseEnvironment, READINESS_DB_TIMEOUT_MS: '10001' }),
+    ).toThrow('READINESS_DB_TIMEOUT_MS: Too big');
+  });
+
   it('requires an explicit TLS Redis URL in production', () => {
     expect(() =>
       parseApiEnvironment({

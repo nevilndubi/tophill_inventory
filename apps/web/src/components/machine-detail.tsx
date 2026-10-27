@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { can } from '@app/shared';
-import { ArrowLeft, CalendarClock, Info, Pencil, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Info, Pencil, Printer, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MachineConditionBadge } from '@/components/machine-condition-badge';
@@ -132,13 +132,20 @@ export function MachineDetail({ id }: { id: string }) {
           </div>
           <p className="mt-2 font-mono text-sm text-muted-foreground">{value.assetTag}</p>
         </div>
-        {can(user.role, 'machine:update') ? (
-          <Button asChild>
-            <Link href={`/machines/${value.id}/edit`}>
-              <Pencil aria-hidden="true" /> Edit machine
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/machines/${value.id}/label`}>
+              <Printer aria-hidden="true" /> Print label
             </Link>
           </Button>
-        ) : null}
+          {can(user.role, 'machine:update') ? (
+            <Button asChild>
+              <Link href={`/machines/${value.id}/edit`}>
+                <Pencil aria-hidden="true" /> Edit machine
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Tabs

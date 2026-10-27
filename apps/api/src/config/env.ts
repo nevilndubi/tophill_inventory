@@ -54,6 +54,10 @@ const apiEnvironmentInputSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65_535).default(3001)),
+    READINESS_DB_TIMEOUT_MS: z.preprocess(
+      blankToUndefined,
+      z.coerce.number().int().min(100).max(10_000).default(3000),
+    ),
     WEB_ORIGIN: requiredUrl,
     DATABASE_URL: requiredPostgresUrl,
     DIRECT_URL: requiredPostgresUrl,

@@ -58,6 +58,7 @@ export {
 export {
   createMachineSchema,
   listMachinesQuerySchema,
+  machineAssetTagParamsSchema,
   machineAssetTagSchema,
   machineIdParamsSchema,
   MACHINE_CONDITIONS,

@@ -114,3 +114,131 @@ button,
 [role='button'] {
   cursor: pointer;
 }
+
+.machine-label {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3mm;
+  color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.machine-label--single {
+  width: 100mm;
+  height: 50mm;
+  padding: 4mm;
+}
+
+.machine-label--sheet {
+  width: 70mm;
+  height: 37mm;
+  padding: 2.5mm;
+  break-inside: avoid;
+}
+
+.machine-label__qr {
+  width: 32mm;
+  height: 32mm;
+}
+
+.machine-label--sheet .machine-label__qr {
+  width: 25mm;
+  height: 25mm;
+}
+
+.machine-label__tag {
+  font-size: 5mm;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.machine-label--sheet .machine-label__tag {
+  font-size: 3.8mm;
+}
+
+.machine-label__name {
+  margin-top: 2mm;
+  overflow: hidden;
+  font-size: 3.5mm;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+}
+
+.machine-label__fallback {
+  margin-top: 2mm;
+  font-size: 2.3mm;
+  line-height: 1.25;
+}
+
+.label-sheet {
+  display: grid;
+  width: 210mm;
+  min-width: 210mm;
+  height: 297mm;
+  grid-template-columns: repeat(3, 70mm);
+  grid-template-rows: repeat(8, 37mm);
+  align-content: start;
+  background: white;
+  transform: translateY(var(--label-top-offset, 0mm));
+}
+
+@page single-label {
+  size: 100mm 50mm;
+  margin: 0;
+}
+
+@page a4-labels {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .single-label-print-area,
+  .single-label-print-area *,
+  .label-sheet-stack,
+  .label-sheet-stack * {
+    visibility: visible;
+  }
+
+  .print-controls,
+  .print-origin-warning {
+    display: none !important;
+  }
+
+  .single-label-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100mm;
+    height: 50mm;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    page: single-label;
+  }
+
+  .label-sheet-stack {
+    position: absolute;
+    inset: 0;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .label-sheet {
+    page: a4-labels;
+    break-after: page;
+  }
+
+  .label-sheet:last-child {
+    break-after: auto;
+  }
+}

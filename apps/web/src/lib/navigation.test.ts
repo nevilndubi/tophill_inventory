@@ -6,6 +6,7 @@ const expectedLabels = {
   SUPER_ADMIN: [
     'Overview',
     'Machines',
+    'Scan asset',
     'Status board',
     'Bookings',
     'Service',
@@ -16,6 +17,7 @@ const expectedLabels = {
   ADMIN: [
     'Overview',
     'Machines',
+    'Scan asset',
     'Status board',
     'Bookings',
     'Service',
@@ -23,10 +25,18 @@ const expectedLabels = {
     'Reference data',
     'Administration',
   ],
-  BIOMED_TECH: ['Overview', 'Machines', 'Status board', 'Bookings', 'Service', 'Reports'],
-  DEPT_MANAGER: ['Overview', 'Machines', 'Status board', 'Bookings', 'Reports'],
-  STAFF: ['Overview', 'Machines', 'Status board', 'Bookings'],
-  VIEWER: ['Overview', 'Machines', 'Status board', 'Reports'],
+  BIOMED_TECH: [
+    'Overview',
+    'Machines',
+    'Scan asset',
+    'Status board',
+    'Bookings',
+    'Service',
+    'Reports',
+  ],
+  DEPT_MANAGER: ['Overview', 'Machines', 'Scan asset', 'Status board', 'Bookings', 'Reports'],
+  STAFF: ['Overview', 'Machines', 'Scan asset', 'Status board', 'Bookings'],
+  VIEWER: ['Overview', 'Machines', 'Scan asset', 'Status board', 'Reports'],
 } as const satisfies Record<AppRole, readonly string[]>;
 
 describe('role-aware navigation', () => {
@@ -47,7 +57,7 @@ describe('role-aware navigation', () => {
   it('marks every unbuilt destination as coming soon instead of linking to a missing page', () => {
     expect(
       NAVIGATION_ENTRIES.filter(
-        (entry) => !['/', '/machines', '/admin', '/admin/reference'].includes(entry.href),
+        (entry) => !['/', '/machines', '/scan', '/admin', '/admin/reference'].includes(entry.href),
       ).every((entry) => entry.status === 'coming-soon'),
     ).toBe(true);
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/admin')?.status).toBe('available');
@@ -57,5 +67,6 @@ describe('role-aware navigation', () => {
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/machines')?.status).toBe(
       'available',
     );
+    expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/scan')?.status).toBe('available');
   });
 });

@@ -63,6 +63,7 @@ describe('Supabase request proxy', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.cookies.has('sb-test-auth-token')).toBe(true);
+    expect(response.headers.get('x-middleware-request-x-tophill-return-path')).toBe('/');
   });
 
   it('redirects an authenticated login visit to a validated same-origin target', async () => {

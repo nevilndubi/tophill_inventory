@@ -95,6 +95,16 @@ async function mockApi(page: Page) {
           name: 'New Theatre Ventilator',
         }),
       });
+    if (url.pathname.startsWith('/api/v1/machines/by-tag/')) {
+      const tag = decodeURIComponent(url.pathname.split('/').at(-1) ?? '');
+      if (tag === machine.assetTag) return route.fulfill({ json: envelope(currentMachine) });
+      return route.fulfill({
+        status: 404,
+        json: {
+          error: { code: 'MACHINE_NOT_FOUND', details: {}, message: 'Machine not found' },
+        },
+      });
+    }
     if (url.pathname === `/api/v1/machines/${ids.machine}` && request.method() === 'PATCH') {
       const body = request.postDataJSON() as Record<string, unknown>;
       expect(body).toEqual({ name: 'ICU Ventilator Updated' });
@@ -217,6 +227,98 @@ test('ADMIN can upload, view and delete a private machine attachment', async ({ 
   await page.getByRole('button', { name: 'Delete attachment' }).click();
   await expect(page.getByText('No files yet')).toBeVisible();
 });
+
+test('mobile QR journey preserves the scan target through login and shows the machine', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    extraHTTPHeaders: { 'x-e2e-auth': 'signed-out', 'x-e2e-role': 'STAFF' },
+    viewport: { height: 800, width: 360 },
+  });
+  const page = await context.newPage();
+  await mockApi(page);
+  await page.goto(`/scan/${machine.assetTag}`);
+  await expect(page).toHaveURL(new RegExp(`/login\\?returnTo=%2Fscan%2F${machine.assetTag}$`));
+  await page.getByLabel('Email address').fill('browser@example.invalid');
+  await page.getByLabel('Password').fill('not-a-real-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(new RegExp(`/scan/${machine.assetTag}$`));
+  await expect(page.getByRole('heading', { name: machine.name })).toBeVisible();
+  await expect(page.getByText('Operational')).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(new RegExp(`/scan/${machine.assetTag}$`));
+  await expect(page.getByRole('heading', { name: machine.name })).toBeVisible();
+  await page.screenshot({ fullPage: true, path: '.artifacts/task-3.6/scan-mobile.png' });
+  await context.close();
+});
+
+test('unknown QR tags use the safe not-found view without leaking lookup detail', async ({
+  context,
+}) => {
+  const page = await rolePage(context, 'VIEWER');
+  await page.goto('/scan/HM-999999');
+  await expect(page.getByText('Machine not found')).toBeVisible();
+  await expect(page.getByText(/check the printed tag/i)).toBeVisible();
+});
+
+test('bulk label selection uses one matching-list call and produces exact physical presets', async ({
+  context,
+}) => {
+  const page = await rolePage(context, 'ADMIN');
+  let matchingCalls = 0;
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/api/v1/machines' && url.searchParams.get('pageSize') === '100') {
+      matchingCalls += 1;
+    }
+  });
+  await page.goto('/machines');
+  await page.getByRole('button', { name: 'Select all matching' }).click();
+  await expect(page.getByText('1 matching machine selected.')).toBeVisible();
+  expect(matchingCalls).toBe(1);
+  await page.getByRole('link', { name: 'Print labels (1)' }).click();
+  const sheetCell = page.locator('.machine-label--sheet').first();
+  await expect(sheetCell).toBeVisible();
+  const cellBox = await sheetCell.boundingBox();
+  expect(cellBox?.width).toBeCloseTo(264.57, 0);
+  expect(cellBox?.height).toBeCloseTo(139.84, 0);
+  await page.goto(`/machines/${ids.machine}/label`);
+  const single = page.locator('.machine-label--single');
+  await expect(single).toBeVisible();
+  const singleBox = await single.boundingBox();
+  expect(singleBox?.width).toBeCloseTo(377.95, 0);
+  expect(singleBox?.height).toBeCloseTo(188.98, 0);
+});
+
+for (const width of [360, 768, 1280]) {
+  test(`scan and single-label views remain usable at ${width}px`, async ({ browser }) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { 'x-e2e-role': 'ADMIN' },
+      viewport: { height: 900, width },
+    });
+    const page = await context.newPage();
+    const browserErrors: string[] = [];
+    page.on('pageerror', (error) => browserErrors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') browserErrors.push(message.text());
+    });
+    await mockApi(page);
+    await page.goto(`/scan/${machine.assetTag}`);
+    await expect(page.getByRole('heading', { name: machine.name })).toBeVisible();
+    await page.screenshot({
+      fullPage: true,
+      path: `.artifacts/task-3.6/scan-${width}.png`,
+    });
+    await page.goto(`/machines/${ids.machine}/label`);
+    await expect(page.getByRole('heading', { name: 'Print asset label' })).toBeVisible();
+    await page.screenshot({
+      fullPage: true,
+      path: `.artifacts/task-3.6/label-${width}.png`,
+    });
+    expect(browserErrors).toEqual([]);
+    await context.close();
+  });
+}
 
 for (const width of [360, 768, 1280]) {
   test(`machine list remains usable at ${width}px`, async ({ browser }) => {

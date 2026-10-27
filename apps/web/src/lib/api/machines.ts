@@ -36,6 +36,9 @@ export const machinesApi = {
   get(id: string): Promise<ManagedMachine> {
     return browserApi.request<ManagedMachine>(`/machines/${id}`);
   },
+  getByTag(assetTag: string): Promise<ManagedMachine> {
+    return browserApi.request<ManagedMachine>(`/machines/by-tag/${encodeURIComponent(assetTag)}`);
+  },
   async list(query: ListMachinesQuery): Promise<ManagedMachinePage> {
     const result = await browserApi.requestWithMeta<readonly ManagedMachine[]>(
       `/machines?${queryString(query)}`,

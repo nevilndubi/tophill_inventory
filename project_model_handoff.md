@@ -208,7 +208,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 3.3 Machines CRUD API (pagination, filter, search, sort)
 - [x] 3.4 Machines UI (list, detail, create/edit)
 - [x] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
-- [ ] 3.6 Asset tag / QR label generation & scan-lookup page
+- [x] 3.6 Asset tag / QR label generation & scan-lookup page
 - [ ] 3.7 Bulk CSV import with validation report
 - [ ] 3.8 Retire / soft-delete & restore
 
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 25 / 71 tasks (35.2%) |
-| Current phase | Phase 3 — private machine attachments complete through Task 3.5 |
-| Last updated | 2026-10-27 09:40 EAT |
-| Branch | `main` |
-| Last commit | `9b6f74a Merge pull request #51 from nevilndubi/maintenance/fix-local-admin-login` |
-| Repo state | Task 3.5 and the local-login repair are merged and green; local Supabase web configuration matches the verified API project, one dedicated non-staff test identity is the active `dev` SUPER_ADMIN, and browser login reaches `/machines` successfully |
-| **Next task** | **3.6 Asset tag / QR label generation and scan lookup** |
+| Overall progress | 26 / 71 tasks (36.6%) |
+| Current phase | Phase 3 — asset tags, QR labels and authenticated scan lookup complete through Task 3.6 |
+| Last updated | 2026-10-27 10:12 EAT |
+| Branch | `phase-3/task-3.6-asset-tags-qr` |
+| Last commit | `feat(web): add asset QR labels and scan lookup` |
+| Repo state | Task 3.6 implementation and local verification are complete; delivery through hosted Quality and merged-main restart remains in progress |
+| **Next task** | **3.7 Bulk CSV import with validation report** |
 
 ---
 
@@ -322,6 +322,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 4.4 — derived machine status badges:** extend Task 3.4's stored-condition icon/text/colour badges with the derived availability and usage states only after the Phase 4 status service is authoritative; do not infer “Available” or “In use” from the current registry UI.
 - **Node type major:** revisit the ignored `@types/node` semver-major update only when the pinned runtime moves from Node 24; keep runtime and declaration majors aligned and verify the complete workspace during that runtime upgrade.
 - **TypeScript 6:** revisit the ignored TypeScript semver-major update in a dedicated toolchain task after Next.js, NestJS, Prisma, ts-jest, tsup and ESLint support is verified together and the hosted Quality pipeline passes.
+- **Permanent QR origin:** choose and configure a final HTTPS custom domain controlled by the hospital before printing or applying real asset labels. Printed labels are permanent; localhost/default preview-host labels must remain test-only.
+- **Printing policy:** every active role may intentionally print labels through `machine:read` because the QR contains only a public-form asset tag path. If hospital policy later restricts printing, approve a dedicated permission and update both label routes and the matrix rather than inferring access from role names.
+- **Physical print calibration:** verify both presets on the actual label printer/stock at 100% scale with “Fit to page” disabled, no browser margins, the test-sheet outlines measured with a ruler, and a phone scan before attaching labels.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -415,6 +418,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D75 | 2026-10-27 | Add the single permission `attachment:upload`, granted globally only to SUPER_ADMIN, ADMIN and BIOMED_TECH; machine attachment listing/download remain governed by `machine:read`, and upload/delete share the new grant | This is the owner-approved capability split, keeps read access aligned with machines, and gives technicians the documented file-maintenance role without granting DEPT_MANAGER, STAFF or VIEWER mutations | Reuse `machine:update`; allow departmental/staff uploads; separate upload/delete permissions |
 | D76 | 2026-10-27 | Store machine files in one private API-controlled Supabase bucket with exact MIME/10 MiB bucket restrictions, randomized server paths, no `storage.objects` policies, a 15-minute signed intent bound to actor/machine/declaration, server-side metadata plus magic-byte verification, and five-minute downloads | Supabase signed-upload URLs have a fixed two-hour lifetime that cannot be shortened, so the shorter application intent limits confirmation while the secret-key API verifies the real object and browsers never receive unrestricted Storage authority | Public bucket; browser Storage policies; trust client metadata; add an upload-intent table in this task |
 | D77 | 2026-10-27 | Confirm attachments idempotently by unique storage path, cap each machine at 20 files under a machine-row lock, delete the Neon row/audit first and then the private object, and reconcile private orphans older than 24 hours by ID/count only | Database-first deletion avoids broken user-visible rows; a failed object deletion leaves a harmless private orphan identified by stable `ORPHANED_STORAGE_OBJECT`, while the explicit reconciliation command closes cross-system failures safely | Object-first deletion; fail the user after the committed database delete; cascade files on machine soft delete; scheduled cleanup before Task 9.2 |
+| D78 | 2026-10-27 | Generate QR SVG locally with `qr` 0.7.2 at error correction M, a four-module quiet zone and fixed black-on-white output; decode the generated matrix in tests | The maintained zero-dependency MIT/Apache-2.0 library supports SVG/raw output and decoding, keeps asset data off third-party services, and permits an exact payload round-trip assertion | External QR service; canvas-only library; server-generated images or PDF |
+| D79 | 2026-10-27 | Use validated `NEXT_PUBLIC_APP_ORIGIN` plus canonical asset tags for QR payloads; provide print-CSS 100×50 mm and A4 3×8 presets; keep at most 48 non-retired selections in session storage and grant printing to every `machine:read` role | Labels remain browser-rendered, accessible and free of internal IDs; session-only selection avoids shared-device residue/N+1 calls; all roles can reproduce a tag that reveals no more than normal machine read access | Encode API/ID; generated PDF; persist selections server-side; add a printing permission |
+| D80 | 2026-10-27 | Make the Postgres readiness bound configurable through `READINESS_DB_TIMEOUT_MS`, default 3000 ms and maximum 10000 ms, while keeping liveness independent | Three seconds better accommodates Neon scale-to-zero wake-up than the former one-second hard bound without allowing readiness to hang indefinitely | Keep one second; unbounded connection wait; make liveness database-dependent |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -671,6 +677,19 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.6 Asset tag / QR label generation and scan lookup
 - **Branch / commit:** `main` / `9b6f74a Merge pull request #51 from nevilndubi/maintenance/fix-local-admin-login`
 
+### [2026-10-27 10:12 EAT] — Task(s): 3.6 — Asset tags, QR labels and scan lookup
+- **Prompt summary:** Build canonical machine QR labels, single/bulk print presets, authenticated mobile scan lookup, safe return-path behavior and the small configurable database-readiness timeout; verify in a browser, deliver through Git/CI and restart the merged platform.
+- **What I did:** Added strict `NEXT_PUBLIC_APP_ORIGIN` validation, reusable asset-tag route validation, client-local QR SVG generation, 100×50 mm and A4 3×8 print views, a calibrated test sheet, 48-item session-only bulk selection, the `/scan` fallback and `/scan/[assetTag]` lookup, safe deep-link forwarding through login/session recovery, all-role Scan navigation, and disabled future actions with stored-condition status language. Added `READINESS_DB_TIMEOUT_MS` and preserved bounded liveness/readiness behavior. No API route, database schema or migration changed.
+- **How:** `qr` 0.7.2 renders error-correction-M matrices with four quiet modules; tests decode them to the exact canonical URL. Selection reuses page data or one matching-list request and uses a `useSyncExternalStore` session snapshot cleared at sign-out. Print CSS owns millimetre dimensions and named `@page` rules. D78–D80 record the QR, origin/printing/selection and readiness choices. The repository began clean at actual `main` commit `96e1090`, while §9 still named `9b6f74a`; repository state was trusted and this entry corrects that discrepancy.
+- **Files touched:** shared machine schema exports; web environment/auth/proxy/navigation/API client; machine list/detail; QR/label/scan components and routes; print CSS; API environment/Prisma readiness; CI/test setup; unit/component/Playwright tests; README, Architecture and this handoff
+- **Migrations:** none; existing database-generated asset tags and by-tag API remain authoritative
+- **Verification:** frozen install, format check, lint and typecheck passed. Hermetic tests passed: API 249 passed/1 intentional Task 7.2 skip and web 151 passed. Production build passed with a safe HTTPS build origin; the preceding local-origin attempt was correctly rejected by production validation. The final credential-free Chromium suite passed 13/13 in 45.0s, including the 360 px login-return/reload scan journey, unknown-tag privacy, one matching-list request, exact CSS dimensions and 360/768/1280 screenshots with no console/page errors. The in-app browser connection exposed no browser instance, so Playwright was used and that limitation is explicit. Physical paper output was not and cannot be verified in this environment.
+- **Result:** Task 3.6 acceptance criteria are implemented and locally verified; hosted delivery/restart is the remaining operational step in this turn.
+- **Progress after this session:** 26 / 71 (36.6%)
+- **Left undone / follow-ups:** Use the final hospital-controlled HTTPS domain before printing real labels; calibrate actual stock/printer using the Pending checklist. Task 4.4 owns derived status and Tasks 4.2/5/6 own the disabled scan actions. Task 3.7 remains next.
+- **Next task:** 3.7 Bulk CSV import with validation report
+- **Branch / commit:** `phase-3/task-3.6-asset-tags-qr` / `feat(web): add asset QR labels and scan lookup`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -715,6 +734,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 | `SEED_PROTECTED_HOSTS` | Prisma seed | Explicit seed only | Comma-separated production `main` and `staging` hosts that the seed must reject |
 | `NEON_PROJECT_ID` | Task 1.7 / 2.5 verification helpers | Explicit live verification only | Non-secret Neon project identifier; connection output remains captured |
 | `REDIS_URL` | api | Development default; required in production | Redis connection; production must use `rediss://` |
+| `READINESS_DB_TIMEOUT_MS` | api | No (defaults to `3000`, max `10000`) | Bounded Postgres readiness/connect timeout in milliseconds |
 | `SUPABASE_URL` | api | Yes | Supabase project URL; source for the derived issuer/JWKS endpoints |
 | `SUPABASE_SECRET_KEY` | api only | Yes | Modern server-side administration/storage key — never expose or print |
 | `SUPABASE_JWT_ISSUER` | api | No (derived) | Optional explicit issuer; must equal `SUPABASE_URL/auth/v1` |
@@ -722,6 +742,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 | `BOOTSTRAP_SUPER_ADMIN_EMAIL` | api only | One-off bootstrap only | Confirmed real first-administrator address; ignored after an active non-seed SUPER_ADMIN exists; never use or log a seed/`.invalid` address |
 | `API_BASE_URL` | web server | Yes | Server-side API location |
 | `NEXT_PUBLIC_API_URL` | web public | Yes | Browser-visible API location |
+| `NEXT_PUBLIC_APP_ORIGIN` | web public | Yes | Canonical path-free web origin encoded in machine QR labels; HTTPS in production |
 | `NEXT_PUBLIC_SUPABASE_URL` | web public | Yes | Browser-visible Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web public | Yes | Modern browser-safe Supabase key; never substitute a server secret |
 | `SUPABASE_AUTH_TEST_EMAIL` | ignored Task 2.1 proof file | Live proof only | Dedicated non-staff confirmed test identity; never print it |
@@ -772,6 +793,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
 - Run web unit/component tests: `pnpm --filter @app/web test`
 - Run the credential-free Machines UI browser smoke and responsive screenshots: `pnpm test:e2e:machines`
+- Print/scan QR proof is included in `pnpm test:e2e:machines`; screenshots remain under ignored `apps/web/.artifacts/task-3.6/`
 - Validate GitHub Actions workflows: `actionlint .github/workflows/ci.yml` (actionlint must be installed separately)
 
 **API operational endpoints:**

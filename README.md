@@ -63,7 +63,9 @@ Vitest for component and API-client tests; the API uses Jest for unit and e2e co
 
 The local web shell reads `NEXT_PUBLIC_API_URL` in the browser and calls the API's root `/health`
 probe. Keep `WEB_ORIGIN` set to the exact web origin (the examples use `http://localhost:3000`) so
-the API permits that browser request through CORS.
+the API permits that browser request through CORS. Set `NEXT_PUBLIC_APP_ORIGIN` to the canonical web
+origin used in QR codes. Production requires HTTPS, no path and no trailing slash; local development
+may use `http://localhost:3000`.
 
 ## Run the local platform
 
@@ -82,6 +84,28 @@ account. The API listens on `http://localhost:3001`; its readiness probe is
 Administration. The machine detail Files tab supports private photos, PDFs, signed downloads and
 permission-gated uploads/deletes. Status, Bookings, Service and History remain labelled “Coming
 soon” until their scheduled tasks.
+
+### Asset tags, QR scanning and printing
+
+Open **Scan asset** to type an `HM-000001`-style tag, or open a machine and choose **Print label**.
+The machines list can select one page or up to 48 matching non-retired machines for bulk printing.
+Selections stay only in that browser session and clear on sign-out. A scanned QR preserves its
+validated `/scan/<assetTag>` destination through login and then shows the machine's stored condition
+and placement; checkout, check-in, booking and fault actions remain disabled until later phases.
+
+Labels use client-rendered monochrome SVG QR codes and print CSS—no file generator or external QR
+service sees the data. The two presets are:
+
+- One 100 mm × 50 mm label for a label printer.
+- A4 portrait with zero page margin and 3 × 8 cells of 70 mm × 37 mm. Use the configurable top
+  offset and **Test print** outline before loading sticker stock.
+
+In the browser print dialog choose 100% scale, disable “Fit to page”, keep margins at none, and first
+compare the printed outline against a ruler. Physical stock alignment must be verified on the actual
+printer. When `NEXT_PUBLIC_APP_ORIGIN` is localhost or non-HTTPS, label pages show this blocking
+operational warning: **These labels point to `<NEXT_PUBLIC_APP_ORIGIN>` and will not work for staff.
+Do not print real labels until the production domain is configured.** Printed tags are permanent; use a
+final custom domain controlled by the hospital before attaching real labels to equipment.
 
 To stop the foreground workspace press Ctrl+C, then stop local Redis:
 
@@ -175,7 +199,8 @@ never run it against `main` or `staging`.
 proves asset-tag sequence continuity and runs the documented EXPLAIN review using temporary rows
 inside a rolled-back transaction. Both commands require the same seed safety variables.
 
-`GET /health/ready` checks both dependencies with short bounds. A database failure returns HTTP 503
+`GET /health/ready` checks both dependencies with short bounds. `READINESS_DB_TIMEOUT_MS` defaults to
+3000 ms and is capped at 10000 ms for Neon wake-up behavior. A database failure returns HTTP 503
 and overall `down` because Postgres is the system of record. Redis failure alone remains HTTP 200 and
 `degraded`.
 

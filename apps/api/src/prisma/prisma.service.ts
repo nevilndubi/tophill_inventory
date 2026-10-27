@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { ApiEnvironment } from '../config/env';
 import { PrismaClient } from '../generated/prisma/client';
-import { DATABASE_HEALTH_TIMEOUT_MS } from './prisma.constants';
+import { DATABASE_HEALTH_TIMEOUT_MS_DEFAULT } from './prisma.constants';
 
 type DatabaseError = Error & { code?: string };
 
@@ -27,16 +27,19 @@ const withTimeout = async <Value>(promise: Promise<Value>, timeoutMs: number): P
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(PrismaService.name);
+  private readonly readinessTimeoutMs: number;
 
   constructor(config: ConfigService<ApiEnvironment, true>) {
+    const readinessTimeoutMs = config.get('READINESS_DB_TIMEOUT_MS', { infer: true });
     const adapter = new PrismaPg({
       connectionString: config.get('DATABASE_URL', { infer: true }),
-      connectionTimeoutMillis: DATABASE_HEALTH_TIMEOUT_MS,
+      connectionTimeoutMillis: readinessTimeoutMs,
       idleTimeoutMillis: 30_000,
       max: 10,
     });
 
     super({ adapter });
+    this.readinessTimeoutMs = readinessTimeoutMs;
   }
 
   onModuleInit(): void {
@@ -51,7 +54,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnAppli
       );
   }
 
-  async ping(timeoutMs = DATABASE_HEALTH_TIMEOUT_MS): Promise<boolean> {
+  async ping(timeoutMs = this.readinessTimeoutMs): Promise<boolean> {
     try {
       await withTimeout(this.$queryRawUnsafe('SELECT 1'), timeoutMs);
       return true;
@@ -62,7 +65,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnAppli
 
   async onApplicationShutdown(): Promise<void> {
     try {
-      await withTimeout(this.$disconnect(), DATABASE_HEALTH_TIMEOUT_MS);
+      await withTimeout(this.$disconnect(), DATABASE_HEALTH_TIMEOUT_MS_DEFAULT);
       this.logger.log('Database connection closed gracefully');
     } catch {
       this.logger.warn('Database graceful close timed out');

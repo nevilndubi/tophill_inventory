@@ -6,6 +6,7 @@ export function safeReturnPath(value: string | null | undefined): string {
     !value.startsWith('/') ||
     value.startsWith('//') ||
     value.includes('\\') ||
+    /%2f|%5c/iu.test(value) ||
     value.toLowerCase().includes('javascript:')
   ) {
     return DEFAULT_AUTHENTICATED_PATH;

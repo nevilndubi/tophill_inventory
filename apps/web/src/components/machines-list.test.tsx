@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MACHINE_LIST_STATE } from '@/lib/machines/url-state';
 import { MachinesList } from './machines-list';
+import { clearLabelSelection } from '@/lib/machines/asset-labels';
 
 const mocks = vi.hoisted(() => ({
   listCategories: vi.fn(),
@@ -67,6 +68,7 @@ const renderList = () => {
 describe('MachinesList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearLabelSelection();
     mocks.role = 'ADMIN';
     mocks.search = new URLSearchParams();
     mocks.listCategories.mockResolvedValue([machine.category]);
@@ -120,5 +122,35 @@ describe('MachinesList', () => {
     renderList();
     expect(await screen.findAllByText('Ward ventilator')).toHaveLength(2);
     expect(screen.queryByRole('link', { name: /register machine/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps label selection across the session and loads matching machines in one request', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findAllByText('Ward ventilator');
+
+    await user.click(screen.getByLabelText('Select HM-000061 for label printing'));
+    expect(screen.getByRole('link', { name: 'Print labels (1)' })).toHaveAttribute(
+      'href',
+      '/machines/labels',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Select all matching' }));
+    await waitFor(() => expect(mocks.listMachines).toHaveBeenCalledTimes(2));
+    expect(mocks.listMachines.mock.calls[1]?.[0]).toMatchObject({ page: 1, pageSize: 100 });
+    expect(screen.getByText(/1 matching machine selected/i)).toBeInTheDocument();
+  });
+
+  it('does not allow retired machines into a print batch', async () => {
+    mocks.listMachines.mockResolvedValue({
+      items: [{ ...machine, condition: 'RETIRED' }],
+      page: 1,
+      pageSize: 25,
+      total: 1,
+    });
+    renderList();
+    const checkbox = await screen.findByLabelText('Select HM-000061 for label printing');
+    expect(checkbox).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Print labels (0)' })).toBeDisabled();
   });
 });
