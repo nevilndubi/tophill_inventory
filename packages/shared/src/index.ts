@@ -1,6 +1,22 @@
 export const APP_NAME = 'Tophill Inventory' as const;
 
 export {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_PER_MACHINE,
+  ATTACHMENT_MIME_TYPES,
+  attachmentIdParamsSchema,
+  confirmAttachmentUploadSchema,
+  machineAttachmentParamsSchema,
+  requestAttachmentUploadSchema,
+  type AttachmentTypeLabel,
+  type ConfirmAttachmentUploadInput,
+  type ManagedMachineAttachment,
+  type RequestAttachmentUploadInput,
+  type SignedAttachmentDownload,
+  type SignedAttachmentUpload,
+} from './attachments';
+
+export {
   categoryIdParamsSchema,
   createCategorySchema,
   updateCategorySchema,

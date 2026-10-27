@@ -9,6 +9,18 @@ validateWebEnvironment({
   SENTRY_DSN: process.env.SENTRY_DSN,
 });
 
-const nextConfig: NextConfig = {};
+const storageOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL as string);
+
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        hostname: storageOrigin.hostname,
+        pathname: '/storage/v1/object/sign/**',
+        protocol: storageOrigin.protocol.replace(':', '') as 'http' | 'https',
+      },
+    ],
+  },
+};
 
 export default nextConfig;

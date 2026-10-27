@@ -50,6 +50,9 @@ pnpm db:seed
 pnpm db:seed:verify
 pnpm db:index-review
 pnpm verify:supabase:auth
+pnpm storage:configure
+pnpm storage:reconcile
+NEON_PROJECT_ID=<project-id> pnpm verify:attachments:live
 pnpm users:reconcile-auth
 NEON_PROJECT_ID=<project-id> pnpm verify:users:live
 ```
@@ -76,8 +79,9 @@ pnpm dev
 Open `http://localhost:3000` and sign in with a confirmed, administrator-provisioned Supabase
 account. The API listens on `http://localhost:3001`; its readiness probe is
 `http://localhost:3001/health/ready`. The working areas are Overview, Machines, Reference data and
-Administration. The machine detail Status, Bookings, Service, Files and History tabs are labelled
-“Coming soon” until their scheduled tasks.
+Administration. The machine detail Files tab supports private photos, PDFs, signed downloads and
+permission-gated uploads/deletes. Status, Bookings, Service and History remain labelled “Coming
+soon” until their scheduled tasks.
 
 To stop the foreground workspace press Ctrl+C, then stop local Redis:
 
@@ -177,7 +181,7 @@ and overall `down` because Postgres is the system of record. Redis failure alone
 
 ## Supabase Auth
 
-Supabase supplies identity (and later private file storage) while Neon remains the only application
+Supabase supplies identity and private file storage while Neon remains the only application
 database. The browser receives only the modern publishable key; the modern secret key is API-only.
 The hosted Auth project is invite-only and uses email/password plus asymmetric ES256/JWKS token
 verification. Follow [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for the exact dashboard
@@ -206,6 +210,13 @@ inviting real staff, configure custom SMTP and the exact invite template in
 [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md); the hosted built-in sender is not approved for real
 staff delivery. `pnpm users:reconcile-auth` is a read-only operator command that reports Supabase
 identity IDs with no Neon row and never prints addresses.
+
+Run `pnpm storage:configure` after setting the API's private Supabase variables to idempotently
+create/update the private 10 MiB `machine-attachments` bucket. `pnpm storage:reconcile` is read-only
+and reports IDs/counts for unconfirmed objects older than 24 hours; deletion requires the explicit
+`pnpm storage:reconcile -- --delete` form. Follow
+[docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for the MIME allow-list, signed-URL lifetimes and
+secret-handling rules.
 
 ## Continuous integration
 

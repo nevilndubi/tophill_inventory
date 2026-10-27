@@ -69,6 +69,11 @@ const envelope = (data: unknown, meta?: Record<string, unknown>) => ({
 
 async function mockApi(page: Page) {
   let currentMachine = { ...machine };
+  let attachments: Array<Record<string, unknown>> = [];
+  await page.route('https://storage.test/**', async (route) => {
+    if (route.request().method() === 'PUT') return route.fulfill({ status: 200 });
+    return route.fulfill({ body: '%PDF-1.7\n%%EOF', contentType: 'application/pdf', status: 200 });
+  });
   await page.route('http://127.0.0.1:3001/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -95,6 +100,43 @@ async function mockApi(page: Page) {
       expect(body).toEqual({ name: 'ICU Ventilator Updated' });
       currentMachine = { ...currentMachine, ...body };
       return route.fulfill({ json: envelope(currentMachine) });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/attachments`)
+      return route.fulfill({ json: envelope(attachments) });
+    if (url.pathname === `/api/v1/machines/${ids.machine}/attachments/sign-upload`)
+      return route.fulfill({
+        json: envelope({
+          expiresAt: '2026-10-27T10:15:00.000Z',
+          intentToken: 'intent-redacted',
+          uploadUrl: 'https://storage.test/upload-redacted',
+        }),
+      });
+    if (url.pathname === '/api/v1/attachments/confirm') {
+      const created = {
+        fileName: 'inspection.pdf',
+        id: '66666666-6666-4666-8666-666666666666',
+        sizeBytes: 14,
+        typeLabel: 'PDF document',
+        uploadedAt: '2026-10-27T10:00:00.000Z',
+        uploader: { fullName: 'Test administrator' },
+      };
+      attachments = [created];
+      return route.fulfill({ json: envelope(created) });
+    }
+    if (url.pathname === '/api/v1/attachments/66666666-6666-4666-8666-666666666666/url')
+      return route.fulfill({
+        json: envelope({
+          expiresAt: '2026-10-27T10:05:00.000Z',
+          url: 'https://storage.test/download-redacted',
+        }),
+      });
+    if (
+      url.pathname === '/api/v1/attachments/66666666-6666-4666-8666-666666666666' &&
+      request.method() === 'DELETE'
+    ) {
+      const deleted = attachments[0];
+      attachments = [];
+      return route.fulfill({ json: envelope(deleted) });
     }
     if (url.pathname === `/api/v1/machines/${ids.created}`)
       return route.fulfill({
@@ -157,6 +199,23 @@ test('a read-only role cannot open the registration form directly', async ({ con
   await page.goto('/machines/new');
   await expect(page).toHaveURL(/\/forbidden$/);
   await expect(page.getByText('403 — Permission denied')).toBeVisible();
+});
+
+test('ADMIN can upload, view and delete a private machine attachment', async ({ context }) => {
+  const page = await rolePage(context, 'ADMIN');
+  await page.goto(`/machines/${ids.machine}?tab=files`);
+  await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
+  await expect(page.getByText('No files yet')).toBeVisible();
+  await page.getByLabel('Choose attachment').setInputFiles({
+    buffer: Buffer.from('%PDF-1.7\n%%EOF'),
+    mimeType: 'application/pdf',
+    name: 'inspection.pdf',
+  });
+  await expect(page.getByText('inspection.pdf')).toBeVisible();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('heading', { name: 'Delete inspection.pdf?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete attachment' }).click();
+  await expect(page.getByText('No files yet')).toBeVisible();
 });
 
 for (const width of [360, 768, 1280]) {

@@ -207,7 +207,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 3.2 Departments & locations CRUD (API + UI)
 - [x] 3.3 Machines CRUD API (pagination, filter, search, sort)
 - [x] 3.4 Machines UI (list, detail, create/edit)
-- [ ] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
+- [x] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
 - [ ] 3.6 Asset tag / QR label generation & scan-lookup page
 - [ ] 3.7 Bulk CSV import with validation report
 - [ ] 3.8 Retire / soft-delete & restore
@@ -279,13 +279,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 24 / 71 tasks (33.8%) |
-| Current phase | Phase 3 — machine registry UI complete through Task 3.4 |
-| Last updated | 2026-10-26 22:56 EAT |
-| Branch | `main` |
-| Last commit | `docs: synchronize Task 3.4 delivery status` (final handoff follow-up) |
-| Repo state | Task 3.4 and its final handoff are merged with green PR/main Quality gates; the requested workstation launch is waiting only for the two ignored runtime environment files listed below |
-| **Next task** | **3.5 Attachments via Supabase Storage signed URLs** |
+| Overall progress | 25 / 71 tasks (35.2%) |
+| Current phase | Phase 3 — private machine attachments complete through Task 3.5 |
+| Last updated | 2026-10-27 04:08 EAT |
+| Branch | `phase-3/task-3.5-attachments` |
+| Last commit | `feat: add private machine attachments` (pending) |
+| Repo state | Task 3.5 is implemented and verified locally, including disposable Supabase Storage/Neon proof; commit, hosted CI, merge and post-merge local launch remain in this turn |
+| **Next task** | **3.6 Asset tag / QR label generation and scan lookup** |
 
 ---
 
@@ -310,7 +310,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 4.2 — check in a session you hold:** proposed ownership rule layered on `usage:check-in-out` with `isOwner = true`; force-ending another user's session remains governed by `usage:force-end`.
 - **Task 5.4 — edit own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`, subject to booking-state and overlap checks.
 - **Task 9.3 — read own notifications:** proposed new `notification:read-own` permission for every authenticated application role, enforced with ownership rather than a global notification-read grant.
-- **Task 3.5 — upload attachments:** proposed new `attachment:upload` permission for SUPER_ADMIN, ADMIN, BIOMED_TECH, DEPT_MANAGER and STAFF, with entity access checked by the service; VIEWER remains read-only pending approval.
+- **Task 7.3 — attachment upload rate limiting:** apply a per-user Redis limit to signed-upload issuance; Task 3.5 already enforces authentication, permission, per-file validation and a 20-file machine cap.
+- **Task 9.2 — orphaned attachment reconciliation:** schedule `pnpm storage:reconcile` and alert on private Storage objects older than 24 hours without a Neon attachment row; deletion remains an explicit operator action (`--delete`) until the job policy is approved.
 - **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
 - **Task 7.2 — reference-data caching:** place cache-aside behind the category service's read method and invalidate every category list/detail key after each successful create, update or delete; Task 3.1 deliberately adds no cache.
 - **Task 7.2 — department/location reference caching:** add cache-aside at the Task 3.2 service read boundaries and invalidate `ref:departments:v1` and `ref:locations:v1` after every successful relevant write, including manager changes caused through user administration.
@@ -411,6 +412,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D72 | 2026-10-26 | Accept `@hookform/resolvers` 6 only after checking its Zod-path release scope and declared peers against react-hook-form 7.90/Zod 4.6 plus form/full tests; accept `pg` 8.23 only after disposable-Neon migration, integration, drift and readiness proof | Major labels and runtime database libraries require evidence beyond a green lockfile-only PR, while both upgrades proved compatible without application changes | Close every major update; trust hosted CI alone; test database runtime changes against long-lived `dev` |
 | D73 | 2026-10-26 | Keep machine-list state in a strict shared-contract-derived URL model, load each page with one machine request plus stale-cached reference queries, and render only the stored condition until Task 4.4 supplies derived status | Refresh/back/shared-link behavior stays reproducible, list rendering avoids per-row reads, and the UI cannot imply usage availability before the backend owns that derivation | Keep filters only in component state; fetch relations per row; infer availability from condition |
 | D74 | 2026-10-26 | Run Task 3.4 browser smoke tests against real Next routes with a development-only production-disabled auth seam and browser-intercepted API responses; keep it as an explicit stable local command rather than the default CI gate | Technician/admin journeys and three responsive widths remain credential-free and deterministic without weakening production auth or making the existing Quality job browser-dependent | Hosted Supabase/Neon in default CI; a static HTML mock; skip browser coverage |
+| D75 | 2026-10-27 | Add the single permission `attachment:upload`, granted globally only to SUPER_ADMIN, ADMIN and BIOMED_TECH; machine attachment listing/download remain governed by `machine:read`, and upload/delete share the new grant | This is the owner-approved capability split, keeps read access aligned with machines, and gives technicians the documented file-maintenance role without granting DEPT_MANAGER, STAFF or VIEWER mutations | Reuse `machine:update`; allow departmental/staff uploads; separate upload/delete permissions |
+| D76 | 2026-10-27 | Store machine files in one private API-controlled Supabase bucket with exact MIME/10 MiB bucket restrictions, randomized server paths, no `storage.objects` policies, a 15-minute signed intent bound to actor/machine/declaration, server-side metadata plus magic-byte verification, and five-minute downloads | Supabase signed-upload URLs have a fixed two-hour lifetime that cannot be shortened, so the shorter application intent limits confirmation while the secret-key API verifies the real object and browsers never receive unrestricted Storage authority | Public bucket; browser Storage policies; trust client metadata; add an upload-intent table in this task |
+| D77 | 2026-10-27 | Confirm attachments idempotently by unique storage path, cap each machine at 20 files under a machine-row lock, delete the Neon row/audit first and then the private object, and reconcile private orphans older than 24 hours by ID/count only | Database-first deletion avoids broken user-visible rows; a failed object deletion leaves a harmless private orphan identified by stable `ORPHANED_STORAGE_OBJECT`, while the explicit reconciliation command closes cross-system failures safely | Object-first deletion; fail the user after the committed database delete; cascade files on machine soft delete; scheduled cleanup before Task 9.2 |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -614,11 +618,25 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.5 Attachments via Supabase Storage signed URLs
 - **Branch / commit:** `main` / `4ce644e Merge pull request #46 from nevilndubi/phase-3/task-3.4-machines-ui`
 
+### [2026-10-27 04:08 EAT] — Task(s): 3.5 — Private machine attachments
+- **Prompt summary:** Complete the deferred local-platform proof, add the approved attachment capability, implement private Supabase Storage signed uploads/downloads for machines, expose the Files UI, verify cross-system behavior safely, and deliver through the owned Git workflow without starting Task 3.6.
+- **What I did:** Verified the ignored runtime files and Neon `dev` targeting by variable/branch metadata only, deployed the already-current migration chain, refreshed and verified the deterministic demo seed, and proved web 200, unauthenticated login redirect, plus database/Redis readiness `up`. Added the browser-safe shared attachment contracts and approved `attachment:upload` matrix; five protected API endpoints; a private Storage adapter; signed actor/machine-bound upload intents; real object metadata and JPEG/PNG/WebP/PDF signature verification; a 20-file cap; idempotent confirmation; atomic Neon audit writes; explicit deletion compensation; bucket configuration and orphan reconciliation commands; and the accessible Files gallery/upload/delete UI. No database migration was added.
+- **How:** Upload paths are API-generated UUID paths whose extension comes only from the validated MIME type. Supabase's signed upload remains valid for its fixed two hours, while confirmation requires the API's 15-minute HMAC intent and matching actor, machine, MIME and size. Confirmation downloads bytes to verify metadata and magic bytes before the attachment/audit transaction. Downloads last five minutes. Database-first deletion returns success even if the subsequent private-object removal fails, logs only `ORPHANED_STORAGE_OBJECT` plus attachment ID, and leaves the reconciliation command able to find it. D75–D77 record the permission and cross-system choices.
+- **Files touched:** shared permissions/contracts/audit actions; Nest attachment module/controller/service/storage/intent/validation/errors and unit/e2e/RBAC tests; machine Files web client/component/tests/Playwright journey and image configuration; Storage setup/reconciliation/live-proof scripts; root scripts; README; Supabase setup guide; architecture; this handoff
+- **Migrations:** none; the existing `attachments` table and constraints already satisfy Task 3.5. The complete current chain remained applied on `dev` and on the disposable proof branch.
+- **Verification:** Normal and frozen installs, format, lint, typecheck and production build passed. `pnpm test` passed 30 API suites/247 tests plus the intentional Task 7.2 skip and 25 web files/132 tests (379 passing tests total). The mocked real-route Chromium suite passed seven journeys including the private file flow and 360/768/1280 px coverage. The independent role table passed with upload/delete allowed only for SUPER_ADMIN, ADMIN and BIOMED_TECH; temporarily widening STAFF caused the suite to fail, and temporarily removing the confirmation permission decorator caused the route inventory to fail with `permission:attachment:upload` expected versus `invalid:0`; both mutations were removed. Browser assets contained neither the server-secret variable name nor its value.
+- **Live proof:** The idempotent configuration command created/verified a private 10 MiB bucket with exactly four MIME types and zero `storage.objects` policies. A temporary proof bucket and disposable Neon branch accepted a valid PNG/PDF, rejected a renamed text file and oversized input, denied direct anonymous object access, rejected an expired signed download, and removed both row and object on deletion. The temporary bucket/objects/branch were deleted; protected `dev`, `staging` and `main` held zero proof rows. The read-only production-bucket reconciliation reported zero orphans. Only safe statuses, counts, IDs and branch metadata were emitted.
+- **Result:** Task 3.5 acceptance criteria are verified and the checklist is ticked. The real `machine-attachments` bucket is private and reproducibly configured; the feature branch is ready for commit and hosted delivery.
+- **Progress after this session:** 25 / 71 (35.2%)
+- **Left undone / follow-ups:** Upload rate limiting remains Task 7.3; scheduling orphan reconciliation remains Task 9.2; ticket attachments remain Task 6.6. Task 3.6 QR/scan work has not started. `dev` still has no active non-seed SUPER_ADMIN, so the documented one-time private bootstrap remains necessary before owner sign-in.
+- **Next task:** 3.6 Asset tag / QR label generation and scan lookup
+- **Branch / commit:** `phase-3/task-3.5-attachments` / `feat: add private machine attachments` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
-- **Local-run configuration pending after Task 3.4:** this checkout has neither `apps/api/.env` nor `apps/web/.env.local`. Both paths are correctly ignored, but the development platform cannot be started or safely tied to Neon `dev` until the owner supplies the required private values named in §14. No acceptance result was claimed for that blocked operational run.
+- **Resolved before Task 3.5:** both ignored runtime files now exist with restricted permissions and the required variable names. Their database hosts were verified through safe Neon branch metadata as `dev`; migrations, seed verification, Redis/API/web readiness and the unauthenticated redirect passed without printing values. There is still no active non-seed SUPER_ADMIN in `dev`, so the private one-time bootstrap remains an operator step.
 - **Resolved in Task 3.4:** the typed web reference client treated the paginated locations endpoint's envelope as though pagination lived inside `data`, causing the first real-route browser render to fail. It now reconstructs the page from the standard `data` array plus envelope `meta`; component and Playwright regression coverage pass.
 - **Resolved in the 2026-10-26 dependency sweep:** the ten-request Dependabot backlog was reduced to zero by merging eight compatible updates and closing the two unsupported runtime/toolchain-major proposals; future npm minor/patch updates are grouped and capped at five open PRs.
 - **Resolved in Task 3.1:** the shell styled every available navigation link as current. It now marks and styles only the route returned by `usePathname()`, with a focused regression assertion and responsive visual proof.
@@ -705,6 +723,10 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 3.1 category migration/seed/CRUD proof: `NEON_PROJECT_ID=<project-id> pnpm verify:categories:live`
 - Run the credential-safe Task 3.2 migration/seed/CRUD/UI proof: `NEON_PROJECT_ID=<project-id> pnpm verify:reference:live`
 - Run the credential-safe Task 3.3 machine API/concurrency/query-plan proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machines:live`
+- Configure/verify the private machine-attachment bucket: `pnpm storage:configure`
+- List orphaned private attachment objects older than 24 hours (read-only): `pnpm storage:reconcile`
+- Explicitly delete listed orphaned attachment objects: `pnpm storage:reconcile -- --delete`
+- Run the credential-safe Task 3.5 temporary-bucket/disposable-Neon proof: `NEON_PROJECT_ID=<project-id> pnpm verify:attachments:live`
 - List Supabase identity IDs without matching Neon users (read-only, never addresses): `pnpm users:reconcile-auth`
 - Run API unit tests: `pnpm --filter @app/api test:unit`
 - Run API e2e tests: `pnpm --filter @app/api test:e2e`
@@ -731,13 +753,16 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - List/register machines: `GET /api/v1/machines`, `POST /api/v1/machines`
 - Read a machine by asset tag: `GET /api/v1/machines/by-tag/:assetTag`
 - Read/update/remove a machine from the active registry: `GET /api/v1/machines/:id`, `PATCH /api/v1/machines/:id`, `DELETE /api/v1/machines/:id`
+- List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
+- Confirm an upload: `POST /api/v1/attachments/confirm`
+- Request a five-minute download/delete an attachment: `GET /api/v1/attachments/:id/url`, `DELETE /api/v1/attachments/:id`
 - OpenAPI UI: `GET /api/docs`
 - OpenAPI JSON: `GET /api/docs-json`
 - Application API prefix: `/api/v1`
 
 **Neon branches:** `main` (production), `staging`, `dev`; explicit database integration jobs create dedicated ephemeral branches, apply reviewed migrations, and remove the branches after the run. `INTEGRATION_DATABASE_BRANCH` and `INTEGRATION_DATABASE_URL` are guarded so the suite cannot use a long-lived or normally configured database. Default unit/e2e tests use localhost placeholders and never connect to Neon.
 
-**Services running locally:** none. Task 3.4's post-merge launch audit found both ignored runtime environment files absent, so Redis/API/web were not started and no connected-database claim was made.
+**Services running locally:** Task 3.5's pre-implementation proof started Redis and the API against verified Neon `dev`; the web server was intentionally stopped while its single Next development lock was used by Playwright. After the Task 3.5 merge, Redis/API/web are restarted as detached processes with logs under ignored artifact directories and the final safe health evidence is recorded in the delivery follow-up.
 
 ---
 

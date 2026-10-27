@@ -4,4 +4,6 @@ process.env.DIRECT_URL = 'postgresql://test:test@127.0.0.1:5432/tophill_test';
 process.env.REDIS_URL = 'redis://127.0.0.1:63999';
 process.env.SUPABASE_SECRET_KEY = 'sb_secret_test_server_only';
 process.env.SUPABASE_URL = 'https://example.supabase.co';
+process.env.SUPABASE_JWT_ISSUER = 'https://example.supabase.co/auth/v1';
+process.env.SUPABASE_JWKS_URL = 'https://example.supabase.co/auth/v1/.well-known/jwks.json';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:3000';

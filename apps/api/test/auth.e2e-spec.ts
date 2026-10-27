@@ -329,10 +329,12 @@ describe('API authentication (e2e)', () => {
     }
 
     expect(coveredRoutes.sort()).toEqual([
+      'DELETE /attachments/:id permission:attachment:upload',
       'DELETE /categories/:id permission:reference:manage',
       'DELETE /departments/:id permission:reference:manage',
       'DELETE /locations/:id permission:reference:manage',
       'DELETE /machines/:id permission:machine:retire',
+      'GET /attachments/:id/url permission:machine:read',
       'GET /categories permission:machine:read',
       'GET /categories/:id permission:machine:read',
       'GET /departments permission:machine:read',
@@ -344,6 +346,7 @@ describe('API authentication (e2e)', () => {
       'GET /locations/:id permission:machine:read',
       'GET /machines permission:machine:read',
       'GET /machines/:id permission:machine:read',
+      'GET /machines/:machineId/attachments permission:machine:read',
       'GET /machines/by-tag/:assetTag permission:machine:read',
       'GET /me authenticated-only',
       'GET /protected-fixture authenticated-only',
@@ -354,10 +357,12 @@ describe('API authentication (e2e)', () => {
       'PATCH /locations/:id permission:reference:manage',
       'PATCH /machines/:id permission:machine:update',
       'PATCH /users/:id permission:user:manage',
+      'POST /attachments/confirm permission:attachment:upload',
       'POST /categories permission:reference:manage',
       'POST /departments permission:reference:manage',
       'POST /locations permission:reference:manage',
       'POST /machines permission:machine:create',
+      'POST /machines/:machineId/attachments/sign-upload permission:attachment:upload',
       'POST /users permission:user:manage',
       'POST /users/:id/deactivate permission:user:manage',
       'POST /users/:id/reactivate permission:user:manage',

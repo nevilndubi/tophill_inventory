@@ -1,8 +1,44 @@
 # Supabase Auth setup
 
-Task 2.1 configures Supabase for identity only. Neon remains the sole application database.
+Task 2.1 configures Supabase Auth and Task 3.5 adds private machine-file Storage. Neon remains the
+sole application database.
 Supabase's database, generated REST API and Row Level Security must not contain or govern any
-Tophill Inventory application data. Supabase Storage is reserved for Task 3.5 and Task 6.6.
+Tophill Inventory application data. Supabase Storage contains private file objects only; Task 6.6
+later adds ticket attachments.
+
+## Private machine-attachment bucket
+
+Configure the bucket reproducibly from the repository, using the ignored API environment file:
+
+```bash
+pnpm storage:configure
+```
+
+The idempotent command creates or updates `machine-attachments` with all of these settings:
+
+- private (`public: false`);
+- 10 MiB per-object limit;
+- only `image/jpeg`, `image/png`, `image/webp` and `application/pdf`;
+- no browser/RLS policies on `storage.objects`—the API secret key performs server operations and
+  browsers receive only scoped signed URLs.
+
+Supabase documents that signed upload URLs are valid for two hours and does not expose a shorter
+lifetime. Tophill therefore requires a separately signed API intent within 15 minutes, verifies the
+stored object's metadata and magic bytes on confirmation, and reconciles unconfirmed objects older
+than 24 hours. Signed downloads last at most five minutes. See the current Supabase
+[signed-upload](https://supabase.com/docs/reference/javascript/file-buckets-createsigneduploadurl),
+[private-bucket](https://supabase.com/docs/guides/storage/buckets/fundamentals), and
+[signed-download](https://supabase.com/docs/reference/javascript/file-buckets-createsignedurl)
+documentation.
+
+Run the orphan report without mutation:
+
+```bash
+pnpm storage:reconcile
+```
+
+Only after reviewing its object IDs/count should an operator run
+`pnpm storage:reconcile -- --delete`. Neither command prints object paths, signed URLs or secrets.
 
 ## Project configuration
 
@@ -200,5 +236,7 @@ absolute URLs, backslashes and `javascript:` values fall back to `/`.
 - [ ] Public sign-up returns `signup_disabled`.
 - [ ] The test credential file is ignored and mode `600`.
 - [ ] The secret key's name and value are absent from browser build assets.
-- [ ] Supabase's `public` schema contains no application tables and Storage has no premature buckets.
+- [ ] Supabase's `public` schema contains no application tables; Storage contains only documented
+      private buckets and no `storage.objects` browser policies.
+- [ ] `machine-attachments` is private, limited to 10 MiB and the four approved MIME types.
 - [ ] Exact staging and production URLs are added and verified when those domains are assigned.

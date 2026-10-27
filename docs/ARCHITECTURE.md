@@ -50,7 +50,7 @@ Companion to `project_model_handoff.md`. If you change anything here, update thi
 
 | Component | Responsibility | Notes |
 |---|---|---|
-| **Next.js web** | UI, routing, forms, calendar, status board, live updates | Talks to NestJS API only (never directly to Neon). Talks to Supabase only for sign-in/sign-out and session refresh |
+| **Next.js web** | UI, routing, forms, calendar, status board, live updates | Talks to NestJS API only for application data (never directly to Neon). Talks to Supabase for Auth session handling and only through API-issued signed Storage upload/download URLs |
 | **NestJS API** | All business logic, validation, authorization, persistence, caching, realtime stream | Stateless apart from SSE connections; horizontally scalable via Redis pub/sub |
 | **Worker** | BullMQ consumers + schedulers | Same repo/image, started with a different entrypoint. Never serves HTTP traffic |
 | **Neon PostgreSQL** | Persistent data, constraints, transactions | Pooled URL for runtime, direct URL for migrations. Branches for dev/staging/CI |
@@ -338,7 +338,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Service | `POST /machines/:id/faults`, `GET/PATCH /service/tickets`, `POST /service/tickets/:id/{assign,start,resolve,close}`, `/service/schedules` |
 | Dashboard | `GET /dashboard/summary`, `GET /reports/:type` |
 | Realtime | `GET /stream` (SSE) |
-| Files | `POST /attachments/sign-upload`, `GET /attachments/:id/url` |
+| Files | `GET /machines/:machineId/attachments`, `POST /machines/:machineId/attachments/sign-upload`, `POST /attachments/confirm`, `GET /attachments/:id/url`, `DELETE /attachments/:id` |
 | Ops | `GET /health` (liveness), `GET /health/ready` (db + redis) |
 
 Task 3.3 machine reads use `page`/`pageSize` (25 by default, 100 maximum), return `meta.total`, and
@@ -358,6 +358,22 @@ Stable machine errors are `MACHINE_NOT_FOUND`, `MACHINE_IDENTITY_TAKEN`,
 `MACHINE_DATES_INVALID`, and `MACHINE_VALUES_INVALID`. Prisma unique/FK/check failures are mapped to
 these contracts without exposing database metadata. `machine.created`, `machine.updated`, and
 `machine.deleted` audit snapshots contain business fields and relationship IDs only.
+
+Task 3.5 machine files live in the private `machine-attachments` Supabase Storage bucket. Listing
+and five-minute signed downloads require `machine:read`; signed upload, confirmation and deletion
+require `attachment:upload`. Signed-upload URLs have Supabase's fixed two-hour lifetime, so the API
+adds a signed 15-minute intent binding the randomized server path, machine, actor, declared type,
+size and display name. Confirmation reads Storage metadata and bytes, checks size/type plus JPEG,
+PNG, WebP or PDF magic bytes, and only then creates the Neon row and `attachment.uploaded` audit in
+one transaction. At most 20 attachments are allowed per machine. List responses never contain a
+storage path or URL; individual download URLs expire after 300 seconds.
+
+Deletion commits the Neon row removal and `attachment.deleted` audit first, then removes the private
+object. A failed object removal is harmless to users and logs `ORPHANED_STORAGE_OBJECT` with the
+attachment ID only. The read-only `storage:reconcile` command reports object IDs/counts for objects
+older than 24 hours that have no Neon row; `--delete` is an explicit operator action. Task 9.2 will
+schedule it. Soft-deleted machines expose none of their files, but machine soft deletion does not
+delete file rows or objects so Task 3.8 can restore them with the machine.
 
 ---
 
@@ -398,6 +414,7 @@ these contracts without exposing database metadata. `machine.created`, `machine.
 | View status board / machines | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Create/edit/retire machines | ✅ | ✅ | ✅ (edit only) | ❌ | ❌ | ❌ |
 | Manage categories/departments/locations | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Upload/delete machine attachments | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Book a machine | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Approve/reject bookings | ✅ | ✅ | ❌ | ✅ (own dept machines) | ❌ | ❌ |
 | Check-out / check-in | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
@@ -411,7 +428,7 @@ these contracts without exposing database metadata. `machine.created`, `machine.
 The matrix is encoded once in `packages/shared/src/permissions.ts` and consumed by both API guards and UI visibility checks.
 
 The stable permission names are `machine:read`, `machine:create`, `machine:update`,
-`machine:retire`, `reference:manage`, `booking:create`, `booking:approve`,
+`machine:retire`, `reference:manage`, `attachment:upload`, `booking:create`, `booking:approve`,
 `usage:check-in-out`, `usage:force-end`, `fault:report`, `service:manage`, `user:manage`,
 `audit:read` and `report:read`. Each role has an explicit entry for every permission—there is no
 implicit role inheritance. Scope is one of `GLOBAL`, `OWN_DEPARTMENT` or `NONE`. The three initial
@@ -510,8 +527,10 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   search, filters, sort and pagination so refresh, history and shared links reproduce the same
   view. Desktop tables and mobile cards show only the stored condition using icon + text + colour;
   usage-derived “Available/In use” language waits for Phase 4. Detail routes keep Overview live and
-  preserve accessible, URL-addressable “Coming soon” tabs for Status, Bookings, Service, Files and
-  History. Create/update visibility comes directly from `can()` (`machine:create` / `machine:update`),
+  preserve accessible, URL-addressable “Coming soon” tabs for Status, Bookings, Service and History.
+  Files is a private attachment gallery in Task 3.5 with five-minute image/PDF links and direct
+  signed uploads; read-only roles can view while `attachment:upload` controls upload/delete actions.
+  Create/update visibility comes directly from `can()` (`machine:create` / `machine:update`),
   while API authorization remains authoritative. DATE values are formatted from their plain parts,
   timestamps use Africa/Nairobi, and `next_service_due_at` stays a labelled read-only calculation.
   Task 3.4 Playwright runs against the real Next routes with a development-only auth seam and
