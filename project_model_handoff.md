@@ -281,10 +281,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 26 / 71 tasks (36.6%) |
 | Current phase | Phase 3 — asset tags, QR labels and authenticated scan lookup complete through Task 3.6 |
-| Last updated | 2026-10-27 10:12 EAT |
-| Branch | `phase-3/task-3.6-asset-tags-qr` |
-| Last commit | `feat(web): add asset QR labels and scan lookup` |
-| Repo state | Task 3.6 implementation and local verification are complete; delivery through hosted Quality and merged-main restart remains in progress |
+| Last updated | 2026-10-27 10:24 EAT |
+| Branch | `main` |
+| Last commit | `1be3ac4 Merge pull request #53 from nevilndubi/phase-3/task-3.6-asset-tags-qr` |
+| Repo state | Task 3.6 is merged, PR and post-merge Quality are green, local `main` is synchronized, and Redis/API/web are running from the merged code |
 | **Next task** | **3.7 Bulk CSV import with validation report** |
 
 ---
@@ -689,6 +689,19 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Use the final hospital-controlled HTTPS domain before printing real labels; calibrate actual stock/printer using the Pending checklist. Task 4.4 owns derived status and Tasks 4.2/5/6 own the disabled scan actions. Task 3.7 remains next.
 - **Next task:** 3.7 Bulk CSV import with validation report
 - **Branch / commit:** `phase-3/task-3.6-asset-tags-qr` / `feat(web): add asset QR labels and scan lookup`
+
+### [2026-10-27 10:24 EAT] — Task(s): 3.6 — hosted delivery and merged local launch
+- **Prompt summary:** Complete Task 3.6 delivery through green hosted CI, merge and synchronize `main`, then restart the local platform with the QR/scan changes without exposing private configuration.
+- **What I did:** Merged PR #53 after its Quality gate passed, synchronized local `main` to merge `1be3ac4`, waited for the push-to-main Quality run, verified that both database URLs select Neon `dev`, confirmed all required ignored runtime variable names, confirmed the migration chain is current, and replaced the stale API/proof processes with detached API and web development servers alongside healthy Redis.
+- **How:** Neon endpoint matching compared hosts internally and emitted only branch/hash metadata; no connection string or environment value was displayed. The runtime proof used status codes and dependency-state labels only. This status-only follow-up records the final state after the feature merge.
+- **Files touched:** this handoff only; runtime logs remain under ignored `.artifacts/local-run/` directories and private values remain in ignored environment files
+- **Migrations:** no new migration; `prisma migrate deploy` found all 9 migrations already applied to `dev`
+- **Verification:** PR #53 Quality passed in 1m24s. Push-to-main run `40466465560` passed Quality in 2m04s. The login page returned HTTP 200; unauthenticated `/scan/HM-000001` returned HTTP 307 and preserved the scan path through login; `/health/ready` returned HTTP 200 with overall `ok`, database `up` and Redis `up`. Both application ports are listening and Redis reports healthy.
+- **Result:** Task 3.6 is merged, independently green, accurately recorded, and available locally at the documented URLs.
+- **Progress after this session:** 26 / 71 (36.6%)
+- **Left undone / follow-ups:** Physical stock/printer calibration remains an owner-side check before any real label run. Use a final hospital-controlled HTTPS origin before printing permanent labels. Task 3.7 remains next.
+- **Next task:** 3.7 Bulk CSV import with validation report
+- **Branch / commit:** `main` / `1be3ac4 Merge pull request #53 from nevilndubi/phase-3/task-3.6-asset-tags-qr`
 
 ---
 
