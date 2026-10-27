@@ -17,6 +17,7 @@ import {
   CircleAlert,
   ClockAlert,
   Printer,
+  Upload,
   Plus,
   Search,
   SlidersHorizontal,
@@ -340,11 +341,18 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
           </p>
         </div>
         {can(user.role, 'machine:create') ? (
-          <Button asChild>
-            <Link href="/machines/new">
-              <Plus aria-hidden="true" /> Register machine
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/machines/import">
+                <Upload aria-hidden="true" /> Import CSV
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/machines/new">
+                <Plus aria-hidden="true" /> Register machine
+              </Link>
+            </Button>
+          </div>
         ) : null}
       </div>
 

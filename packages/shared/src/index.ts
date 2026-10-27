@@ -78,6 +78,30 @@ export {
 } from './machine-management';
 
 export {
+  csvCell,
+  csvRow,
+  machineImportCsv,
+  machineImportFileHashSchema,
+  machineImportQuerySchema,
+  protectSpreadsheetCell,
+  MACHINE_IMPORT_HEADERS,
+  MACHINE_IMPORT_MAX_BYTES,
+  MACHINE_IMPORT_MAX_CELL_CHARACTERS,
+  MACHINE_IMPORT_MAX_ROWS,
+  MACHINE_IMPORT_MODES,
+  MACHINE_IMPORT_ROW_STATUSES,
+  MACHINE_IMPORT_TEMPLATE_VERSION,
+  type MachineImportHeader,
+  type MachineImportIssue,
+  type MachineImportMode,
+  type MachineImportPreview,
+  type MachineImportReport,
+  type MachineImportRow,
+  type MachineImportRowStatus,
+  type MachineImportSummary,
+} from './machine-import';
+
+export {
   can,
   canAssignRole,
   canDeactivateUser,

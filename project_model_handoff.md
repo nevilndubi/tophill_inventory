@@ -128,6 +128,7 @@ Open decisions are tracked in §11 (Decision Log). If you believe a stack choice
 18. **Do not leave the repo broken.** At the end of every prompt: install, lint, typecheck, tests and build must pass for what you touched. If something can't pass, say exactly what and why in the log.
 19. **Never print, log, or echo a database connection string or password.** Neon CLI output that may contain credentials must be captured to a permission-restricted temporary file or in-memory value and discarded; when JSON output is needed, expose only non-secret branch identifiers or hosts. Redact database errors and command evidence so credentials never enter terminals, logs, CI output, the repository, or the handoff.
 20. **Never print, log, or echo Supabase keys, passwords, access/refresh tokens, or full JWTs.** Capture CLI/API values in memory, emit only non-secret configuration metadata and token claims, and keep proof credentials in ignored permission-restricted files.
+21. **Every completed task must leave the merged platform running locally for the owner.** Follow §6.4 as the final task step; green tests and CI do not replace this operational proof.
 
 ---
 
@@ -155,6 +156,17 @@ Update **this file**:
 8. If you changed architecture or the data model, update `docs/ARCHITECTURE.md` in the same commit.
 
 Then reply with: what you did, what you verified (with commands), what changed in this file, and the **next recommended prompt**.
+
+### 6.4 Final step of every task: run the platform locally
+
+After all code is committed and pushed, every pull request is merged on green CI, local `main` is synchronized and the full test suite has passed, you MUST start the platform locally so the owner can use it. This is part of the definition of done:
+
+1. Stop any older instances of the API and web app, then start Redis with Docker Compose and start the API and web app from merged `main`, so the running code is the code just merged. Use `http://localhost:3000` for web and `http://localhost:3001` for the API. Run them detached with logs in a gitignored folder if the environment allows it; otherwise give the owner the exact commands to run in separate terminals.
+2. Never print any credential, connection string, token, key or email address. Confirm that required ignored environment files exist and that required variables are present by variable **name only**.
+3. Verify and report safe metadata only: web HTTP 200 on port 3000; `/health/ready` database and Redis status, retrying once if Neon was waking from scale-to-zero; and an unauthenticated redirect to login.
+4. Report which pages work, what is new in the completed task and where to find it, which pages remain “Coming soon”, and how to stop the servers.
+5. If a required port is occupied by a process that is not this project, report it instead of killing it.
+6. Never skip this step because tests were green. If it cannot be completed, state exactly why.
 
 ---
 
@@ -209,7 +221,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 3.4 Machines UI (list, detail, create/edit)
 - [x] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
 - [x] 3.6 Asset tag / QR label generation & scan-lookup page
-- [ ] 3.7 Bulk CSV import with validation report
+- [~] 3.7 Bulk CSV import with validation report (implementation and verification complete; hosted delivery/local merged-main launch pending)
 - [ ] 3.8 Retire / soft-delete & restore
 
 ### Phase 4 — Status: Usage & Condition
@@ -280,11 +292,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 26 / 71 tasks (36.6%) |
-| Current phase | Phase 3 — asset tags, QR labels and authenticated scan lookup complete through Task 3.6 |
-| Last updated | 2026-10-27 10:24 EAT |
-| Branch | `main` |
-| Last commit | `1be3ac4 Merge pull request #53 from nevilndubi/phase-3/task-3.6-asset-tags-qr` |
-| Repo state | Task 3.6 is merged, PR and post-merge Quality are green, local `main` is synchronized, and Redis/API/web are running from the merged code |
+| Current phase | Phase 3 — Task 3.7 CSV import implementation and verification complete; hosted delivery pending |
+| Last updated | 2026-10-27 16:13 EAT |
+| Branch | `phase-3/task-3.7-bulk-csv-import` |
+| Last commit | `feat(machines): add validated CSV import` (feature commit for this branch) |
+| Repo state | Task 3.7 code, hermetic/browser verification and disposable-Neon proof pass; feature PR, green hosted CI, merge and merged-main local launch remain |
 | **Next task** | **3.7 Bulk CSV import with validation report** |
 
 ---
@@ -325,6 +337,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Permanent QR origin:** choose and configure a final HTTPS custom domain controlled by the hospital before printing or applying real asset labels. Printed labels are permanent; localhost/default preview-host labels must remain test-only.
 - **Printing policy:** every active role may intentionally print labels through `machine:read` because the QR contains only a public-form asset tag path. If hospital policy later restricts printing, approve a dedicated permission and update both label routes and the matrix rather than inferring access from role names.
 - **Physical print calibration:** verify both presets on the actual label printer/stock at 100% scale with “Fit to page” disabled, no browser margins, the test-sheet outlines measured with a ruler, and a phone scan before attaching labels.
+- **Task 7.3 — CSV import rate limiting:** apply Redis-backed limits to both the machine import and template-download endpoints; Task 3.7 keeps them authenticated and restricted to `machine:create` in the meantime.
+- **Machine import permission mapping:** `machine:create` is the approved working capability for template access and all import modes, so SUPER_ADMIN and ADMIN may import while BIOMED_TECH remains edit-only. Revisit only through a deliberate permission-matrix decision.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -421,6 +435,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D78 | 2026-10-27 | Generate QR SVG locally with `qr` 0.7.2 at error correction M, a four-module quiet zone and fixed black-on-white output; decode the generated matrix in tests | The maintained zero-dependency MIT/Apache-2.0 library supports SVG/raw output and decoding, keeps asset data off third-party services, and permits an exact payload round-trip assertion | External QR service; canvas-only library; server-generated images or PDF |
 | D79 | 2026-10-27 | Use validated `NEXT_PUBLIC_APP_ORIGIN` plus canonical asset tags for QR payloads; provide print-CSS 100×50 mm and A4 3×8 presets; keep at most 48 non-retired selections in session storage and grant printing to every `machine:read` role | Labels remain browser-rendered, accessible and free of internal IDs; session-only selection avoids shared-device residue/N+1 calls; all roles can reproduce a tag that reveals no more than normal machine read access | Encode API/ID; generated PDF; persist selections server-side; add a printing permission |
 | D80 | 2026-10-27 | Make the Postgres readiness bound configurable through `READINESS_DB_TIMEOUT_MS`, default 3000 ms and maximum 10000 ms, while keeping liveness independent | Three seconds better accommodates Neon scale-to-zero wake-up than the former one-second hard bound without allowing readiness to hang indefinitely | Keep one second; unbounded connection wait; make liveness database-dependent |
+| D81 | 2026-10-27 | Parse machine imports with maintained MIT-licensed `csv-parse` 7.0.3 after a streaming 1 MiB byte cap; accept comma-delimited UTF-8 only, cap 1,000 rows and 500 characters per cell, and reuse the Task 3.3 shared schemas after resolving all references through three request-scoped lookup maps | The zero-dependency parser handles BOMs, quoting, escaped quotes and CRLF/LF correctly, while bounded input and batched lookups prevent hostile files and N+1 database reads | Hand-written CSV parsing; browser-only parsing; an unbounded spreadsheet parser; per-row lookups |
+| D82 | 2026-10-27 | Bind commit to the independently revalidated file with SHA-256; run full imports as one 60-second transaction in 100-row chunks, while partial-valid imports use conflict-safe inserts and report race losers as `skipped_conflict`; never update an existing or soft-deleted identity | Preview cannot drift from commit, full mode remains all-or-nothing, partial mode preserves valid rows under concurrency, and permanent manufacturer/serial identity remains authoritative and idempotent | Store dry-run state server-side; one transaction per row; overwrite matches; abort every partial import on one concurrent duplicate |
+| D83 | 2026-10-27 | Require existing `machine:create` for both import/template endpoints; create one normal machine audit and initial status row per inserted machine plus one aggregate `machine.import_completed` audit, and protect every CSV export cell with the shared formula-injection helper | This matches the approved six-role matrix, preserves per-machine history, keeps summary audit data free of CSV contents, and makes the reusable export boundary safe for Task 8.3 | Add a new permission; BIOMED import under edit; summary audit only; store the uploaded file or row data |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -437,6 +454,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Files touched:** key paths
 - **Migrations:** names, or "none"
 - **Verification:** commands run and results (lint / typecheck / tests / build / manual)
+- **Locally running:** merged-main Redis/API/web startup, safe readiness evidence, working/new/coming-soon pages, and stop instructions (or the exact blocker)
 - **Result:** tasks ticked, tasks partial
 - **Progress after this session:** X / 71 (Y%)
 - **Left undone / follow-ups:** …
@@ -703,6 +721,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.7 Bulk CSV import with validation report
 - **Branch / commit:** `main` / `1be3ac4 Merge pull request #53 from nevilndubi/phase-3/task-3.6-asset-tags-qr`
 
+### [2026-10-27 16:13 EAT] — Task(s): 3.7 — validated bulk CSV import implementation
+- **Prompt summary:** Add the permanent merged-main local-run definition of done, then implement the permission-gated machine CSV template, server validation/dry-run/commit flows, responsive import UI, exhaustive hermetic and browser coverage, and a disposable-Neon proof without adding a migration or starting Task 3.8.
+- **What I did:** Added §6.4 and its engineering-rule, Session Log and definition-of-done references; implemented versioned blank/example templates, a bounded server CSV pipeline, shared report/contracts and spreadsheet-cell protection, dry-run SHA-256 binding, full and partial-valid commits, initial history and per-machine/summary audit records, stable errors, the Machines import UI and report download, and new route/access inventory rows. No schema or migration changed.
+- **How:** `csv-parse` 7.0.3 runs only after the raw request is streamed to the 1 MiB cap. All 1,000-row reference and identity resolution is batched, Task 3.3 schemas remain authoritative, full mode uses one 60-second transaction in 100-row chunks, partial mode uses conflict-safe set inserts, and formula protection lives in `@app/shared` for later exports (D81–D83). The temporary unclassified route made the production-route inventory fail and was removed before commit.
+- **Files touched:** `packages/shared/src/machine-import.ts`, shared exports/audit actions, API machine import controller/service/errors/tests, web import route/component/API/tests and Playwright coverage, `docs/ARCHITECTURE.md`, `README.md`, root scripts/lockfile, and this handoff
+- **Migrations:** none; the current schema meets Task 3.7
+- **Verification:** `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (API 31 suites: 269 passed, one intentional Task 7.2 skip; all workspace suites passed), `NEXT_PUBLIC_APP_ORIGIN=https://inventory.example.test pnpm build`, and `pnpm test:e2e:machines` (18/18, 40.5 seconds) passed. The route-negative fixture failed as expected with the missing-classification route named, then passed after removal. Responsive 360/768/1280 screenshots were inspected under the ignored Task 3.7 artifact directory.
+- **Locally running:** deferred until the feature PR is green and merged and local `main` is synchronized, as §6.4 now requires; the follow-up entry must record the safe merged-main Redis/API/web proof.
+- **Result:** Task 3.7 implementation and all local/live acceptance proofs are complete; the checklist remains partial until hosted delivery and the mandatory merged-main local launch complete.
+- **Progress after this session:** 26 / 71 (36.6%) complete; Task 3.7 partial
+- **Left undone / follow-ups:** Task 7.3 owns import/template rate limiting. Task 3.8 owns restore and retirement workflows. Feature PR, hosted Quality, merge, synchronized `main` and final local launch remain in this turn.
+- **Next task:** finish Task 3.7 delivery, then 3.8 Retire / soft-delete & restore
+- **Branch / commit:** `phase-3/task-3.7-bulk-csv-import` / `feat(machines): add validated CSV import`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -797,6 +829,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 3.1 category migration/seed/CRUD proof: `NEON_PROJECT_ID=<project-id> pnpm verify:categories:live`
 - Run the credential-safe Task 3.2 migration/seed/CRUD/UI proof: `NEON_PROJECT_ID=<project-id> pnpm verify:reference:live`
 - Run the credential-safe Task 3.3 machine API/concurrency/query-plan proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machines:live`
+- Run the credential-safe Task 3.7 CSV dry-run/commit/race proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live`
 - Configure/verify the private machine-attachment bucket: `pnpm storage:configure`
 - List orphaned private attachment objects older than 24 hours (read-only): `pnpm storage:reconcile`
 - Explicitly delete listed orphaned attachment objects: `pnpm storage:reconcile -- --delete`
@@ -807,6 +840,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run web unit/component tests: `pnpm --filter @app/web test`
 - Run the credential-free Machines UI browser smoke and responsive screenshots: `pnpm test:e2e:machines`
 - Print/scan QR proof is included in `pnpm test:e2e:machines`; screenshots remain under ignored `apps/web/.artifacts/task-3.6/`
+- Machine CSV import smoke/responsive proof is included in `pnpm test:e2e:machines`; screenshots remain under ignored `apps/web/.artifacts/task-3.7/`
 - Validate GitHub Actions workflows: `actionlint .github/workflows/ci.yml` (actionlint must be installed separately)
 
 **API operational endpoints:**
@@ -826,6 +860,8 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - List/create locations: `GET /api/v1/locations`, `POST /api/v1/locations`
 - Read/update/delete a location: `GET /api/v1/locations/:id`, `PATCH /api/v1/locations/:id`, `DELETE /api/v1/locations/:id`
 - List/register machines: `GET /api/v1/machines`, `POST /api/v1/machines`
+- Download the versioned machine CSV template/example: `GET /api/v1/machines/import/template?kind=template|example`
+- Validate or commit a machine CSV: `POST /api/v1/machines/import?mode=dry_run|commit|partial`
 - Read a machine by asset tag: `GET /api/v1/machines/by-tag/:assetTag`
 - Read/update/remove a machine from the active registry: `GET /api/v1/machines/:id`, `PATCH /api/v1/machines/:id`, `DELETE /api/v1/machines/:id`
 - List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
@@ -853,3 +889,4 @@ A task may be ticked `[x]` only if **all** are true:
 - [ ] Migrations (if any) are additive/safe and applied cleanly on a fresh database
 - [ ] Docs updated (this file, and `docs/ARCHITECTURE.md` if design changed)
 - [ ] Committed on the task branch with a conventional commit message
+- [ ] Pull request merged on green CI, local `main` synchronized, and the merged platform is running locally with §6.4 safe readiness proof

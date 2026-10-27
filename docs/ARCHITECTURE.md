@@ -359,6 +359,31 @@ Stable machine errors are `MACHINE_NOT_FOUND`, `MACHINE_IDENTITY_TAKEN`,
 these contracts without exposing database metadata. `machine.created`, `machine.updated`, and
 `machine.deleted` audit snapshots contain business fields and relationship IDs only.
 
+Task 3.7 adds `GET /machines/import/template` and `POST /machines/import`, both protected by
+`machine:create` (SUPER_ADMIN and ADMIN only). Version `v1` is comma-delimited UTF-8 with an exact
+19-column contract; uploads are streamed only as far as the 1 MiB limit, limited to 1,000 data rows
+and 500 characters per cell, and parsed with `csv-parse` using BOM, quoted-field and bounded-record
+support. Category, department and location reference maps are loaded once, and existing normalized
+manufacturer/serial identities are queried once. Formula-like cells are preserved on input with a
+warning and escaped by the shared spreadsheet-safety helper whenever emitted to CSV.
+
+Dry run is the default and writes nothing. Its report returns normalized row previews, errors,
+warnings, status counts, template version and a SHA-256 of the exact bytes. Commit and partial modes
+upload and validate the file again and require that preview hash (`IMPORT_FILE_CHANGED` otherwise).
+A full import is one 60-second transaction, writes in 100-row set-based chunks in file order and
+rolls every machine/history/audit row back on a database race. Partial mode never writes rejected
+rows and uses conflict-safe inserts, reporting race losers as `skipped_conflict`. Existing active
+and soft-deleted identities are idempotent skips and are never updated. Each created machine keeps
+Task 3.3 registration behavior and receives `machine.created` with `source: import`; one
+`machine.import_completed` event contains aggregate counts only. Safe retry guidance is: preview
+again after any file edit or full-import conflict; partial mode may be retried because permanent
+identity matching prevents duplicates.
+Fatal stable codes are `IMPORT_INVALID_CSV`, `IMPORT_FILE_TOO_LARGE`, `IMPORT_TOO_MANY_ROWS`,
+`IMPORT_DUPLICATE_HEADERS`, `IMPORT_INVALID_HEADERS`, `IMPORT_INVALID_ROWS`,
+`IMPORT_FILE_CHANGED`, and `IMPORT_CONFLICT`. Row reports use `IMPORT_FIELD_INVALID`,
+`IMPORT_DUPLICATE_IDENTITY`, reference-specific not-found codes and
+`IMPORT_REFERENCE_AMBIGUOUS`; no database or constraint metadata is exposed.
+
 Task 3.5 machine files live in the private `machine-attachments` Supabase Storage bucket. Listing
 and five-minute signed downloads require `machine:read`; signed upload, confirmation and deletion
 require `attachment:upload`. Signed-upload URLs have Supabase's fixed two-hour lifetime, so the API

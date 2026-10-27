@@ -37,6 +37,7 @@ import { CategoriesService } from '../src/categories/categories.service';
 import { DepartmentsService } from '../src/reference/departments.service';
 import { LocationsService } from '../src/reference/locations.service';
 import { MachinesService } from '../src/machines/machines.service';
+import { MachineImportService } from '../src/machines/machine-import.service';
 import { AttachmentsService } from '../src/attachments/attachments.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
@@ -540,6 +541,38 @@ const EXPECTED_ACCESS_TABLE = [
     unauthenticated: 'DENY',
   },
   {
+    declaration: 'permission:machine:create',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/import/template',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:create',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/import',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
     declaration: 'permission:machine:read',
     inactive: 'DENY',
     method: 'GET',
@@ -815,6 +848,23 @@ const machinesService = {
   readByAssetTag: jest.fn(async () => managedMachine),
   update: jest.fn(async () => managedMachine),
 };
+const machineImportService = {
+  execute: jest.fn(async () => ({
+    can_commit: true,
+    committed_count: 0,
+    file_sha256: '0'.repeat(64),
+    mode: 'dry_run',
+    rows: [],
+    summary: {
+      create: 0,
+      rejected: 0,
+      skipped_conflict: 0,
+      skipped_existing: 0,
+      skipped_existing_deleted: 0,
+    },
+    template_version: 'v1',
+  })),
+};
 const managedAttachment = {
   fileName: 'machine-photo.png',
   id: TARGET_USER_ID,
@@ -1037,6 +1087,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(locationsService)
         .overrideProvider(MachinesService)
         .useValue(machinesService)
+        .overrideProvider(MachineImportService)
+        .useValue(machineImportService)
         .overrideProvider(AttachmentsService)
         .useValue(attachmentsService)
         .compile();

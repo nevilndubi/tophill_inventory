@@ -1,6 +1,25 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { ManagedMachine } from '@app/shared';
+import {
+  machineImportCsv,
+  MACHINE_IMPORT_TEMPLATE_VERSION,
+  type MachineImportReport,
+  type ManagedMachine,
+} from '@app/shared';
+import type { Request, Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedRequest, AuthenticatedUser } from '../auth/auth.types';
 import { RequirePermission } from '../authorization/require-permission.decorator';
@@ -10,15 +29,20 @@ import {
   CreateMachineDto,
   ListMachinesQueryDto,
   MachineIdParamsDto,
+  MachineImportQueryDto,
   UpdateMachineDto,
 } from './machines.dto';
+import { MachineImportService } from './machine-import.service';
 import { MachinesService } from './machines.service';
 
 @ApiBearerAuth('supabase')
 @ApiTags('machines')
 @Controller('machines')
 export class MachinesController {
-  constructor(private readonly machines: MachinesService) {}
+  constructor(
+    private readonly machines: MachinesService,
+    private readonly imports: MachineImportService,
+  ) {}
 
   @Get()
   @RequirePermission('machine:read')
@@ -43,6 +67,44 @@ export class MachinesController {
     @Req() request: AuthenticatedRequest,
   ): Promise<ManagedMachine> {
     return this.machines.create(actor, input, getOrCreateRequestId(request));
+  }
+
+  @Get('import/template')
+  @RequirePermission('machine:create')
+  @ApiOperation({ summary: 'Download the versioned machine import template or example' })
+  template(@Query('kind') kind: string | undefined, @Res() response: Response): void {
+    if (kind !== undefined && kind !== 'template' && kind !== 'example') {
+      throw new BadRequestException({
+        code: 'IMPORT_INVALID_TEMPLATE_KIND',
+        details: {},
+        message: 'Template kind must be template or example',
+      });
+    }
+    const selected = kind ?? 'template';
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="machine-import-${selected}-${MACHINE_IMPORT_TEMPLATE_VERSION}.csv"`,
+    );
+    response.status(200).send(machineImportCsv(selected));
+  }
+
+  @Post('import')
+  @RequirePermission('machine:create')
+  @ApiOperation({ summary: 'Validate or commit a machine CSV import' })
+  importCsv(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query() query: MachineImportQueryDto,
+    @Req() request: Request & AuthenticatedRequest,
+    @Headers('x-import-file-sha256') expectedHash: string | undefined,
+  ): Promise<MachineImportReport> {
+    return this.imports.execute(
+      request,
+      actor,
+      query.mode,
+      getOrCreateRequestId(request),
+      expectedHash,
+    );
   }
 
   @Get('by-tag/:assetTag')

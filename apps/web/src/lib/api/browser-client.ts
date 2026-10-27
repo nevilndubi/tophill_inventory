@@ -1,7 +1,7 @@
 import { publicEnv } from '@/env/public';
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
 import { isAuthRetryableFetchError } from '@supabase/supabase-js';
-import { ApiClientError, createApiClient } from './client';
+import { ApiClientError, createApiClient, isConfiguredApiUrl } from './client';
 
 const getBrowserAccessToken = async (): Promise<string | null> => {
   const supabase = createBrowserSupabaseClient();
@@ -45,3 +45,17 @@ export const browserApi = createApiClient({
     dispatchAuthEvent('tophill:auth-unavailable');
   },
 });
+
+export const authenticatedBrowserFetch = async (
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> => {
+  const target = browserApi.versionedUrl(path);
+  const token = await getBrowserAccessToken();
+  const headers = new Headers(options.headers);
+  headers.set('accept', options.headers && headers.has('accept') ? headers.get('accept')! : '*/*');
+  if (token && isConfiguredApiUrl(publicEnv.NEXT_PUBLIC_API_URL, target)) {
+    headers.set('authorization', `Bearer ${token}`);
+  }
+  return fetch(target, { ...options, headers });
+};

@@ -77,6 +77,55 @@ async function mockApi(page: Page) {
   await page.route('http://127.0.0.1:3001/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (url.pathname === '/api/v1/machines/import/template')
+      return route.fulfill({
+        body: 'name,category,manufacturer,model,serial_number,department,location_department,location,description,purchase_date,warranty_expires_on,commissioned_on,service_interval_days,last_serviced_at,is_bookable,requires_approval,allow_booking_when_needs_service,max_booking_minutes,buffer_minutes\r\n',
+        contentType: 'text/csv; charset=utf-8',
+        headers: { 'content-disposition': 'attachment; filename="machine-import-template-v1.csv"' },
+        status: 200,
+      });
+    if (url.pathname === '/api/v1/machines/import' && request.method() === 'POST') {
+      const content = request.postData() ?? '';
+      const rejected = content.includes('BAD-DATE');
+      const commit = url.searchParams.get('mode') !== 'dry_run';
+      return route.fulfill({
+        json: envelope({
+          can_commit: !rejected,
+          committed_count: commit && !rejected ? 1 : 0,
+          file_sha256: 'a'.repeat(64),
+          mode: url.searchParams.get('mode') ?? 'dry_run',
+          rows: [
+            {
+              errors: rejected
+                ? [
+                    {
+                      code: 'IMPORT_FIELD_INVALID',
+                      field: 'purchase_date',
+                      message: 'Purchase date must use YYYY-MM-DD',
+                    },
+                  ]
+                : [],
+              preview: {
+                manufacturer: 'acme',
+                name: 'Import ventilator',
+                serial_number: 'import-001',
+              },
+              row: 2,
+              status: rejected ? 'rejected' : 'create',
+              warnings: [],
+            },
+          ],
+          summary: {
+            create: rejected ? 0 : 1,
+            rejected: rejected ? 1 : 0,
+            skipped_conflict: 0,
+            skipped_existing: 0,
+            skipped_existing_deleted: 0,
+          },
+          template_version: 'v1',
+        }),
+      });
+    }
     if (url.pathname === '/api/v1/categories') return route.fulfill({ json: envelope([category]) });
     if (url.pathname === '/api/v1/departments')
       return route.fulfill({ json: envelope([department]) });
@@ -204,6 +253,41 @@ test('ADMIN can register a machine and sees its generated asset tag', async ({ c
   await expect(page.getByText(/can leave gaps/i)).toBeVisible();
 });
 
+test('ADMIN downloads the template, validates messy CSV and confirms a clean CSV', async ({
+  context,
+}) => {
+  const page = await rolePage(context, 'ADMIN');
+  await page.goto('/machines/import');
+  await expect(page.getByRole('heading', { name: 'Import machines' })).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download template' }).click();
+  expect((await download).suggestedFilename()).toBe('machine-import-template-v1.csv');
+
+  await page.getByLabel('Choose machine import CSV').setInputFiles({
+    buffer: Buffer.from('header\nBAD-DATE'),
+    mimeType: 'text/csv',
+    name: 'messy.csv',
+  });
+  await page.getByRole('button', { name: 'Preview and validate' }).click();
+  await expect(page.getByText(/Purchase date must use YYYY-MM-DD/)).toBeVisible();
+
+  await page.getByLabel('Choose machine import CSV').setInputFiles({
+    buffer: Buffer.from('header\nclean'),
+    mimeType: 'text/csv',
+    name: 'clean.csv',
+  });
+  await page.getByRole('button', { name: 'Preview and validate' }).click();
+  await expect(page.getByText('Import ventilator')).toBeVisible();
+  await page.getByRole('button', { name: 'Import all rows' }).click();
+  await expect(page.getByText(/1 machines were registered/)).toBeVisible();
+});
+
+test('roles without machine:create cannot open import directly', async ({ context }) => {
+  const page = await rolePage(context, 'BIOMED_TECH');
+  await page.goto('/machines/import');
+  await expect(page).toHaveURL(/\/forbidden$/);
+});
+
 test('a read-only role cannot open the registration form directly', async ({ context }) => {
   const page = await rolePage(context, 'STAFF');
   await page.goto('/machines/new');
@@ -314,6 +398,27 @@ for (const width of [360, 768, 1280]) {
     await page.screenshot({
       fullPage: true,
       path: `.artifacts/task-3.6/label-${width}.png`,
+    });
+    expect(browserErrors).toEqual([]);
+    await context.close();
+  });
+}
+
+for (const width of [360, 768, 1280]) {
+  test(`machine import remains usable at ${width}px`, async ({ browser }) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { 'x-e2e-role': 'ADMIN' },
+      viewport: { height: 900, width },
+    });
+    const page = await context.newPage();
+    const browserErrors: string[] = [];
+    page.on('pageerror', (error) => browserErrors.push(error.message));
+    await mockApi(page);
+    await page.goto('/machines/import');
+    await expect(page.getByRole('heading', { name: 'Import machines' })).toBeVisible();
+    await page.screenshot({
+      fullPage: true,
+      path: `.artifacts/task-3.7/import-${width}.png`,
     });
     expect(browserErrors).toEqual([]);
     await context.close();
