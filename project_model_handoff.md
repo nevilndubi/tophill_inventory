@@ -293,10 +293,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 27 / 71 tasks (38.0%) |
 | Current phase | Phase 3 — bulk CSV import and validation reporting complete through Task 3.7 |
-| Last updated | 2026-10-27 16:27 EAT |
-| Branch | `phase-3/task-3.7-status-sync` |
-| Last commit | `790c9e5 Merge pull request #55 from nevilndubi/phase-3/task-3.7-bulk-csv-import` |
-| Repo state | Task 3.7 is merged, PR Quality is green, local `main` was synchronized, Neon `dev` migrations/seed are current, and Redis/API/web are running from the merged code |
+| Last updated | 2026-10-27 19:45 EAT |
+| Branch | `main` |
+| Last commit | `1d26440 Merge pull request #56 from nevilndubi/phase-3/task-3.7-status-sync` |
+| Repo state | Task 3.7 feature and status PRs plus both post-merge `main` Quality runs are green; local `main` is synchronized, Neon `dev` migrations/seed are current, and Redis/API/web were restarted from the final merged application code |
 | **Next task** | **3.8 Retire / soft-delete & restore** |
 
 ---
