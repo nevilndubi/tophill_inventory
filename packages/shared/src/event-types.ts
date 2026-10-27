@@ -6,6 +6,8 @@ export const openEventTypeSchema = z
 
 export const AUDIT_ACTIONS = [
   'app_setting.updated',
+  'attachment.deleted',
+  'attachment.uploaded',
   'booking.approved',
   'booking.cancelled',
   'booking.created',

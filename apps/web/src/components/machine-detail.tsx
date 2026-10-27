@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MachineConditionBadge } from '@/components/machine-condition-badge';
 import { MachineForm } from '@/components/machine-form';
+import { MachineAttachments } from '@/components/machine-attachments';
 import { useAuthenticatedUser } from '@/components/authenticated-user-provider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -154,7 +155,9 @@ export function MachineDetail({ id }: { id: string }) {
             {TABS.map((item) => (
               <TabsTrigger key={item} value={item}>
                 {TAB_LABELS[item]}
-                {item !== 'overview' ? <span className="sr-only"> — Coming soon</span> : null}
+                {item !== 'overview' && item !== 'files' ? (
+                  <span className="sr-only"> — Coming soon</span>
+                ) : null}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -239,7 +242,10 @@ export function MachineDetail({ id }: { id: string }) {
             </AlertDescription>
           </Alert>
         </TabsContent>
-        {TABS.filter((item) => item !== 'overview').map((item) => (
+        <TabsContent value="files" className="pt-3">
+          <MachineAttachments machineId={value.id} />
+        </TabsContent>
+        {TABS.filter((item) => item !== 'overview' && item !== 'files').map((item) => (
           <TabsContent key={item} value={item} className="pt-3">
             <Card>
               <CardHeader>

@@ -11,7 +11,7 @@ const testEnvironment = [
 export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: false,
-  outputDir: '.artifacts/task-3.4/playwright-results',
+  outputDir: '.artifacts/task-3.5/playwright-results',
   reporter: [['line']],
   testDir: './e2e',
   timeout: 30_000,

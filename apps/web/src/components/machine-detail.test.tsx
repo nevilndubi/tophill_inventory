@@ -20,6 +20,9 @@ vi.mock('./authenticated-user-provider', () => ({
   useAuthenticatedUser: () => ({ user: { role: mocks.role } }),
 }));
 vi.mock('@/lib/api/machines', () => ({ machinesApi: { get: mocks.get } }));
+vi.mock('./machine-attachments', () => ({
+  MachineAttachments: ({ machineId }: { machineId: string }) => <div>Files for {machineId}</div>,
+}));
 
 const machine = {
   allowBookingWhenNeedsService: false,
@@ -88,6 +91,13 @@ describe('MachineDetail', () => {
     renderDetail();
     expect(await screen.findByRole('heading', { name: 'Status' })).toBeInTheDocument();
     expect(screen.getByText('Coming soon')).toBeInTheDocument();
+  });
+
+  it('renders Files as a functional panel rather than a coming-soon placeholder', async () => {
+    mocks.search = new URLSearchParams('tab=files');
+    renderDetail();
+    expect(await screen.findByText(`Files for ${machine.id}`)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Files' })).toHaveAccessibleName('Files');
   });
 
   it('hides editing from read-only roles and shows a friendly stable-code not-found state', async () => {

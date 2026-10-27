@@ -37,6 +37,7 @@ import { CategoriesService } from '../src/categories/categories.service';
 import { DepartmentsService } from '../src/reference/departments.service';
 import { LocationsService } from '../src/reference/locations.service';
 import { MachinesService } from '../src/machines/machines.service';
+import { AttachmentsService } from '../src/attachments/attachments.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -602,6 +603,86 @@ const EXPECTED_ACCESS_TABLE = [
     successStatus: 200,
     unauthenticated: 'DENY',
   },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/machines/:machineId/attachments',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:attachment:upload',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:machineId/attachments/sign-upload',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:attachment:upload',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/attachments/confirm',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/attachments/:id/url',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:attachment:upload',
+    inactive: 'DENY',
+    method: 'DELETE',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/attachments/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
 ] as const satisfies readonly ExpectedAccessRow[];
 
 type InventoryRow = {
@@ -734,6 +815,28 @@ const machinesService = {
   readByAssetTag: jest.fn(async () => managedMachine),
   update: jest.fn(async () => managedMachine),
 };
+const managedAttachment = {
+  fileName: 'machine-photo.png',
+  id: TARGET_USER_ID,
+  sizeBytes: 8,
+  typeLabel: 'PNG image' as const,
+  uploadedAt: '2026-10-27T10:00:00.000Z',
+  uploader: { fullName: 'Test User' },
+};
+const attachmentsService = {
+  confirm: jest.fn(async () => managedAttachment),
+  delete: jest.fn(async () => managedAttachment),
+  download: jest.fn(async () => ({
+    expiresAt: '2026-10-27T10:05:00.000Z',
+    url: 'signed-download-redacted',
+  })),
+  list: jest.fn(async () => [managedAttachment]),
+  requestUpload: jest.fn(async () => ({
+    expiresAt: '2026-10-27T10:15:00.000Z',
+    intentToken: 'intent-redacted',
+    uploadUrl: 'signed-upload-redacted',
+  })),
+};
 
 const configForVerifier = (jwksUrl: string) =>
   ({
@@ -745,7 +848,10 @@ const configForVerifier = (jwksUrl: string) =>
   }) as unknown as ConfigService<ApiEnvironment, true>;
 
 const concreteRoute = (route: string): string =>
-  route.replace(':id', TARGET_USER_ID).replace(':assetTag', 'HM-000061');
+  route
+    .replace(':machineId', TARGET_USER_ID)
+    .replace(':id', TARGET_USER_ID)
+    .replace(':assetTag', 'HM-000061');
 
 const requestFor = (app: INestApplication, method: HttpMethod, route: string): SupertestRequest => {
   const path = concreteRoute(route);
@@ -798,6 +904,14 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
           name: 'Ventilator',
           serialNumber: 'SN-1',
         });
+      if (route.endsWith('/attachments/sign-upload'))
+        builder = builder.send({
+          fileName: 'machine-photo.png',
+          mimeType: 'image/png',
+          sizeBytes: 8,
+        });
+      if (route === '/api/v1/attachments/confirm')
+        builder = builder.send({ intentToken: 'intent-redacted' });
       break;
   }
 
@@ -923,6 +1037,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(locationsService)
         .overrideProvider(MachinesService)
         .useValue(machinesService)
+        .overrideProvider(AttachmentsService)
+        .useValue(attachmentsService)
         .compile();
 
     const productionModule = await createModule(false);

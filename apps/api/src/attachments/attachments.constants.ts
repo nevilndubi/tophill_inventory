@@ -1,0 +1,3 @@
+export const MACHINE_ATTACHMENTS_BUCKET = 'machine-attachments';
+export const ATTACHMENT_DOWNLOAD_TTL_SECONDS = 300;
+export const ATTACHMENT_CONFIRMATION_TTL_SECONDS = 15 * 60;
