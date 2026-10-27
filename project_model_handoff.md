@@ -221,7 +221,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 3.4 Machines UI (list, detail, create/edit)
 - [x] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
 - [x] 3.6 Asset tag / QR label generation & scan-lookup page
-- [~] 3.7 Bulk CSV import with validation report (implementation and verification complete; hosted delivery/local merged-main launch pending)
+- [x] 3.7 Bulk CSV import with validation report
 - [ ] 3.8 Retire / soft-delete & restore
 
 ### Phase 4 — Status: Usage & Condition
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 26 / 71 tasks (36.6%) |
-| Current phase | Phase 3 — Task 3.7 CSV import implementation and verification complete; hosted delivery pending |
-| Last updated | 2026-10-27 16:13 EAT |
-| Branch | `phase-3/task-3.7-bulk-csv-import` |
-| Last commit | `feat(machines): add validated CSV import` (feature commit for this branch) |
-| Repo state | Task 3.7 code, hermetic/browser verification and disposable-Neon proof pass; feature PR, green hosted CI, merge and merged-main local launch remain |
-| **Next task** | **3.7 Bulk CSV import with validation report** |
+| Overall progress | 27 / 71 tasks (38.0%) |
+| Current phase | Phase 3 — bulk CSV import and validation reporting complete through Task 3.7 |
+| Last updated | 2026-10-27 16:27 EAT |
+| Branch | `phase-3/task-3.7-status-sync` |
+| Last commit | `790c9e5 Merge pull request #55 from nevilndubi/phase-3/task-3.7-bulk-csv-import` |
+| Repo state | Task 3.7 is merged, PR Quality is green, local `main` was synchronized, Neon `dev` migrations/seed are current, and Redis/API/web are running from the merged code |
+| **Next task** | **3.8 Retire / soft-delete & restore** |
 
 ---
 
@@ -735,10 +735,25 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** finish Task 3.7 delivery, then 3.8 Retire / soft-delete & restore
 - **Branch / commit:** `phase-3/task-3.7-bulk-csv-import` / `feat(machines): add validated CSV import`
 
+### [2026-10-27 16:27 EAT] — Task(s): 3.7 — hosted delivery and merged local launch
+- **Prompt summary:** Finish Task 3.7 through a conventional commit, green hosted PR, merge, synchronized `main`, current Neon `dev` data and the new mandatory §6.4 local platform launch.
+- **What I did:** Pushed the feature, opened and merged PR #55 after Quality passed, synchronized local `main` to `790c9e5`, confirmed both required ignored runtime files and their variable names without displaying values, safely matched both database hosts to Neon `dev`, confirmed all nine migrations are applied, refreshed the aging relative-date demo seed and reverified its counts/invariants, then started healthy Redis, API and web processes from the merged code.
+- **How:** The Neon CLI output stayed captured and only branch-match booleans were emitted. The guarded seed targeted only verified `dev`; the first verifier correctly found that the time-relative near-booking scenario had aged out, and the idempotent seed refresh restored it. Detached Turbopack startup stalled before binding on this workstation, so the web is running in supported Next development webpack mode; the API uses the ignored environment file through the dotenv runner.
+- **Files touched:** this handoff only on the status-sync branch; feature files are already in merge `790c9e5`, runtime logs/artifacts remain ignored, and private values remain in mode-600 ignored files
+- **Migrations:** none; `prisma migrate deploy` reported all 9 existing migrations applied to Neon `dev`
+- **Verification:** PR #55 Quality passed in 2m08s. Guarded seed verification passed with 60 machines, 12 bookings, 14 sessions, 15 tickets, all consistency scenarios and all 32 documented query/constraint indexes. `/login` returned HTTP 200; unauthenticated `/` returned HTTP 307 to `/login`; `/health/ready` returned HTTP 200 with overall `ok`, database `up` and Redis `up`; both application ports listen from project-owned processes and Redis is healthy.
+- **Locally running:** `http://localhost:3000` and `http://localhost:3001` are live. Working areas are login/home, users, reference data, machine list/detail/create/edit, private Files, CSV Import at `/machines/import`, labels and scan lookup. Machine Status, Bookings, Service and History tabs plus dashboard metrics/reports remain “Coming soon”. Stop apps with the README's project-scoped `pkill` commands and Redis with `docker compose stop redis` (or the documented in-container workaround).
+- **Result:** Task 3.7 is complete, merged, green and locally usable; its checklist item is ticked.
+- **Progress after this session:** 27 / 71 (38.0%)
+- **Left undone / follow-ups:** Task 7.3 owns import/template rate limiting. The detached Turbopack startup rough edge is recorded below. Task 3.8 remains untouched.
+- **Next task:** 3.8 Retire / soft-delete & restore
+- **Branch / commit:** `phase-3/task-3.7-status-sync` / based on `790c9e5 Merge pull request #55 from nevilndubi/phase-3/task-3.7-bulk-csv-import`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- On this workstation, detached Next.js 16.4.2 Turbopack development startup can log `Ready` but stall before binding port 3000; clearing the generated dev cache did not change it. The merged app starts and serves correctly with `next dev --webpack`, which is the current detached local-run workaround. Browser tests and production builds remain green; investigate the Turbopack/PTY interaction in a dedicated tooling task rather than Task 3.7.
 - **Resolved on 2026-10-27:** local login showed the generic invalid-credentials message because the ignored web environment targeted a different Supabase project/key pair than the API and proof credentials. The web values now match the verified API project; the real browser login and repeat `/me` proof pass. Always use the exact configured `http://localhost:3000` origin—`127.0.0.1` is intentionally rejected by the CORS allow-list.
 - **Resolved before Task 3.5:** both ignored runtime files now exist with restricted permissions and the required variable names. Their database hosts were verified through safe Neon branch metadata as `dev`; migrations, seed verification, Redis/API/web readiness and the unauthenticated redirect passed without printing values. The later 2026-10-27 maintenance entry records completion of the `dev` bootstrap.
 - **Resolved in Task 3.4:** the typed web reference client treated the paginated locations endpoint's envelope as though pagination lived inside `data`, causing the first real-route browser render to fail. It now reconstructs the page from the standard `data` array plus envelope `meta`; component and Playwright regression coverage pass.
