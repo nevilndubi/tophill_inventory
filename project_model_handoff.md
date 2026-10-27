@@ -281,10 +281,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 25 / 71 tasks (35.2%) |
 | Current phase | Phase 3 — private machine attachments complete through Task 3.5 |
-| Last updated | 2026-10-27 04:08 EAT |
-| Branch | `phase-3/task-3.5-attachments` |
-| Last commit | `feat: add private machine attachments` (pending) |
-| Repo state | Task 3.5 is implemented and verified locally, including disposable Supabase Storage/Neon proof; commit, hosted CI, merge and post-merge local launch remain in this turn |
+| Last updated | 2026-10-27 04:15 EAT |
+| Branch | `main` |
+| Last commit | `docs: synchronize Task 3.5 delivery status` (final handoff follow-up) |
+| Repo state | Task 3.5 is merged; PR and push-to-main Quality gates are green; local Redis/API/web are running from merged `main` against verified Neon `dev` with database and Redis readiness `up` |
 | **Next task** | **3.6 Asset tag / QR label generation and scan lookup** |
 
 ---
@@ -632,6 +632,19 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.6 Asset tag / QR label generation and scan lookup
 - **Branch / commit:** `phase-3/task-3.5-attachments` / `feat: add private machine attachments` (pending)
 
+### [2026-10-27 04:15 EAT] — Task(s): 3.5 — Hosted delivery and merged-main launch
+- **Prompt summary:** Complete the conventional commit, hosted PR/CI/merge workflow, synchronize local `main`, and leave the verified development platform running without exposing private configuration.
+- **What I did:** Committed the implementation as `bf698b9`, pushed it, opened PR #49, waited for the required Quality check, merged only after success as `d5f95cb`, synchronized local `main`, and waited for the push-to-main Quality run to pass. Replaced the earlier API watcher, retained healthy Docker Redis, and launched the API and web app as detached merged-main processes with ignored logs.
+- **How:** Both hosted runs independently repeated frozen installation, format, lint, typecheck, hermetic tests and build. Runtime checks emitted only HTTP codes and dependency states. The first two readiness requests observed Neon's bounded cold-start timeout (`database=down`, Redis still `up`); the third bounded retry returned overall `ok` with both dependencies `up`, demonstrating the documented fail-fast readiness behavior without an API crash.
+- **Files touched:** this handoff only in the status-sync follow-up; all product code and documentation were delivered in PR #49
+- **Migrations:** none; `dev` was already current and the Task 3.5 live proof used/deleted its own disposable branch
+- **Verification:** PR #49 Quality passed in 1m17s. Push-to-main run `40431142556` passed Quality in 1m32s. Local `/login` returned 200, unauthenticated `/` returned 307 to `/login?returnTo=%2F`, and `/health/ready` returned 200/`ok` with database `up` and Redis `up`. Both ports remain listening. The active non-seed SUPER_ADMIN count in `dev` is zero.
+- **Result:** Task 3.5 is implemented, merged, green and running locally at the URLs in the README. No test object, proof row, temporary bucket or disposable branch remains.
+- **Progress after this session:** 25 / 71 (35.2%)
+- **Left undone / follow-ups:** Complete the one-time private `dev` SUPER_ADMIN bootstrap before signing in as the owner; upload rate limiting remains Task 7.3, scheduled orphan reconciliation remains Task 9.2, and ticket attachments remain Task 6.6. Task 3.6 has not started.
+- **Next task:** 3.6 Asset tag / QR label generation and scan lookup
+- **Branch / commit:** `main` / `d5f95cb Merge pull request #49 from nevilndubi/phase-3/task-3.5-attachments`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -762,7 +775,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 
 **Neon branches:** `main` (production), `staging`, `dev`; explicit database integration jobs create dedicated ephemeral branches, apply reviewed migrations, and remove the branches after the run. `INTEGRATION_DATABASE_BRANCH` and `INTEGRATION_DATABASE_URL` are guarded so the suite cannot use a long-lived or normally configured database. Default unit/e2e tests use localhost placeholders and never connect to Neon.
 
-**Services running locally:** Task 3.5's pre-implementation proof started Redis and the API against verified Neon `dev`; the web server was intentionally stopped while its single Next development lock was used by Playwright. After the Task 3.5 merge, Redis/API/web are restarted as detached processes with logs under ignored artifact directories and the final safe health evidence is recorded in the delivery follow-up.
+**Services running locally:** Redis, API and web are running as detached merged-`main` processes against verified Neon `dev`; `/login` is HTTP 200, unauthenticated `/` redirects to login, and readiness reports database/Redis `up`. Logs are ignored at `apps/api/.artifacts/local-run/api.log` and `apps/web/.artifacts/local-run/web.log`. Stop app processes with `pkill -f 'pnpm --filter @app/api dev'` and `pkill -f 'pnpm --filter @app/web dev'`; stop Redis with `docker compose stop redis` (or the documented in-container shutdown workaround if the workstation daemon again rejects direct signals).
 
 ---
 
