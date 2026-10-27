@@ -281,10 +281,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 25 / 71 tasks (35.2%) |
 | Current phase | Phase 3 — private machine attachments complete through Task 3.5 |
-| Last updated | 2026-10-27 07:05 EAT |
-| Branch | `maintenance/fix-local-admin-login` |
-| Last commit | `docs: record local admin login repair` (pending) |
-| Repo state | Task 3.5 remains merged and green; local Supabase web configuration now matches the verified API project, one dedicated non-staff test identity is the active `dev` SUPER_ADMIN, and browser login reaches `/machines` successfully |
+| Last updated | 2026-10-27 09:40 EAT |
+| Branch | `main` |
+| Last commit | `9b6f74a Merge pull request #51 from nevilndubi/maintenance/fix-local-admin-login` |
+| Repo state | Task 3.5 and the local-login repair are merged and green; local Supabase web configuration matches the verified API project, one dedicated non-staff test identity is the active `dev` SUPER_ADMIN, and browser login reaches `/machines` successfully |
 | **Next task** | **3.6 Asset tag / QR label generation and scan lookup** |
 
 ---
@@ -657,6 +657,19 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Create the owner's real `dev` SUPER_ADMIN through the authenticated user-management workflow before retiring the test administrator. Production keeps the separate deployment-secret bootstrap step. Task 3.6 has not started.
 - **Next task:** 3.6 Asset tag / QR label generation and scan lookup
 - **Branch / commit:** `maintenance/fix-local-admin-login` / `docs: record local admin login repair` (pending)
+
+### [2026-10-27 09:40 EAT] — Task(s): Maintenance — local administrator login repair delivery
+- **Prompt summary:** Finish the credential-safe login repair delivery, verify hosted `main`, and synchronize the handoff with the final repository state.
+- **What I did:** Pushed commit `523be34`, opened PR #51, merged only after its Quality gate passed, synchronized local `main` to merge `9b6f74a`, and waited for the resulting push-to-main Quality run to pass. Left Redis, API and web running from merged `main`.
+- **How:** GitHub Actions independently repeated frozen installation, formatting, linting, typechecking, all hermetic tests and the production build. Final checks inspected only branch state, listening ports and non-secret service metadata.
+- **Files touched:** this handoff only in the status-sync follow-up; the repaired values remain confined to ignored mode-600 environment files
+- **Migrations:** none
+- **Verification:** PR #51 Quality passed in 1m49s. Push-to-main run `40462330632` passed Quality in 1m28s. Local `main` matched `origin/main`, the tracked worktree was clean, and Redis/API/web remained listening on their documented ports.
+- **Result:** Local administrator login repair is merged, independently green and reflected accurately in Current Status. Task progress remains unchanged.
+- **Progress after this session:** 25 / 71 (35.2%)
+- **Left undone / follow-ups:** Create the owner's real `dev` SUPER_ADMIN through user management before retiring the dedicated test administrator. Task 3.6 has not started.
+- **Next task:** 3.6 Asset tag / QR label generation and scan lookup
+- **Branch / commit:** `main` / `9b6f74a Merge pull request #51 from nevilndubi/maintenance/fix-local-admin-login`
 
 ---
 
