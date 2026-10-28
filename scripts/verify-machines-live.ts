@@ -135,67 +135,82 @@ const main = async (): Promise<void> => {
       orderBy: { assetTag: 'asc' },
     });
     const seededChecks = await Promise.all([
-      machines.list({ direction: 'asc', page: 1, pageSize: 10, sort: 'asset_tag' }),
-      machines.list({
+      machines.list(actor, {
+        direction: 'asc',
+        page: 1,
+        pageSize: 10,
+        registry: 'active',
+        sort: 'asset_tag',
+      }),
+      machines.list(actor, {
         department_id: first.departmentId,
         direction: 'asc',
         page: 1,
         pageSize: 100,
+        registry: 'active',
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         category_id: first.categoryId,
         direction: 'asc',
         page: 1,
         pageSize: 100,
+        registry: 'active',
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         location_id: first.locationId,
         direction: 'asc',
         page: 1,
         pageSize: 100,
+        registry: 'active',
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         condition: first.condition,
         direction: 'asc',
         page: 1,
         pageSize: 100,
+        registry: 'active',
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         direction: 'asc',
         is_bookable: first.isBookable,
         page: 1,
         pageSize: 100,
+        registry: 'active',
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         direction: 'asc',
         page: 1,
         pageSize: 100,
+        registry: 'active',
         service_due: true,
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         direction: 'asc',
         page: 1,
         pageSize: 10,
+        registry: 'active',
         search: first.name,
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         direction: 'asc',
         page: 1,
         pageSize: 10,
+        registry: 'active',
         search: first.assetTag,
         sort: 'asset_tag',
       }),
-      machines.list({
+      machines.list(actor, {
         direction: 'asc',
         page: 1,
         pageSize: 10,
+        registry: 'active',
         search: first.serialNumber,
         sort: 'asset_tag',
       }),
@@ -353,7 +368,7 @@ const main = async (): Promise<void> => {
     });
     let bookingGuard = 'none';
     try {
-      await machines.delete(actor, guardMachine.id, 'task-3.3-booking-guard');
+      await machines.delete(actor, guardMachine.id, {}, 'task-3.3-booking-guard');
     } catch (error: unknown) {
       bookingGuard = errorCode(error);
     }
@@ -369,7 +384,7 @@ const main = async (): Promise<void> => {
     });
     let sessionGuard = 'none';
     try {
-      await machines.delete(actor, sessionMachine.id, 'task-3.3-session-guard');
+      await machines.delete(actor, sessionMachine.id, {}, 'task-3.3-session-guard');
     } catch (error: unknown) {
       sessionGuard = errorCode(error);
     }
@@ -385,24 +400,101 @@ const main = async (): Promise<void> => {
 
     const deletionTarget = concurrent[2];
     if (!deletionTarget) throw new Error('Concurrent fixture was incomplete');
+    await Promise.all([
+      prisma.attachment.create({
+        data: {
+          entityId: deletionTarget.id,
+          entityType: 'MACHINE',
+          fileName: 'registry-proof.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 12,
+          storagePath: `machines/${deletionTarget.id}/registry-proof-${suffix}.pdf`,
+          uploadedByUserId: actor.id,
+        },
+      }),
+      prisma.booking.create({
+        data: {
+          blockedUntil: new Date('2026-12-03T11:00:00Z'),
+          endsAt: new Date('2026-12-03T11:00:00Z'),
+          machineId: deletionTarget.id,
+          purpose: 'Ward round',
+          requestedByUserId: actor.id,
+          startsAt: new Date('2026-12-03T10:00:00Z'),
+          status: 'CANCELLED',
+        },
+      }),
+      prisma.serviceTicket.create({
+        data: {
+          description: 'Registry preservation proof',
+          machineId: deletionTarget.id,
+          reportedByUserId: actor.id,
+          severity: 'LOW',
+          status: 'CANCELLED',
+          title: 'Registry proof ticket',
+          type: 'INSPECTION',
+        },
+      }),
+      prisma.usageSession.create({
+        data: {
+          endedAt: new Date('2026-10-20T09:00:00Z'),
+          machineId: deletionTarget.id,
+          purpose: 'Pre-op check',
+          startedAt: new Date('2026-10-20T08:00:00Z'),
+          userId: actor.id,
+        },
+      }),
+    ]);
+    const relatedCounts = () =>
+      Promise.all([
+        prisma!.attachment.count({ where: { entityId: deletionTarget.id, entityType: 'MACHINE' } }),
+        prisma!.booking.count({ where: { machineId: deletionTarget.id } }),
+        prisma!.usageSession.count({ where: { machineId: deletionTarget.id } }),
+        prisma!.serviceTicket.count({ where: { machineId: deletionTarget.id } }),
+        prisma!.machineStatusHistory.count({ where: { machineId: deletionTarget.id } }),
+      ]);
+    const relationsBefore = await relatedCounts();
     const retainedBefore = await prisma.machine.findUniqueOrThrow({
       where: { id: deletionTarget.id },
     });
-    await machines.delete(actor, deletionTarget.id, 'task-3.3-delete');
-    const [hiddenList, retainedAfter, historyCount] = await Promise.all([
-      machines.list({
-        direction: 'asc',
-        page: 1,
-        pageSize: 100,
-        search: deletionTarget.assetTag,
-        sort: 'asset_tag',
-      }),
-      prisma.machine.findUniqueOrThrow({ where: { id: deletionTarget.id } }),
-      prisma.machineStatusHistory.count({ where: { machineId: deletionTarget.id } }),
-    ]);
+    await machines.delete(
+      actor,
+      deletionTarget.id,
+      { reason: 'Registry proof correction' },
+      'task-3.8-delete',
+    );
+    const [hiddenList, deletedList, allList, deletedDetail, retainedAfter, relationsAfterDelete] =
+      await Promise.all([
+        machines.list(actor, {
+          direction: 'asc',
+          page: 1,
+          pageSize: 100,
+          registry: 'active',
+          search: deletionTarget.assetTag,
+          sort: 'asset_tag',
+        }),
+        machines.list(actor, {
+          direction: 'asc',
+          page: 1,
+          pageSize: 100,
+          registry: 'deleted',
+          search: deletionTarget.assetTag,
+          sort: 'asset_tag',
+        }),
+        machines.list(actor, {
+          direction: 'asc',
+          page: 1,
+          pageSize: 100,
+          registry: 'all',
+          search: deletionTarget.assetTag,
+          sort: 'asset_tag',
+        }),
+        machines.read(actor, deletionTarget.id, true),
+        prisma.machine.findUniqueOrThrow({ where: { id: deletionTarget.id } }),
+        relatedCounts(),
+      ]);
     const hiddenReadCodes: string[] = [];
     for (const operation of [
-      () => machines.read(deletionTarget.id),
+      () => machines.read(actor, deletionTarget.id),
       () => machines.readByAssetTag(deletionTarget.assetTag),
     ]) {
       try {
@@ -427,18 +519,112 @@ const main = async (): Promise<void> => {
     }
     if (
       hiddenList.total !== 0 ||
+      deletedList.total !== 1 ||
+      allList.total !== 1 ||
+      deletedDetail.registryStatus !== 'DELETED' ||
       hiddenReadCodes.some((code) => code !== 'MACHINE_NOT_FOUND') ||
       retainedAfter.deletedAt === null ||
       retainedBefore.assetTag !== retainedAfter.assetTag ||
       retainedBefore.serialNumber !== retainedAfter.serialNumber ||
       retainedBefore.condition !== retainedAfter.condition ||
-      historyCount !== 1 ||
+      relationsBefore.some((count, index) => count !== relationsAfterDelete[index]) ||
       reusedIdentity !== 'MACHINE_IDENTITY_TAKEN'
     ) {
       throw new Error('Soft-delete visibility/retention proof failed');
     }
     console.log(
-      `Soft delete: list_hidden=true detail_and_tag=${hiddenReadCodes.join('+')} row_retained=true identity_permanent=${reusedIdentity} condition_unchanged=true history_rows=${historyCount}.`,
+      `Soft delete: active_hidden=true admin_deleted_and_all_visible=true detail_and_tag=${hiddenReadCodes.join('+')} row_retained=true identity_permanent=${reusedIdentity} condition_unchanged=true related_counts=${relationsAfterDelete.join('/')}.`,
+    );
+
+    let deniedRegistry = 'none';
+    try {
+      await machines.list(
+        { ...actor, role: 'STAFF' },
+        { direction: 'asc', page: 1, pageSize: 25, registry: 'deleted', sort: 'asset_tag' },
+      );
+    } catch (error: unknown) {
+      deniedRegistry = errorCode(error);
+    }
+    if (deniedRegistry !== 'PERMISSION_DENIED') {
+      throw new Error('Deleted-registry permission proof failed');
+    }
+
+    let failedRestore = false;
+    try {
+      await machines.restore(
+        { ...actor, id: '99999999-9999-4999-8999-999999999999' },
+        deletionTarget.id,
+        { reason: 'Must roll back' },
+        'task-3.8-restore-rollback',
+      );
+    } catch {
+      failedRestore = true;
+    }
+    const [afterFailedRestore, failedRestoreAudits] = await Promise.all([
+      prisma.machine.findUniqueOrThrow({ where: { id: deletionTarget.id } }),
+      prisma.auditLog.count({ where: { requestId: 'task-3.8-restore-rollback' } }),
+    ]);
+    if (!failedRestore || afterFailedRestore.deletedAt === null || failedRestoreAudits !== 0) {
+      throw new Error('Restore audit rollback proof failed');
+    }
+
+    const restoreResults = await Promise.allSettled([
+      machines.restore(
+        actor,
+        deletionTarget.id,
+        { reason: 'Return to active registry' },
+        'task-3.8-restore-a',
+      ),
+      machines.restore(actor, deletionTarget.id, {}, 'task-3.8-restore-b'),
+    ]);
+    const restoreFailures = restoreResults
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map((result) => errorCode(result.reason));
+    const [restoredRow, restoredRead, restoredByTag, relationsAfterRestore, restoreAudits] =
+      await Promise.all([
+        prisma.machine.findUniqueOrThrow({ where: { id: deletionTarget.id } }),
+        machines.read(actor, deletionTarget.id),
+        machines.readByAssetTag(deletionTarget.assetTag),
+        relatedCounts(),
+        prisma.auditLog.findMany({
+          select: { after: true },
+          where: { action: 'machine.restored', entityId: deletionTarget.id },
+        }),
+      ]);
+    if (
+      restoreResults.filter((result) => result.status === 'fulfilled').length !== 1 ||
+      restoreFailures[0] !== 'MACHINE_NOT_DELETED' ||
+      restoredRow.deletedAt !== null ||
+      restoredRow.condition !== retainedBefore.condition ||
+      restoredRead.registryStatus !== 'ACTIVE' ||
+      restoredByTag.id !== deletionTarget.id ||
+      relationsBefore.some((count, index) => count !== relationsAfterRestore[index]) ||
+      restoreAudits.length !== 1
+    ) {
+      throw new Error('Serialized restore/preservation proof failed');
+    }
+    console.log(
+      `Restore: concurrent_attempts=2 successes=1 conflict=${restoreFailures[0] ?? 'none'} audit_rows=${restoreAudits.length} rollback_audit_rows=${failedRestoreAudits} related_counts_preserved=true QR_lookup_restored=true registry_permission_denied=${deniedRegistry}.`,
+    );
+
+    const concurrentDeleteTarget = concurrent[3];
+    if (!concurrentDeleteTarget) throw new Error('Concurrent fixture was incomplete');
+    const deleteResults = await Promise.allSettled([
+      machines.delete(actor, concurrentDeleteTarget.id, {}, 'task-3.8-delete-a'),
+      machines.delete(actor, concurrentDeleteTarget.id, {}, 'task-3.8-delete-b'),
+    ]);
+    const deleteFailures = deleteResults
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map((result) => errorCode(result.reason));
+    if (
+      deleteResults.filter((result) => result.status === 'fulfilled').length !== 1 ||
+      deleteFailures[0] !== 'MACHINE_ALREADY_DELETED'
+    ) {
+      throw new Error('Serialized delete proof failed');
+    }
+    await machines.restore(actor, concurrentDeleteTarget.id, {}, 'task-3.8-delete-proof-restore');
+    console.log(
+      `Delete serialization: concurrent_attempts=2 successes=1 conflict=${deleteFailures[0] ?? 'none'}.`,
     );
 
     await prisma.$executeRaw`

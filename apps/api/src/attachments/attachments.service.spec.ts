@@ -113,6 +113,19 @@ describe('AttachmentsService', () => {
     expect(intents.issue).toHaveBeenCalledWith(expect.objectContaining({ path, sub: USER_ID }));
   });
 
+  it('rejects a signed upload when the machine is outside the active registry', async () => {
+    const { prisma, service, storage } = makeHarness();
+    prisma.machine.findFirst.mockResolvedValueOnce(null);
+    await expect(
+      service.requestUpload(actor, MACHINE_ID, {
+        fileName: 'photo.png',
+        mimeType: 'image/png',
+        sizeBytes: PNG.length,
+      }),
+    ).rejects.toMatchObject({ response: expect.objectContaining({ code: 'MACHINE_NOT_FOUND' }) });
+    expect(storage.createSignedUpload).not.toHaveBeenCalled();
+  });
+
   it('enforces the 20-item limit before signing and again under the machine row lock', async () => {
     const first = makeHarness();
     first.prisma.attachment.count.mockResolvedValue(20);

@@ -9,6 +9,7 @@ import {
   MachineHasOpenSessionException,
   MachineIdentityTakenException,
   MachineLocationNotFoundException,
+  MachineNotDeletedException,
   MachineNotFoundException,
 } from './machines.errors';
 import { MachinesService } from './machines.service';
@@ -119,7 +120,7 @@ const makeHarness = () => {
 describe('MachinesService', () => {
   it('lists minimized DTOs with filters, escaped search, stable sorting, and no N+1 reads', async () => {
     const { prisma, service } = makeHarness();
-    const result = await service.list({
+    const result = await service.list(actor, {
       category_id: CATEGORY_ID,
       condition: 'OPERATIONAL',
       department_id: DEPARTMENT_ID,
@@ -128,6 +129,7 @@ describe('MachinesService', () => {
       location_id: LOCATION_ID,
       page: 2,
       pageSize: 1,
+      registry: 'active',
       search: 'HM%_\\',
       service_due: true,
       sort: 'name',
@@ -170,7 +172,13 @@ describe('MachinesService', () => {
     ['next_service_due_at', 'nextServiceDueAt'],
   ] as const)('maps the allowed %s sort without accepting raw fields', async (sort, field) => {
     const { prisma, service } = makeHarness();
-    await service.list({ direction: 'asc', page: 1, pageSize: 25, sort });
+    await service.list(actor, {
+      direction: 'asc',
+      page: 1,
+      pageSize: 25,
+      registry: 'active',
+      sort,
+    });
     expect(prisma.machine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: [{ [field]: 'asc' }, { id: 'asc' }] }),
     );
@@ -178,10 +186,11 @@ describe('MachinesService', () => {
 
   it('defines not-due as a null or future due date', async () => {
     const { prisma, service } = makeHarness();
-    await service.list({
+    await service.list(actor, {
       direction: 'asc',
       page: 1,
       pageSize: 25,
+      registry: 'active',
       service_due: false,
       sort: 'asset_tag',
     });
@@ -194,9 +203,72 @@ describe('MachinesService', () => {
     );
   });
 
+  it('applies registry visibility before querying and supports deleted/all for administrators', async () => {
+    const denied = makeHarness();
+    const staff = { ...actor, role: 'STAFF' as const };
+    await expect(
+      denied.service.list(staff, {
+        direction: 'asc',
+        page: 1,
+        pageSize: 25,
+        registry: 'deleted',
+        sort: 'asset_tag',
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(denied.prisma.machine.findMany).not.toHaveBeenCalled();
+
+    const deleted = makeHarness();
+    await deleted.service.list(actor, {
+      direction: 'asc',
+      page: 1,
+      pageSize: 25,
+      registry: 'deleted',
+      sort: 'asset_tag',
+    });
+    expect(deleted.prisma.machine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ deletedAt: { not: null } }) }),
+    );
+
+    const all = makeHarness();
+    await all.service.list(actor, {
+      direction: 'asc',
+      page: 1,
+      pageSize: 25,
+      registry: 'all',
+      sort: 'asset_tag',
+    });
+    expect(all.prisma.machine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ deletedAt: expect.anything() }),
+      }),
+    );
+  });
+
+  it('keeps RETIRED condition rows visible in the active registry', async () => {
+    const { prisma, service } = makeHarness();
+    prisma.machine.findMany.mockResolvedValueOnce([
+      { ...machineRow, condition: 'RETIRED', retiredOn: new Date('2026-10-01') },
+    ] as never);
+    const result = await service.list(actor, {
+      direction: 'asc',
+      page: 1,
+      pageSize: 25,
+      registry: 'active',
+      sort: 'asset_tag',
+    });
+    expect(result.items[0]).toMatchObject({ condition: 'RETIRED', registryStatus: 'ACTIVE' });
+    expect(prisma.machine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deletedAt: null } }),
+    );
+  });
+
   it('reads only active rows and normalizes asset tags without leaking malformed lookups', async () => {
     const { prisma, service } = makeHarness();
-    await expect(service.read(ID)).resolves.toMatchObject({ id: ID, purchaseDate: '2025-01-01' });
+    await expect(service.read(actor, ID)).resolves.toMatchObject({
+      id: ID,
+      purchaseDate: '2025-01-01',
+      registryStatus: 'ACTIVE',
+    });
     await expect(service.readByAssetTag('  hm-000061 ')).resolves.toMatchObject({ id: ID });
     expect(prisma.machine.findFirst).toHaveBeenNthCalledWith(
       1,
@@ -210,6 +282,26 @@ describe('MachinesService', () => {
     );
     await expect(service.readByAssetTag('not-a-tag')).rejects.toBeInstanceOf(
       MachineNotFoundException,
+    );
+  });
+
+  it('authorizes deleted detail visibility before database lookup', async () => {
+    const denied = makeHarness();
+    await expect(
+      denied.service.read({ ...actor, role: 'BIOMED_TECH' }, ID, true),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(denied.prisma.machine.findFirst).not.toHaveBeenCalled();
+
+    const allowed = makeHarness();
+    allowed.prisma.machine.findFirst.mockResolvedValueOnce({
+      ...machineRow,
+      deletedAt: now,
+    } as never);
+    await expect(allowed.service.read(actor, ID, true)).resolves.toMatchObject({
+      registryStatus: 'DELETED',
+    });
+    expect(allowed.prisma.machine.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: ID } }),
     );
   });
 
@@ -340,7 +432,7 @@ describe('MachinesService', () => {
 
     const deletion = makeHarness();
     deletion.audit.record.mockRejectedValueOnce(new Error('audit failed'));
-    await expect(deletion.service.delete(actor, ID, 'request')).rejects.toThrow('audit failed');
+    await expect(deletion.service.delete(actor, ID, {}, 'request')).rejects.toThrow('audit failed');
   });
 
   it('returns a semantic PATCH no-op without an update, audit, or updated_at bump', async () => {
@@ -356,19 +448,26 @@ describe('MachinesService', () => {
 
   it('soft deletes without changing condition or history and makes repeated deletion explicit', async () => {
     const { audit, service, tx } = makeHarness();
-    await expect(service.delete(actor, ID, 'request')).resolves.toMatchObject({ id: ID });
+    tx.machine.update.mockResolvedValueOnce({ ...machineRow, deletedAt: now } as never);
+    await expect(
+      service.delete(actor, ID, { reason: 'Registry correction' }, 'request'),
+    ).resolves.toMatchObject({ id: ID, registryStatus: 'DELETED' });
     expect(tx.machine.update).toHaveBeenCalledWith({
       data: { deletedAt: expect.any(Date) },
+      select: expect.any(Object),
       where: { id: ID },
     });
     expect(tx.machineStatusHistory.create).not.toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith(
       tx,
-      expect.objectContaining({ action: 'machine.deleted' }),
+      expect.objectContaining({
+        action: 'machine.deleted',
+        context: { reason: 'Registry correction' },
+      }),
     );
 
     tx.machine.findUnique.mockResolvedValueOnce({ ...machineRow, deletedAt: now } as never);
-    await expect(service.delete(actor, ID, 'request')).rejects.toBeInstanceOf(
+    await expect(service.delete(actor, ID, {}, 'request')).rejects.toBeInstanceOf(
       MachineAlreadyDeletedException,
     );
   });
@@ -376,16 +475,75 @@ describe('MachinesService', () => {
   it('blocks deletion after a committed open session or active booking becomes visible', async () => {
     const open = makeHarness();
     open.tx.usageSession.count.mockResolvedValueOnce(1);
-    await expect(open.service.delete(actor, ID, 'request')).rejects.toBeInstanceOf(
+    await expect(open.service.delete(actor, ID, {}, 'request')).rejects.toBeInstanceOf(
       MachineHasOpenSessionException,
     );
     expect(open.tx.machine.update).not.toHaveBeenCalled();
 
     const booked = makeHarness();
     booked.tx.booking.count.mockResolvedValueOnce(2);
-    await expect(booked.service.delete(actor, ID, 'request')).rejects.toBeInstanceOf(
+    await expect(booked.service.delete(actor, ID, {}, 'request')).rejects.toBeInstanceOf(
       MachineHasActiveBookingsException,
     );
+    expect(booked.tx.booking.count).toHaveBeenCalledWith({
+      where: {
+        machineId: ID,
+        status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
+      },
+    });
     expect(booked.tx.machine.update).not.toHaveBeenCalled();
+  });
+
+  it('restores only deleted rows, preserves condition/history, and audits atomically', async () => {
+    const { audit, service, tx } = makeHarness();
+    tx.machine.findUnique.mockResolvedValueOnce({ ...machineRow, deletedAt: now } as never);
+    tx.machine.update.mockResolvedValueOnce({ ...machineRow, deletedAt: null } as never);
+    await expect(
+      service.restore(actor, ID, { reason: 'Approved registry return' }, 'request'),
+    ).resolves.toMatchObject({ condition: 'OPERATIONAL', registryStatus: 'ACTIVE' });
+    expect(tx.machine.update).toHaveBeenCalledWith({
+      data: { deletedAt: null },
+      select: expect.any(Object),
+      where: { id: ID },
+    });
+    expect(tx.machineStatusHistory.create).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        action: 'machine.restored',
+        context: { reason: 'Approved registry return' },
+      }),
+    );
+
+    const active = makeHarness();
+    await expect(active.service.restore(actor, ID, {}, 'request')).rejects.toBeInstanceOf(
+      MachineNotDeletedException,
+    );
+
+    const auditFailure = makeHarness();
+    auditFailure.tx.machine.findUnique.mockResolvedValueOnce({
+      ...machineRow,
+      deletedAt: now,
+    } as never);
+    auditFailure.audit.record.mockRejectedValueOnce(new Error('audit failed'));
+    await expect(auditFailure.service.restore(actor, ID, {}, 'request')).rejects.toThrow(
+      'audit failed',
+    );
+  });
+
+  it('serializes simultaneous restore attempts so exactly one succeeds', async () => {
+    const harness = makeHarness();
+    harness.tx.machine.findUnique
+      .mockResolvedValueOnce({ ...machineRow, deletedAt: now } as never)
+      .mockResolvedValueOnce(machineRow as never);
+    const outcomes = await Promise.allSettled([
+      harness.service.restore(actor, ID, {}, 'request-a'),
+      harness.service.restore(actor, ID, {}, 'request-b'),
+    ]);
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+    const rejected = outcomes.find(
+      (outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected',
+    );
+    expect(rejected?.reason).toBeInstanceOf(MachineNotDeletedException);
   });
 });

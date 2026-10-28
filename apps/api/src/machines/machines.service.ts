@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import {
+  can,
   machineAssetTagSchema,
   type CreateMachineInput,
   type ListMachinesQuery,
+  type MachineRegistryMutationInput,
   type MachineCondition,
   type ManagedMachine,
   type ManagedMachinePage,
   type UpdateMachineInput,
 } from '@app/shared';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { PermissionDeniedException } from '../authorization/permission-denied.exception';
 import { AuditService } from '../audit/audit.service';
 import type { Machine, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +25,7 @@ import {
   MachineHasOpenSessionException,
   MachineIdentityTakenException,
   MachineLocationNotFoundException,
+  MachineNotDeletedException,
   MachineNotFoundException,
 } from './machines.errors';
 
@@ -139,6 +143,7 @@ const toManagedMachine = (value: MachineRow): ManagedMachine => ({
   description: value.description,
   id: value.id,
   isBookable: value.isBookable,
+  registryStatus: value.deletedAt === null ? 'ACTIVE' : 'DELETED',
   lastServicedAt: dateTime(value.lastServicedAt),
   location: value.location,
   manufacturer: value.manufacturer,
@@ -176,6 +181,11 @@ const auditState = (value: MachineAuditState): Prisma.InputJsonObject => ({
   serviceIntervalDays: value.serviceIntervalDays,
   warrantyExpiresOn: dateOnly(value.warrantyExpiresOn),
 });
+
+const registryAuditState = (
+  value: MachineAuditState,
+  registryStatus: 'ACTIVE' | 'DELETED',
+): Prisma.InputJsonObject => ({ ...auditState(value), registryStatus });
 
 const assertLifecycleDates = (value: {
   commissionedOn: Date | null;
@@ -216,11 +226,18 @@ export class MachinesService {
     private readonly audit: AuditService,
   ) {}
 
-  async list(query: ListMachinesQuery): Promise<ManagedMachinePage> {
+  async list(actor: AuthenticatedUser, query: ListMachinesQuery): Promise<ManagedMachinePage> {
+    if (query.registry !== 'active' && !can(actor.role, 'machine:restore')) {
+      throw new PermissionDeniedException();
+    }
     const now = new Date();
     const escapedSearch = query.search === undefined ? undefined : escapeLikePattern(query.search);
     const where: Prisma.MachineWhereInput = {
-      deletedAt: null,
+      ...(query.registry === 'active'
+        ? { deletedAt: null }
+        : query.registry === 'deleted'
+          ? { deletedAt: { not: null } }
+          : {}),
       ...(query.category_id === undefined ? {} : { categoryId: query.category_id }),
       ...(query.condition === undefined ? {} : { condition: query.condition }),
       ...(query.department_id === undefined ? {} : { departmentId: query.department_id }),
@@ -271,10 +288,17 @@ export class MachinesService {
     };
   }
 
-  async read(id: string): Promise<ManagedMachine> {
+  async read(
+    actor: AuthenticatedUser,
+    id: string,
+    includeDeleted = false,
+  ): Promise<ManagedMachine> {
+    if (includeDeleted && !can(actor.role, 'machine:restore')) {
+      throw new PermissionDeniedException();
+    }
     const machine = await this.prisma.machine.findFirst({
       select: machineSelection,
-      where: { deletedAt: null, id },
+      where: includeDeleted ? { id } : { deletedAt: null, id },
     });
     if (machine === null) throw new MachineNotFoundException();
     return toManagedMachine(machine);
@@ -352,7 +376,7 @@ export class MachinesService {
         });
         return machine.id;
       });
-      return this.read(id);
+      return this.read(actor, id);
     } catch (error: unknown) {
       return this.mapWriteError(error, input);
     }
@@ -457,7 +481,12 @@ export class MachinesService {
     }
   }
 
-  async delete(actor: AuthenticatedUser, id: string, requestId: string): Promise<ManagedMachine> {
+  async delete(
+    actor: AuthenticatedUser,
+    id: string,
+    input: MachineRegistryMutationInput,
+    requestId: string,
+  ): Promise<ManagedMachine> {
     return this.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`SELECT id FROM machines WHERE id = ${id}::uuid FOR UPDATE`;
       const before = await transaction.machine.findUnique({
@@ -476,16 +505,55 @@ export class MachinesService {
       if (activeBookingCount > 0) {
         throw new MachineHasActiveBookingsException(activeBookingCount);
       }
-      await transaction.machine.update({ data: { deletedAt: new Date() }, where: { id } });
+      const after = await transaction.machine.update({
+        data: { deletedAt: new Date() },
+        select: machineSelection,
+        where: { id },
+      });
       await this.audit.record(transaction, {
         action: 'machine.deleted',
         actorUserId: actor.id,
-        before: auditState(before),
+        after: registryAuditState(after, 'DELETED'),
+        before: registryAuditState(before, 'ACTIVE'),
+        ...(input.reason === undefined ? {} : { context: { reason: input.reason } }),
         entityId: id,
         entityType: 'machine',
         requestId,
       });
-      return toManagedMachine(before);
+      return toManagedMachine(after);
+    });
+  }
+
+  async restore(
+    actor: AuthenticatedUser,
+    id: string,
+    input: MachineRegistryMutationInput,
+    requestId: string,
+  ): Promise<ManagedMachine> {
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM machines WHERE id = ${id}::uuid FOR UPDATE`;
+      const before = await transaction.machine.findUnique({
+        select: machineSelection,
+        where: { id },
+      });
+      if (before === null) throw new MachineNotFoundException();
+      if (before.deletedAt === null) throw new MachineNotDeletedException();
+      const after = await transaction.machine.update({
+        data: { deletedAt: null },
+        select: machineSelection,
+        where: { id },
+      });
+      await this.audit.record(transaction, {
+        action: 'machine.restored',
+        actorUserId: actor.id,
+        after: registryAuditState(after, 'ACTIVE'),
+        before: registryAuditState(before, 'DELETED'),
+        ...(input.reason === undefined ? {} : { context: { reason: input.reason } }),
+        entityId: id,
+        entityType: 'machine',
+        requestId,
+      });
+      return toManagedMachine(after);
     });
   }
 

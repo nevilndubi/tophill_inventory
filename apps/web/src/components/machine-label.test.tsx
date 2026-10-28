@@ -10,6 +10,7 @@ const machine = {
   id: '00000000-0000-4000-8000-000000000123',
   location: { id: '44444444-4444-4444-8444-444444444444', name: 'Bay A' },
   name: 'Ward ventilator',
+  registryStatus: 'ACTIVE' as const,
 };
 
 describe('MachineLabel', () => {

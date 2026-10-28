@@ -292,12 +292,12 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 27 / 71 tasks (38.0%) |
-| Current phase | Phase 3 — bulk CSV import and validation reporting complete through Task 3.7 |
-| Last updated | 2026-10-27 19:45 EAT |
-| Branch | `main` |
-| Last commit | `1d26440 Merge pull request #56 from nevilndubi/phase-3/task-3.7-status-sync` |
-| Repo state | Task 3.7 feature and status PRs plus both post-merge `main` Quality runs are green; local `main` is synchronized, Neon `dev` migrations/seed are current, and Redis/API/web were restarted from the final merged application code |
-| **Next task** | **3.8 Retire / soft-delete & restore** |
+| Current phase | Phase 3 — Task 3.8 registry removal/restore implementation and verification complete; hosted delivery/local launch pending |
+| Last updated | 2026-10-28 06:50 EAT |
+| Branch | `phase-3/task-3.8-machine-retire-restore` |
+| Last commit | `feat(machines): add registry removal and restore` (pending) |
+| Repo state | Clean isolated worktree based on actual `main` `c29c8d7`; full local checks, negative mutation proofs, 23-browser-journey suite and disposable-Neon proof pass; feature commit/PR/green merge and merged-main local launch remain |
+| **Next task** | **Finish Task 3.8 delivery, then 4.1 Machine condition state machine** |
 
 ---
 
@@ -317,7 +317,6 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Hospital shared-device security:** decide the idle/inactivity sign-out policy before production hardening (candidate owner: Task 10.2). Task 2.4 deliberately implements explicit and cross-tab logout only.
 - **Task 7.3 — login rate limiting:** add the application-owned Redis control when the rate-limiting task lands; Supabase's hosted Auth limits are the only login throttle until then.
 - **Task 7.3 — invitation rate limiting:** add an application-owned Redis limit for `POST /api/v1/users`; until then, the endpoint is permission-gated, uses a 16 KiB JSON body limit and inherits Supabase's service limits.
-- **Task 3.8 — restore retired machine:** proposed new `machine:restore` permission, initially `GLOBAL` for SUPER_ADMIN and ADMIN only; do not alias restore to edit/retire until the owner approves the state-transition policy.
 - **Task 5.4 — cancel own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`; administrative or department cancellation remains a separate decision for that service.
 - **Task 4.2 — check in a session you hold:** proposed ownership rule layered on `usage:check-in-out` with `isOwner = true`; force-ending another user's session remains governed by `usage:force-end`.
 - **Task 5.4 — edit own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`, subject to booking-state and overlap checks.
@@ -327,11 +326,11 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
 - **Task 7.2 — reference-data caching:** place cache-aside behind the category service's read method and invalidate every category list/detail key after each successful create, update or delete; Task 3.1 deliberately adds no cache.
 - **Task 7.2 — department/location reference caching:** add cache-aside at the Task 3.2 service read boundaries and invalidate `ref:departments:v1` and `ref:locations:v1` after every successful relevant write, including manager changes caused through user administration.
-- **Tasks 4.2 and 5.3 — close the machine/delete race:** checkout and booking creation must lock the machine row and reject a soft-deleted machine before inserting a session or booking; Task 3.3 deletion locks the same row before checking current sessions/bookings.
+- **Tasks 4.2 and 5.3 — close the machine/delete race:** checkout and booking creation must lock the machine row and reject a soft-deleted machine before inserting a session or booking; Task 3.8 deletion locks the same row before checking current sessions/bookings.
 - **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
-- **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, and any future asset-tag lookup key after successful create/update/delete. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
-- **Task 3.8 — machine restore:** add the approved restore workflow/UI and decide whether restored registry records need additional booking/session safeguards; Task 3.3 intentionally has no restore endpoint.
-- **Task 4.4 — derived machine status badges:** extend Task 3.4's stored-condition icon/text/colour badges with the derived availability and usage states only after the Phase 4 status service is authoritative; do not infer “Available” or “In use” from the current registry UI.
+- **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, every reference-data machine-count key and any future asset-tag lookup key after successful create/update/delete/restore. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
+- **Task 7.4 — machine registry realtime:** publish delete and restore events after committed registry changes so clients can invalidate active/deleted lists, detail, status-board and reference-count views.
+- **Task 4.4 — derived machine status badges:** extend Task 3.4's stored-condition icon/text/colour badges with the derived availability and usage states only after the Phase 4 status service is authoritative; show active-registry machines only and do not infer “Available” or “In use” from the current registry UI.
 - **Node type major:** revisit the ignored `@types/node` semver-major update only when the pinned runtime moves from Node 24; keep runtime and declaration majors aligned and verify the complete workspace during that runtime upgrade.
 - **TypeScript 6:** revisit the ignored TypeScript semver-major update in a dedicated toolchain task after Next.js, NestJS, Prisma, ts-jest, tsup and ESLint support is verified together and the hosted Quality pipeline passes.
 - **Permanent QR origin:** choose and configure a final HTTPS custom domain controlled by the hospital before printing or applying real asset labels. Printed labels are permanent; localhost/default preview-host labels must remain test-only.
@@ -438,6 +437,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D81 | 2026-10-27 | Parse machine imports with maintained MIT-licensed `csv-parse` 7.0.3 after a streaming 1 MiB byte cap; accept comma-delimited UTF-8 only, cap 1,000 rows and 500 characters per cell, and reuse the Task 3.3 shared schemas after resolving all references through three request-scoped lookup maps | The zero-dependency parser handles BOMs, quoting, escaped quotes and CRLF/LF correctly, while bounded input and batched lookups prevent hostile files and N+1 database reads | Hand-written CSV parsing; browser-only parsing; an unbounded spreadsheet parser; per-row lookups |
 | D82 | 2026-10-27 | Bind commit to the independently revalidated file with SHA-256; run full imports as one 60-second transaction in 100-row chunks, while partial-valid imports use conflict-safe inserts and report race losers as `skipped_conflict`; never update an existing or soft-deleted identity | Preview cannot drift from commit, full mode remains all-or-nothing, partial mode preserves valid rows under concurrency, and permanent manufacturer/serial identity remains authoritative and idempotent | Store dry-run state server-side; one transaction per row; overwrite matches; abort every partial import on one concurrent duplicate |
 | D83 | 2026-10-27 | Require existing `machine:create` for both import/template endpoints; create one normal machine audit and initial status row per inserted machine plus one aggregate `machine.import_completed` audit, and protect every CSV export cell with the shared formula-injection helper | This matches the approved six-role matrix, preserves per-machine history, keeps summary audit data free of CSV contents, and makes the reusable export boundary safe for Task 8.3 | Add a new permission; BIOMED import under edit; summary audit only; store the uploaded file or row data |
+| D84 | 2026-10-28 | Add the owner-approved `machine:restore` permission for SUPER_ADMIN and ADMIN only; registry deletion continues to use `machine:retire`, and every other role remains unable to delete or restore | Restore is a distinct administrative reversal of registry removal, not a condition transition or ordinary edit, so it needs an explicit fail-closed capability without implicit role inheritance | Reuse `machine:update` or `machine:retire`; grant BIOMED_TECH restore; infer access from role names |
+| D85 | 2026-10-28 | Treat delete/restore as serialized active-registry visibility changes: lock the machine, preserve condition, identity and every related record, block deletion for open sessions/active bookings, and allow restoration regardless of historical work | Registry removal corrects registration/decommissioning visibility while RETIRED remains Task 4.1; preservation keeps records of fact intact and matching row locks let Tasks 4.2/5.3 close future creation races | Change condition/history; cascade related data; block restoration on historical relations; hard delete |
+| D86 | 2026-10-28 | Require a trimmed 1–200 character removal reason and allow an optional restore reason in JSON bodies, storing the reason only in audit context; ordinary reads remain active-only, privileged list/detail reads use strict registry parameters, and by-tag lookup always hides deleted machines | Browser, exact-origin CORS, Nest parsing and the API e2e path all accept DELETE JSON bodies; contextual audit preserves operator intent without a schema change or patient-data field, while permission checks occur before lookup to prevent existence leaks | Dedicated removal endpoint; reason header; new database column; expose deleted QR/by-tag records |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -749,10 +751,25 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 3.8 Retire / soft-delete & restore
 - **Branch / commit:** `phase-3/task-3.7-status-sync` / based on `790c9e5 Merge pull request #55 from nevilndubi/phase-3/task-3.7-bulk-csv-import`
 
+### [2026-10-28 06:50 EAT] — Task(s): 3.8 — active-registry removal and restoration implementation
+- **Prompt summary:** Add the explicitly approved `machine:restore` capability, preserve the retirement/registry distinction, implement serialized delete/restore API and administrator UI, prove relationship preservation and access rules, and leave the owner's pre-existing dirty web files untouched through an isolated worktree.
+- **What I did:** Added strict active/deleted/all reads, privileged deleted detail, `POST /machines/:id/restore`, reason-bearing delete/restore audits, permission-first authorization, concurrency serialization and preserved-history behavior. Extended the Machines list/detail with registry filters, accessible remove/restore dialogs and deleted-state protections across QR, labels, attachments, imports and reference counts. Updated shared contracts, the hand-written permission/route matrices, Architecture and README.
+- **How:** Delete and restore lock the machine row; delete retains the Task 3.3 active-work guards and restore clears only `deleted_at`. `machine:restore` is global only for SUPER_ADMIN/ADMIN. DELETE JSON-body support was proven through exact-origin CORS, Nest e2e and Chromium. Negative fixtures proved unclassified routes and a widened permission fail independently, then were removed (D84–D86).
+- **Files touched:** shared permission/machine contracts; API machine/audit services, controller, errors and tests; web machine API, list/detail/registry actions, labels and Playwright coverage; live verifier; `docs/ARCHITECTURE.md`, `README.md` and this handoff
+- **Migrations:** none; `deleted_at`, permanent identity, relations and audit JSON already support the workflow
+- **Verification:** frozen install, format check, lint and typecheck passed. `pnpm test` passed API 31 suites/278 tests plus all web/shared suites (one intentional Task 7.2 skip); `pnpm test:e2e:machines` passed 23/23 in 1.0 minute across 360/768/1280; the CI-shaped production build passed and excluded test-only controllers. Disposable Neon verified migrations/seed, blockers, active/deleted/all reads, preserved relations/files/history, permission ordering, audit rollback, exactly-one concurrent restore/delete, no drift and zero protected-branch proof rows; the disposable branch was deleted.
+- **Locally running:** deferred until the feature is committed, hosted Quality is green, the PR is merged and merged `main` is synchronized, as §6.4 requires
+- **Result:** Task 3.8 implementation and acceptance proofs pass; checklist remains unticked until hosted delivery and merged-main local launch complete
+- **Progress after this session:** 27 / 71 (38.0%); Task 3.8 partial
+- **Left undone / follow-ups:** Tasks 4.2/5.3 own matching creation locks, Task 4.4 active-registry status-board scope, Task 7.2 invalidation and Task 7.4 realtime events. Feature delivery and final local launch remain in this turn.
+- **Next task:** finish Task 3.8 delivery, then 4.1 Machine condition state machine
+- **Branch / commit:** `phase-3/task-3.8-machine-retire-restore` / `feat(machines): add registry removal and restore` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- The Task 3.8 live concurrency verifier triggers a non-fatal `pg` warning when one client is intentionally used for competing queries (`client.query already executing`). The proof still produced the required exactly-one success/conflict outcomes and cleaned the branch; refactor that verifier to use one dedicated connection per contender before relying on it for higher concurrency loads.
 - On this workstation, detached Next.js 16.4.2 Turbopack development startup can log `Ready` but stall before binding port 3000; clearing the generated dev cache did not change it. The merged app starts and serves correctly with `next dev --webpack`, which is the current detached local-run workaround. Browser tests and production builds remain green; investigate the Turbopack/PTY interaction in a dedicated tooling task rather than Task 3.7.
 - **Resolved on 2026-10-27:** local login showed the generic invalid-credentials message because the ignored web environment targeted a different Supabase project/key pair than the API and proof credentials. The web values now match the verified API project; the real browser login and repeat `/me` proof pass. Always use the exact configured `http://localhost:3000` origin—`127.0.0.1` is intentionally rejected by the CORS allow-list.
 - **Resolved before Task 3.5:** both ignored runtime files now exist with restricted permissions and the required variable names. Their database hosts were verified through safe Neon branch metadata as `dev`; migrations, seed verification, Redis/API/web readiness and the unauthenticated redirect passed without printing values. The later 2026-10-27 maintenance entry records completion of the `dev` bootstrap.
@@ -879,6 +896,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Validate or commit a machine CSV: `POST /api/v1/machines/import?mode=dry_run|commit|partial`
 - Read a machine by asset tag: `GET /api/v1/machines/by-tag/:assetTag`
 - Read/update/remove a machine from the active registry: `GET /api/v1/machines/:id`, `PATCH /api/v1/machines/:id`, `DELETE /api/v1/machines/:id`
+- Restore a registry-removed machine: `POST /api/v1/machines/:id/restore`; privileged deleted visibility uses `registry=deleted|all` on the list and `include_deleted=true` on detail, while by-tag lookup always remains active-only
 - List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
 - Confirm an upload: `POST /api/v1/attachments/confirm`
 - Request a five-minute download/delete an attachment: `GET /api/v1/attachments/:id/url`, `DELETE /api/v1/attachments/:id`

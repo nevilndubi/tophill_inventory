@@ -22,6 +22,7 @@ const labelMachineSchema = z
     id: z.uuid(),
     location: z.object({ id: z.uuid(), name: z.string() }).strict(),
     name: z.string().min(1).max(120),
+    registryStatus: z.literal('ACTIVE'),
   })
   .strict();
 
@@ -32,6 +33,7 @@ export type LabelMachine = {
   id: string;
   location: { id: string; name: string };
   name: string;
+  registryStatus: 'ACTIVE';
 };
 
 export const toLabelMachine = (machine: ManagedMachine): LabelMachine =>
@@ -42,6 +44,7 @@ export const toLabelMachine = (machine: ManagedMachine): LabelMachine =>
     id: machine.id,
     location: machine.location,
     name: machine.name,
+    registryStatus: machine.registryStatus,
   });
 
 export const buildCanonicalAssetUrl = (origin: string, rawAssetTag: string): string => {
@@ -71,8 +74,9 @@ export const qrMatrixPath = (matrix: readonly (readonly boolean[])[]): string =>
   return commands.join('');
 };
 
-export const isLabelSelectable = (machine: Pick<LabelMachine, 'condition'>): boolean =>
-  machine.condition !== 'RETIRED';
+export const isLabelSelectable = (
+  machine: Pick<ManagedMachine, 'condition' | 'registryStatus'>,
+): boolean => machine.condition !== 'RETIRED' && machine.registryStatus === 'ACTIVE';
 
 export const readLabelSelection = (): LabelMachine[] => {
   if (typeof window === 'undefined') return [];

@@ -12,6 +12,7 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  ArchiveX,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -162,6 +163,7 @@ function MachineCard({
   toggleSelected: (machine: ManagedMachine) => void;
 }) {
   const selectable = isLabelSelectable(machine);
+  const deleted = machine.registryStatus === 'DELETED';
   return (
     <Card>
       <CardContent className="space-y-4 pt-6">
@@ -177,6 +179,11 @@ function MachineCard({
           </div>
           <MachineConditionBadge condition={machine.condition} />
         </div>
+        {deleted ? (
+          <p className="inline-flex items-center gap-1 text-sm font-medium text-destructive">
+            <ArchiveX className="size-4" aria-hidden="true" /> Removed from active registry
+          </p>
+        ) : null}
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <dt className="text-muted-foreground">Category</dt>
@@ -205,7 +212,11 @@ function MachineCard({
             onChange={() => toggleSelected(machine)}
             className="size-4 accent-primary"
           />
-          {selectable ? 'Select for label printing' : 'Retired machines cannot be selected'}
+          {selectable
+            ? 'Select for label printing'
+            : deleted
+              ? 'Removed machines cannot be selected'
+              : 'Retired machines cannot be selected'}
         </label>
       </CardContent>
     </Card>
@@ -224,6 +235,7 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
   );
   const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const [selectingAll, setSelectingAll] = useState(false);
+  const mayRestore = can(user.role, 'machine:restore');
   const parsed = useMemo(() => parseMachineListState(searchParams), [searchParams]);
   const queryString = serializeMachineListState(parsed);
 
@@ -290,7 +302,8 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
     parsed.location_id ||
     parsed.condition ||
     parsed.is_bookable !== undefined ||
-    parsed.service_due !== undefined,
+    parsed.service_due !== undefined ||
+    parsed.registry !== 'active',
   );
 
   const sortBy = (sort: MachineSortField) => {
@@ -382,6 +395,22 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
                 ))}
               </select>
             </label>
+            {mayRestore ? (
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Registry visibility
+                <select
+                  className={selectClass}
+                  value={parsed.registry}
+                  onChange={(event) =>
+                    update({ registry: event.target.value as ListMachinesQuery['registry'] })
+                  }
+                >
+                  <option value="active">Active</option>
+                  <option value="deleted">Deleted</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+            ) : null}
             <label className="grid gap-1 text-xs text-muted-foreground">
               Category
               <select
@@ -629,7 +658,12 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
               </TableHeader>
               <TableBody>
                 {page.items.map((machine) => (
-                  <TableRow key={machine.id}>
+                  <TableRow
+                    key={machine.id}
+                    className={
+                      machine.registryStatus === 'DELETED' ? 'bg-destructive/5' : undefined
+                    }
+                  >
                     <TableCell>
                       <input
                         aria-label={`Select ${machine.assetTag} for label printing`}
@@ -641,7 +675,9 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
                         title={
                           isLabelSelectable(machine)
                             ? undefined
-                            : 'Retired machines cannot be selected'
+                            : machine.registryStatus === 'DELETED'
+                              ? 'Removed machines cannot be selected or printed'
+                              : 'Retired machines cannot be selected'
                         }
                       />
                     </TableCell>
@@ -656,6 +692,11 @@ export function MachinesList({ initialState }: { initialState: ListMachinesQuery
                       <p className="text-xs text-muted-foreground">
                         {machine.manufacturer} · {machine.model}
                       </p>
+                      {machine.registryStatus === 'DELETED' ? (
+                        <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-destructive">
+                          <ArchiveX className="size-3.5" aria-hidden="true" /> Removed from registry
+                        </p>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <MachineConditionBadge condition={machine.condition} />

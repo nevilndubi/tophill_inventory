@@ -179,6 +179,7 @@ describe('reference services', () => {
     await expect(departments.delete(actor, department.id, 'request')).rejects.toBeInstanceOf(
       DepartmentInUseException,
     );
+    expect(tx.machine.count).toHaveBeenCalledWith({ where: { departmentId: department.id } });
     expect(audit.record).not.toHaveBeenCalled();
   });
 
@@ -194,6 +195,7 @@ describe('reference services', () => {
     await expect(locations.delete(actor, location.id, 'request')).rejects.toBeInstanceOf(
       LocationInUseException,
     );
+    expect(tx.machine.count).toHaveBeenCalledWith({ where: { locationId: location.id } });
     expect(audit.record).not.toHaveBeenCalled();
     expect(prisma.location.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
   });

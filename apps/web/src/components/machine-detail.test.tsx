@@ -7,7 +7,9 @@ import { MachineDetail } from './machine-detail';
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
+  remove: vi.fn(),
   replace: vi.fn(),
+  restore: vi.fn(),
   role: 'ADMIN',
   search: new URLSearchParams(),
 }));
@@ -19,7 +21,9 @@ vi.mock('next/navigation', () => ({
 vi.mock('./authenticated-user-provider', () => ({
   useAuthenticatedUser: () => ({ user: { role: mocks.role } }),
 }));
-vi.mock('@/lib/api/machines', () => ({ machinesApi: { get: mocks.get } }));
+vi.mock('@/lib/api/machines', () => ({
+  machinesApi: { get: mocks.get, remove: mocks.remove, restore: mocks.restore },
+}));
 vi.mock('./machine-attachments', () => ({
   MachineAttachments: ({ machineId }: { machineId: string }) => <div>Files for {machineId}</div>,
 }));
@@ -35,6 +39,7 @@ const machine = {
   description: 'Ward equipment',
   id: '44444444-4444-4444-8444-444444444444',
   isBookable: true,
+  registryStatus: 'ACTIVE',
   lastServicedAt: '2026-09-01T06:00:00.000Z',
   location: { id: '33333333-3333-4333-8333-333333333333', name: 'Bay A' },
   manufacturer: 'acme',
@@ -64,6 +69,8 @@ describe('MachineDetail', () => {
     mocks.role = 'ADMIN';
     mocks.search = new URLSearchParams();
     mocks.get.mockResolvedValue(machine);
+    mocks.remove.mockResolvedValue({ ...machine, registryStatus: 'DELETED' });
+    mocks.restore.mockResolvedValue(machine);
     sessionStorage.clear();
   });
 
@@ -100,11 +107,49 @@ describe('MachineDetail', () => {
     expect(screen.getByRole('tab', { name: 'Files' })).toHaveAccessibleName('Files');
   });
 
+  it('requires a PHI-safe removal reason and navigates to the deleted registry view', async () => {
+    const user = userEvent.setup();
+    mocks.remove.mockImplementationOnce(async () => {
+      const deleted = { ...machine, registryStatus: 'DELETED' };
+      mocks.get.mockResolvedValue(deleted);
+      return deleted;
+    });
+    renderDetail();
+    await user.click(await screen.findByRole('button', { name: 'Remove from active registry' }));
+    expect(screen.getByText(/This is not retirement/i)).toBeInTheDocument();
+    expect(screen.getByText(/Do not enter patient names/i)).toBeInTheDocument();
+    const submit = screen.getByRole('button', { name: 'Remove machine' });
+    expect(submit).toBeDisabled();
+    await user.type(screen.getByLabelText(/Reason \(required\)/i), 'Registry correction');
+    await user.click(submit);
+    expect(mocks.remove).toHaveBeenCalledWith(machine.id, 'Registry correction');
+    expect(await screen.findByRole('button', { name: 'Restore to active registry' })).toBeVisible();
+    expect(mocks.replace).toHaveBeenCalledWith('/machines?registry=deleted');
+  });
+
+  it('shows a deleted banner, hides files and editing, and restores without changing history', async () => {
+    const user = userEvent.setup();
+    mocks.get.mockResolvedValue({ ...machine, registryStatus: 'DELETED' });
+    mocks.restore.mockResolvedValue(machine);
+    mocks.search = new URLSearchParams('tab=files');
+    renderDetail();
+    expect(await screen.findByText('Removed from the active registry')).toBeInTheDocument();
+    expect(screen.queryByText(`Files for ${machine.id}`)).not.toBeInTheDocument();
+    expect(screen.getByText(/Attachments remain private and hidden/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Edit machine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Print label' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Restore to active registry' }));
+    await user.click(screen.getByRole('button', { name: 'Restore machine' }));
+    expect(mocks.restore).toHaveBeenCalledWith(machine.id, '');
+    expect(mocks.replace).toHaveBeenCalledWith(`/machines/${machine.id}`);
+  });
+
   it('hides editing from read-only roles and shows a friendly stable-code not-found state', async () => {
     mocks.role = 'STAFF';
     const view = renderDetail();
     await screen.findByRole('heading', { name: machine.name });
     expect(screen.queryByRole('link', { name: 'Edit machine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /active registry/i })).not.toBeInTheDocument();
     view.unmount();
     mocks.get.mockRejectedValue(
       new ApiClientError({ code: 'MACHINE_NOT_FOUND', details: {}, message: 'Missing' }, 404),

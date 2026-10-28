@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { can } from '@app/shared';
-import { ArrowLeft, CalendarClock, Info, Pencil, Printer, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArchiveX, CalendarClock, Info, Pencil, Printer, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MachineConditionBadge } from '@/components/machine-condition-badge';
 import { MachineForm } from '@/components/machine-form';
 import { MachineAttachments } from '@/components/machine-attachments';
+import { MachineRegistryActions } from '@/components/machine-registry-actions';
 import { useAuthenticatedUser } from '@/components/authenticated-user-provider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -60,7 +61,11 @@ export function MachineDetail({ id }: { id: string }) {
     ? (requestedTab as MachineTab)
     : 'overview';
   const [createdTag, setCreatedTag] = useState<string | null>(null);
-  const machine = useQuery({ queryFn: () => machinesApi.get(id), queryKey: ['machine', id] });
+  const mayRestore = can(user.role, 'machine:restore');
+  const machine = useQuery({
+    queryFn: () => machinesApi.get(id, mayRestore),
+    queryKey: ['machine', id, { includeDeleted: mayRestore }],
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -107,6 +112,7 @@ export function MachineDetail({ id }: { id: string }) {
   }
 
   const value = machine.data;
+  const deleted = value.registryStatus === 'DELETED';
   const overdue = isServiceOverdue(value.nextServiceDueAt);
   return (
     <div className="space-y-6">
@@ -116,6 +122,16 @@ export function MachineDetail({ id }: { id: string }) {
           <AlertTitle>Machine registered as {createdTag}</AlertTitle>
           <AlertDescription>
             Asset tags are unique, but sequence rollbacks can leave gaps between numbers.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {deleted ? (
+        <Alert variant="destructive">
+          <ArchiveX aria-hidden="true" />
+          <AlertTitle>Removed from the active registry</AlertTitle>
+          <AlertDescription>
+            Normal lists, QR scans and new-work selectors hide this machine. Its permanent asset
+            tag, condition, history, bookings and files remain preserved.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -133,17 +149,22 @@ export function MachineDetail({ id }: { id: string }) {
           <p className="mt-2 font-mono text-sm text-muted-foreground">{value.assetTag}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/machines/${value.id}/label`}>
-              <Printer aria-hidden="true" /> Print label
-            </Link>
-          </Button>
-          {can(user.role, 'machine:update') ? (
+          {!deleted ? (
+            <Button asChild variant="outline">
+              <Link href={`/machines/${value.id}/label`}>
+                <Printer aria-hidden="true" /> Print label
+              </Link>
+            </Button>
+          ) : null}
+          {!deleted && can(user.role, 'machine:update') ? (
             <Button asChild>
               <Link href={`/machines/${value.id}/edit`}>
                 <Pencil aria-hidden="true" /> Edit machine
               </Link>
             </Button>
+          ) : null}
+          {can(user.role, deleted ? 'machine:restore' : 'machine:retire') ? (
+            <MachineRegistryActions machine={value} />
           ) : null}
         </div>
       </div>
@@ -250,7 +271,21 @@ export function MachineDetail({ id }: { id: string }) {
           </Alert>
         </TabsContent>
         <TabsContent value="files" className="pt-3">
-          <MachineAttachments machineId={value.id} />
+          {deleted ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <h2>Files are preserved</h2>
+                </CardTitle>
+                <CardDescription>
+                  Attachments remain private and hidden while this machine is outside the active
+                  registry. Restore it to see the existing files again.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            <MachineAttachments machineId={value.id} />
+          )}
         </TabsContent>
         {TABS.filter((item) => item !== 'overview' && item !== 'files').map((item) => (
           <TabsContent key={item} value={item} className="pt-3">

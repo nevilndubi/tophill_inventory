@@ -570,7 +570,13 @@ export class MachineImportService {
               ]),
           ...(match.deletedAt === null
             ? []
-            : [issue('row', 'IMPORT_MACHINE_DELETED', 'Restore is available in Task 3.8')]),
+            : [
+                issue(
+                  'row',
+                  'IMPORT_MACHINE_DELETED',
+                  'Machine was removed from the active registry; an administrator can restore it under Machines using the Deleted registry filter',
+                ),
+              ]),
         ],
       };
     }
