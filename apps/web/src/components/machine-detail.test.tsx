@@ -7,9 +7,11 @@ import { MachineDetail } from './machine-detail';
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
+  history: vi.fn(),
   remove: vi.fn(),
   replace: vi.fn(),
   restore: vi.fn(),
+  transition: vi.fn(),
   role: 'ADMIN',
   search: new URLSearchParams(),
 }));
@@ -22,7 +24,13 @@ vi.mock('./authenticated-user-provider', () => ({
   useAuthenticatedUser: () => ({ user: { role: mocks.role } }),
 }));
 vi.mock('@/lib/api/machines', () => ({
-  machinesApi: { get: mocks.get, remove: mocks.remove, restore: mocks.restore },
+  machinesApi: {
+    get: mocks.get,
+    history: mocks.history,
+    remove: mocks.remove,
+    restore: mocks.restore,
+    transition: mocks.transition,
+  },
 }));
 vi.mock('./machine-attachments', () => ({
   MachineAttachments: ({ machineId }: { machineId: string }) => <div>Files for {machineId}</div>,
@@ -71,6 +79,12 @@ describe('MachineDetail', () => {
     mocks.get.mockResolvedValue(machine);
     mocks.remove.mockResolvedValue({ ...machine, registryStatus: 'DELETED' });
     mocks.restore.mockResolvedValue(machine);
+    mocks.transition.mockResolvedValue({
+      condition: 'NEEDS_SERVICE',
+      machineId: machine.id,
+      retiredOn: null,
+    });
+    mocks.history.mockResolvedValue({ items: [], page: 1, pageSize: 50, total: 0 });
     sessionStorage.clear();
   });
 
@@ -82,7 +96,7 @@ describe('MachineDetail', () => {
     expect(screen.getByRole('link', { name: 'Edit machine' })).toBeInTheDocument();
   });
 
-  it('keeps all placeholder tabs keyboard reachable and records the active tab in the URL', async () => {
+  it('keeps tabs keyboard reachable, makes Status functional, and records it in the URL', async () => {
     const user = userEvent.setup();
     const view = renderDetail();
     await screen.findByRole('heading', { name: machine.name });
@@ -92,12 +106,12 @@ describe('MachineDetail', () => {
     expect(mocks.replace).toHaveBeenCalledWith(expect.stringContaining('tab=status'), {
       scroll: false,
     });
-    expect(status).toHaveAccessibleName(/Status.*Coming soon/);
+    expect(status).toHaveAccessibleName('Status');
     view.unmount();
     mocks.search = new URLSearchParams('tab=status');
     renderDetail();
-    expect(await screen.findByRole('heading', { name: 'Status' })).toBeInTheDocument();
-    expect(screen.getByText('Coming soon')).toBeInTheDocument();
+    expect(await screen.findByText('Current condition')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark as needs service' })).toBeInTheDocument();
   });
 
   it('renders Files as a functional panel rather than a coming-soon placeholder', async () => {
@@ -105,6 +119,30 @@ describe('MachineDetail', () => {
     renderDetail();
     expect(await screen.findByText(`Files for ${machine.id}`)).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Files' })).toHaveAccessibleName('Files');
+  });
+
+  it('renders minimized newest-first condition history with safe actor metadata', async () => {
+    mocks.search = new URLSearchParams('tab=history');
+    mocks.history.mockResolvedValue({
+      items: [
+        {
+          actor: { fullName: 'Test Technician' },
+          createdAt: '2026-10-28T12:00:00.000Z',
+          fromCondition: 'OPERATIONAL',
+          id: '55555555-5555-4555-8555-555555555555',
+          reason: 'Inspection found a fault',
+          source: 'MANUAL',
+          toCondition: 'NEEDS_SERVICE',
+        },
+      ],
+      page: 1,
+      pageSize: 50,
+      total: 1,
+    });
+    renderDetail();
+    expect(await screen.findByText('Inspection found a fault')).toBeInTheDocument();
+    expect(screen.getByText(/Manual · Test Technician/)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'History' })).toHaveAccessibleName('History');
   });
 
   it('requires a PHI-safe removal reason and navigates to the deleted registry view', async () => {

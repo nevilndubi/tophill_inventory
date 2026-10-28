@@ -18,6 +18,8 @@ import {
   MACHINE_IMPORT_TEMPLATE_VERSION,
   type MachineImportReport,
   type ManagedMachine,
+  type MachineConditionHistoryItem,
+  type MachineConditionTransitionResult,
 } from '@app/shared';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -29,6 +31,8 @@ import {
   CreateMachineDto,
   ListMachinesQueryDto,
   MachineDetailQueryDto,
+  MachineConditionTransitionDto,
+  MachineHistoryQueryDto,
   MachineIdParamsDto,
   MachineImportQueryDto,
   MachineRegistryMutationDto,
@@ -36,6 +40,7 @@ import {
 } from './machines.dto';
 import { MachineImportService } from './machine-import.service';
 import { MachinesService } from './machines.service';
+import { ConditionService } from './condition.service';
 
 @ApiBearerAuth('supabase')
 @ApiTags('machines')
@@ -44,6 +49,7 @@ export class MachinesController {
   constructor(
     private readonly machines: MachinesService,
     private readonly imports: MachineImportService,
+    private readonly conditions: ConditionService,
   ) {}
 
   @Get()
@@ -126,6 +132,37 @@ export class MachinesController {
     @Query() query: MachineDetailQueryDto,
   ): Promise<ManagedMachine> {
     return this.machines.read(actor, params.id, query.include_deleted === true);
+  }
+
+  @Get(':id/history')
+  @RequirePermission('machine:read')
+  @ApiOperation({ summary: 'List machine condition history' })
+  async history(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Query() query: MachineHistoryQueryDto,
+  ): Promise<ApiResponse<readonly MachineConditionHistoryItem[]>> {
+    const page = await this.conditions.history(actor, params.id, query);
+    return apiResponse(page.items, { page: page.page, pageSize: page.pageSize, total: page.total });
+  }
+
+  @Post(':id/condition')
+  @RequirePermission('service:manage')
+  @ApiOperation({ summary: 'Transition a machine condition' })
+  condition(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Body() input: MachineConditionTransitionDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<MachineConditionTransitionResult> {
+    return this.conditions.transition(params.id, input.toCondition, {
+      actor,
+      force: input.force,
+      fromCondition: input.fromCondition,
+      reason: input.reason,
+      requestId: getOrCreateRequestId(request),
+      source: 'MANUAL',
+    });
   }
 
   @Patch(':id')

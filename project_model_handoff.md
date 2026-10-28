@@ -292,12 +292,12 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 28 / 71 tasks (39.4%) |
-| Current phase | Phase 3 complete through Task 3.8 — active-registry removal and restoration |
-| Last updated | 2026-10-28 06:56 EAT |
-| Branch | `phase-3/task-3.8-status-sync` |
-| Last commit | `4ec3ddd Merge pull request #58 from nevilndubi/phase-3/task-3.8-machine-retire-restore` |
-| Repo state | Task 3.8 is merged; PR #58 Quality passed; local `main` is synchronized without altering the owner's three pre-existing web changes; merged-main Redis/API/web are running with safe readiness proof |
-| **Next task** | **4.1 Machine condition state machine** |
+| Current phase | Phase 4 — Task 4.1 condition state machine implementation verified; hosted delivery pending |
+| Last updated | 2026-10-28 22:37 EAT |
+| Branch | `phase-4/task-4.1-condition-state-machine` |
+| Last commit | `feat(machines): add condition state machine` (pending) |
+| Repo state | Task 4.1 implementation, hermetic/browser/live proofs and CI-shaped build pass in an isolated worktree; checklist remains unticked until hosted Quality, merge and merged-main local launch complete |
+| **Next task** | **Finish Task 4.1 delivery, then 4.2 Usage sessions: check-out / check-in API** |
 
 ---
 
@@ -339,6 +339,11 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Physical print calibration:** verify both presets on the actual label printer/stock at 100% scale with “Fit to page” disabled, no browser margins, the test-sheet outlines measured with a ruler, and a phone scan before attaching labels.
 - **Task 7.3 — CSV import rate limiting:** apply Redis-backed limits to both the machine import and template-download endpoints; Task 3.7 keeps them authenticated and restricted to `machine:create` in the meantime.
 - **Machine import permission mapping:** `machine:create` is the approved working capability for template access and all import modes, so SUPER_ADMIN and ADMIN may import while BIOMED_TECH remains edit-only. Revisit only through a deliberate permission-matrix decision.
+- **Task 4.2 — condition-independent check-in:** allow a holder to end an existing open session even when the machine condition is no longer OPERATIONAL; reject every new checkout unless the effective condition rule permits it, and lock the same machine row so checkout cannot race a condition/registry change.
+- **Task 6.5 — condition impact on bookings:** flag and surface affected future bookings whenever a machine leaves OPERATIONAL; Task 4.1 records the transition but deliberately does not mutate bookings.
+- **Task 5.1 — effective bookability:** combine the stored booking-policy flags with the authoritative machine condition; Task 4.1 does not infer availability or alter booking policy.
+- **Task 4.3 — derived status display:** combine stored condition with open-session state without adding an `is_in_use` column; Task 4.1 exposes only condition/history.
+- **Tasks 7.2 and 7.4 — condition invalidation/realtime:** invalidate `machine:{id}:v1` and future status-board/list keys after every committed transition, then publish the shared typed condition-transition event through the realtime channel.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -441,6 +446,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D84 | 2026-10-28 | Add the owner-approved `machine:restore` permission for SUPER_ADMIN and ADMIN only; registry deletion continues to use `machine:retire`, and every other role remains unable to delete or restore | Restore is a distinct administrative reversal of registry removal, not a condition transition or ordinary edit, so it needs an explicit fail-closed capability without implicit role inheritance | Reuse `machine:update` or `machine:retire`; grant BIOMED_TECH restore; infer access from role names |
 | D85 | 2026-10-28 | Treat delete/restore as serialized active-registry visibility changes: lock the machine, preserve condition, identity and every related record, block deletion for open sessions/active bookings, and allow restoration regardless of historical work | Registry removal corrects registration/decommissioning visibility while RETIRED remains Task 4.1; preservation keeps records of fact intact and matching row locks let Tasks 4.2/5.3 close future creation races | Change condition/history; cascade related data; block restoration on historical relations; hard delete |
 | D86 | 2026-10-28 | Require a trimmed 1–200 character removal reason and allow an optional restore reason in JSON bodies, storing the reason only in audit context; ordinary reads remain active-only, privileged list/detail reads use strict registry parameters, and by-tag lookup always hides deleted machines | Browser, exact-origin CORS, Nest parsing and the API e2e path all accept DELETE JSON bodies; contextual audit preserves operator intent without a schema change or patient-data field, while permission checks occur before lookup to prevent existence leaks | Dedicated removal endpoint; reason header; new database column; expose deleted QR/by-tag records |
+| D87 | 2026-10-28 | Adopt the owner-approved complete machine-condition graph: OPERATIONAL→NEEDS_SERVICE/UNDER_MAINTENANCE/OUT_OF_SERVICE/RETIRED; NEEDS_SERVICE→OPERATIONAL/UNDER_MAINTENANCE/OUT_OF_SERVICE/RETIRED; UNDER_MAINTENANCE→OPERATIONAL/OUT_OF_SERVICE/RETIRED; OUT_OF_SERVICE→UNDER_MAINTENANCE/RETIRED; RETIRED→UNDER_MAINTENANCE only. Every transition requires `service:manage`; entering or leaving RETIRED additionally requires `machine:retire` through shared `can()` | The explicit graph removes the former terminal-retirement ambiguity, keeps BIOMED_TECH able to manage service conditions but not retire/reinstate, and avoids role-name checks or implicit inheritance | Treat RETIRED as terminal; allow direct OUT_OF_SERVICE/RETIRED→OPERATIONAL; add a permission; check role strings |
+| D88 | 2026-10-28 | Treat condition and usage as independent facts: an open session permits NEEDS_SERVICE, blocks UNDER_MAINTENANCE/RETIRED, and permits OUT_OF_SERVICE only with `force: true` plus a reason of at least 10 characters; forced transition never ends the session. Serialize each transition with a machine-row lock and optimistic `fromCondition`, write machine/history/audit atomically, set/clear Nairobi `retired_on`, and emit the shared event only after commit | Unsafe equipment can be marked out of service immediately without falsifying usage history; row locking and `CONDITION_CHANGED` prevent technician overwrite races, while atomic records and post-commit events preserve audit/history truth | End the session implicitly; block every in-use transition; rely only on UI state; emit inside the transaction; use UTC timestamp conversion for the DATE |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -780,10 +787,25 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 4.1 Machine condition state machine
 - **Branch / commit:** `phase-3/task-3.8-status-sync` / based on `4ec3ddd Merge pull request #58 from nevilndubi/phase-3/task-3.8-machine-retire-restore`
 
+### [2026-10-28 22:37 EAT] — Task(s): 4.1 — condition state machine implementation
+- **Prompt summary:** Implement the owner-decided complete condition transition graph, retirement permission boundary, in-use safety rules, ordered history API, functional Status/History UI and post-commit event hook without starting usage workflows.
+- **What I did:** Added the shared exact transition graph, strict request/history schemas and typed transition event; implemented the row-locked `ConditionService` as the only application condition writer; added condition/history endpoints, stable errors, minimized paginated history and atomic machine/history/audit writes; made Status and History tabs functional; and updated the independent role/route inventories and Architecture §4.1.
+- **How:** `fromCondition` is an optimistic precondition under `FOR UPDATE`; all transitions require `service:manage`, and shared `can()` enforces `machine:retire` into/out of RETIRED. Open sessions allow NEEDS_SERVICE, block UNDER_MAINTENANCE/RETIRED, and require explicit force plus a 10-character reason for OUT_OF_SERVICE without ending usage. `retired_on` uses the Africa/Nairobi calendar date, audit/history/update share one transaction, and the in-process event emits only after commit (D87–D88).
+- **Files touched:** shared machine/audit contracts; API condition service/events/errors/controller/module and unit/e2e/access tests; web machine API, detail Status/History components and tests; browser suite; live verifier; `docs/ARCHITECTURE.md`; root scripts; this handoff
+- **Migrations:** none; the existing condition, retired date, append-only history and audit schemas satisfy Task 4.1; live `prisma migrate diff` reported no difference
+- **Verification:** format check, lint and typecheck passed. `pnpm test` passed API 32/32 suites with 316 passed and one intentional Task 7.2 skip, plus all shared/web suites. `pnpm test:e2e:machines` passed 27/27 across 360/768/1280; screenshots were visually inspected. The CI-shaped production build passed and excluded test-only controllers. Negative fixtures proved both an unclassified route and widened BIOMED retirement permission fail, then were removed. Disposable Neon proved two idempotent seed runs, exact transitions/history, one-success/one-`CONDITION_CHANGED` concurrency, forced in-use safety without ending the session, retirement date consistency, atomic rollback and no drift; the branch was deleted and protected branches contain no proof rows.
+- **Locally running:** deferred until conventional commit, green hosted Quality, merge and merged-main synchronization, as §6.4 requires
+- **Result:** Task 4.1 implementation and every local/live acceptance proof pass; checklist remains unticked until hosted delivery and merged-main local launch complete
+- **Progress after this session:** 28 / 71 (39.4%); Task 4.1 partial
+- **Left undone / follow-ups:** Task 4.2 owns condition-independent check-in and row-locked checkout; Task 4.3 owns derived display; Tasks 5.1/6.5 own bookability and affected bookings; Tasks 7.2/7.4 own invalidation and realtime delivery. Hosted delivery and final local launch remain in this turn.
+- **Next task:** finish Task 4.1 delivery, then 4.2 Usage sessions: check-out / check-in API
+- **Branch / commit:** `phase-4/task-4.1-condition-state-machine` / `feat(machines): add condition state machine` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- The authenticated Neon CLI currently stalls while resolving `connection-string` metadata even though the connected Neon service can list/create/query branches normally. Task 4.1 therefore used the connected service for branch/endpoint orchestration and the ignored inherited-role credential internally for the disposable branch; the verifier accepts non-secret supplied branch metadata and still captures every URL. Recheck the CLI profile before relying on its standalone connection-string command.
 - The Task 3.8 live concurrency verifier triggers a non-fatal `pg` warning when one client is intentionally used for competing queries (`client.query already executing`). The proof still produced the required exactly-one success/conflict outcomes and cleaned the branch; refactor that verifier to use one dedicated connection per contender before relying on it for higher concurrency loads.
 - On this workstation, detached Next.js 16.4.2 Turbopack development startup can log `Ready` but stall before binding port 3000; clearing the generated dev cache did not change it. The merged app starts and serves correctly with `next dev --webpack`, which is the current detached local-run workaround. Browser tests and production builds remain green; investigate the Turbopack/PTY interaction in a dedicated tooling task rather than Task 3.7.
 - **Resolved on 2026-10-27:** local login showed the generic invalid-credentials message because the ignored web environment targeted a different Supabase project/key pair than the API and proof credentials. The web values now match the verified API project; the real browser login and repeat `/me` proof pass. Always use the exact configured `http://localhost:3000` origin—`127.0.0.1` is intentionally rejected by the CORS allow-list.
@@ -877,6 +899,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 3.2 migration/seed/CRUD/UI proof: `NEON_PROJECT_ID=<project-id> pnpm verify:reference:live`
 - Run the credential-safe Task 3.3 machine API/concurrency/query-plan proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machines:live`
 - Run the credential-safe Task 3.7 CSV dry-run/commit/race proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live`
+- Run the credential-safe Task 4.1 transition/concurrency/rollback proof: `NEON_PROJECT_ID=<project-id> pnpm verify:conditions:live`
 - Configure/verify the private machine-attachment bucket: `pnpm storage:configure`
 - List orphaned private attachment objects older than 24 hours (read-only): `pnpm storage:reconcile`
 - Explicitly delete listed orphaned attachment objects: `pnpm storage:reconcile -- --delete`
@@ -912,6 +935,8 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Read a machine by asset tag: `GET /api/v1/machines/by-tag/:assetTag`
 - Read/update/remove a machine from the active registry: `GET /api/v1/machines/:id`, `PATCH /api/v1/machines/:id`, `DELETE /api/v1/machines/:id`
 - Restore a registry-removed machine: `POST /api/v1/machines/:id/restore`; privileged deleted visibility uses `registry=deleted|all` on the list and `include_deleted=true` on detail, while by-tag lookup always remains active-only
+- Transition a machine condition: `POST /api/v1/machines/:id/condition`
+- Read paginated condition history: `GET /api/v1/machines/:id/history`; privileged deleted history uses `include_deleted=true`
 - List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
 - Confirm an upload: `POST /api/v1/attachments/confirm`
 - Request a five-minute download/delete an attachment: `GET /api/v1/attachments/:id/url`, `DELETE /api/v1/attachments/:id`

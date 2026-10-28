@@ -126,6 +126,30 @@ const expectedMatrix = {
 } as const satisfies PermissionMatrix;
 
 describe('shared role permissions', () => {
+  it('matches the hand-written condition-target access table', () => {
+    const expected = {
+      SUPER_ADMIN: { ordinary: true, retire: true, reinstate: true },
+      ADMIN: { ordinary: true, retire: true, reinstate: true },
+      BIOMED_TECH: { ordinary: true, retire: false, reinstate: false },
+      DEPT_MANAGER: { ordinary: false, retire: false, reinstate: false },
+      STAFF: { ordinary: false, retire: false, reinstate: false },
+      VIEWER: { ordinary: false, retire: false, reinstate: false },
+    } as const satisfies Record<
+      AppRole,
+      { ordinary: boolean; reinstate: boolean; retire: boolean }
+    >;
+
+    for (const role of ROLES) {
+      expect(can(role, 'service:manage')).toBe(expected[role].ordinary);
+      expect(can(role, 'service:manage') && can(role, 'machine:retire')).toBe(
+        expected[role].retire,
+      );
+      expect(can(role, 'service:manage') && can(role, 'machine:retire')).toBe(
+        expected[role].reinstate,
+      );
+    }
+  });
+
   it('matches the independently transcribed Architecture section 7 matrix in both directions', () => {
     expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual(Object.keys(expectedMatrix).sort());
 

@@ -2,6 +2,8 @@ import {
   createMachineSchema,
   listMachinesQuerySchema,
   machineDetailQuerySchema,
+  machineConditionTransitionSchema,
+  machineHistoryQuerySchema,
   machineImportQuerySchema,
   machineIdParamsSchema,
   machineRegistryMutationSchema,
@@ -79,6 +81,19 @@ export class MachineDetailQueryDto extends createZodDto(machineDetailQuerySchema
 
 export class MachineRegistryMutationDto extends createZodDto(machineRegistryMutationSchema) {
   declare reason?: string;
+}
+
+export class MachineConditionTransitionDto extends createZodDto(machineConditionTransitionSchema) {
+  declare force: boolean;
+  declare fromCondition: MachineCondition;
+  declare reason: string;
+  declare toCondition: MachineCondition;
+}
+
+export class MachineHistoryQueryDto extends createZodDto(machineHistoryQuerySchema) {
+  declare include_deleted?: true;
+  declare page: number;
+  declare pageSize: number;
 }
 
 export class MachineImportQueryDto extends createZodDto(machineImportQuerySchema) {

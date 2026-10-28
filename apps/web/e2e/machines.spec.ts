@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import type { MachineCondition } from '@app/shared';
 
 const ids = {
   category: '11111111-1111-4111-8111-111111111111',
@@ -69,8 +70,22 @@ const envelope = (data: unknown, meta?: Record<string, unknown>) => ({
 });
 
 async function mockApi(page: Page) {
-  let currentMachine = { ...machine };
+  let currentMachine: Omit<typeof machine, 'condition'> & { condition: MachineCondition } = {
+    ...machine,
+    condition: machine.condition as MachineCondition,
+  };
   let attachments: Array<Record<string, unknown>> = [];
+  const history: Array<Record<string, unknown>> = [
+    {
+      actor: { fullName: 'Test administrator' },
+      createdAt: '2026-10-27T10:00:00.000Z',
+      fromCondition: null,
+      id: '77777777-7777-4777-8777-777777777777',
+      reason: 'Machine registered',
+      source: 'SYSTEM',
+      toCondition: 'OPERATIONAL',
+    },
+  ];
   await page.route('https://storage.test/**', async (route) => {
     if (route.request().method() === 'PUT') return route.fulfill({ status: 200 });
     return route.fulfill({ body: '%PDF-1.7\n%%EOF', contentType: 'application/pdf', status: 200 });
@@ -181,6 +196,35 @@ async function mockApi(page: Page) {
       currentMachine = { ...currentMachine, registryStatus: 'ACTIVE' };
       return route.fulfill({ json: envelope(currentMachine) });
     }
+    if (
+      url.pathname === `/api/v1/machines/${ids.machine}/condition` &&
+      request.method() === 'POST'
+    ) {
+      const body = request.postDataJSON() as {
+        force: boolean;
+        fromCondition: string;
+        reason: string;
+        toCondition: typeof currentMachine.condition;
+      };
+      expect(body.fromCondition).toBe(currentMachine.condition);
+      history.unshift({
+        actor: { fullName: 'Test administrator' },
+        createdAt: '2026-10-28T10:00:00.000Z',
+        fromCondition: currentMachine.condition,
+        id: '88888888-8888-4888-8888-888888888888',
+        reason: body.reason,
+        source: 'MANUAL',
+        toCondition: body.toCondition,
+      });
+      currentMachine = { ...currentMachine, condition: body.toCondition };
+      return route.fulfill({
+        json: envelope({ condition: body.toCondition, machineId: ids.machine, retiredOn: null }),
+      });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/history`)
+      return route.fulfill({
+        json: envelope(history, { page: 1, pageSize: 50, total: history.length }),
+      });
     if (url.pathname === `/api/v1/machines/${ids.machine}/attachments`)
       return route.fulfill({ json: envelope(attachments) });
     if (url.pathname === `/api/v1/machines/${ids.machine}/attachments/sign-upload`)
@@ -383,6 +427,42 @@ test('ADMIN removes and restores a machine while QR lookup and files follow regi
   await page.goto(`/machines/${ids.machine}?tab=files`);
   await expect(page.getByText('inspection.pdf')).toBeVisible();
 });
+
+test('condition actions and history follow the role matrix', async ({ context }) => {
+  const admin = await rolePage(context, 'ADMIN');
+  await admin.goto(`/machines/${ids.machine}?tab=status`);
+  await admin.getByRole('button', { name: 'Mark as needs service' }).click();
+  await admin.getByLabel('Reason').fill('Inspection found a fault');
+  await admin.getByRole('button', { name: 'Confirm condition change' }).click();
+  await expect(admin.getByText('Needs service').first()).toBeVisible();
+  await admin.getByRole('tab', { name: 'History' }).click();
+  await expect(admin.getByText('Inspection found a fault')).toBeVisible();
+  await admin.close();
+
+  const technician = await rolePage(context, 'BIOMED_TECH');
+  await technician.goto(`/machines/${ids.machine}?tab=status`);
+  await expect(technician.getByRole('button', { name: 'Retire machine' })).toHaveCount(0);
+  await expect(technician.getByRole('button', { name: 'Start maintenance' })).toBeVisible();
+  await technician.close();
+
+  const staff = await rolePage(context, 'STAFF');
+  await staff.goto(`/machines/${ids.machine}?tab=status`);
+  await expect(staff.getByText('No permitted transitions are available.')).toBeVisible();
+});
+
+for (const width of [360, 768, 1280]) {
+  test(`condition history remains usable at ${width}px`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { height: 900, width } });
+    const page = await rolePage(context, 'ADMIN');
+    await page.goto(`/machines/${ids.machine}?tab=history`);
+    await expect(page.getByText('Machine registered')).toBeVisible();
+    await page.screenshot({
+      fullPage: true,
+      path: `.artifacts/task-4.1/condition-history-${width}.png`,
+    });
+    await context.close();
+  });
+}
 
 test('read-only roles cannot request deleted registry views or see registry controls', async ({
   context,
