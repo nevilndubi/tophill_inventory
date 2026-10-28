@@ -222,7 +222,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 3.5 Attachments (photos/manuals) via Supabase Storage signed URLs
 - [x] 3.6 Asset tag / QR label generation & scan-lookup page
 - [x] 3.7 Bulk CSV import with validation report
-- [ ] 3.8 Retire / soft-delete & restore
+- [x] 3.8 Retire / soft-delete & restore
 
 ### Phase 4 — Status: Usage & Condition
 - [ ] 4.1 Condition state machine + status history
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 27 / 71 tasks (38.0%) |
-| Current phase | Phase 3 — Task 3.8 registry removal/restore implementation and verification complete; hosted delivery/local launch pending |
-| Last updated | 2026-10-28 06:50 EAT |
-| Branch | `phase-3/task-3.8-machine-retire-restore` |
-| Last commit | `feat(machines): add registry removal and restore` (pending) |
-| Repo state | Clean isolated worktree based on actual `main` `c29c8d7`; full local checks, negative mutation proofs, 23-browser-journey suite and disposable-Neon proof pass; feature commit/PR/green merge and merged-main local launch remain |
-| **Next task** | **Finish Task 3.8 delivery, then 4.1 Machine condition state machine** |
+| Overall progress | 28 / 71 tasks (39.4%) |
+| Current phase | Phase 3 complete through Task 3.8 — active-registry removal and restoration |
+| Last updated | 2026-10-28 06:56 EAT |
+| Branch | `phase-3/task-3.8-status-sync` |
+| Last commit | `4ec3ddd Merge pull request #58 from nevilndubi/phase-3/task-3.8-machine-retire-restore` |
+| Repo state | Task 3.8 is merged; PR #58 Quality passed; local `main` is synchronized without altering the owner's three pre-existing web changes; merged-main Redis/API/web are running with safe readiness proof |
+| **Next task** | **4.1 Machine condition state machine** |
 
 ---
 
@@ -764,6 +764,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Tasks 4.2/5.3 own matching creation locks, Task 4.4 active-registry status-board scope, Task 7.2 invalidation and Task 7.4 realtime events. Feature delivery and final local launch remain in this turn.
 - **Next task:** finish Task 3.8 delivery, then 4.1 Machine condition state machine
 - **Branch / commit:** `phase-3/task-3.8-machine-retire-restore` / `feat(machines): add registry removal and restore` (pending)
+
+### [2026-10-28 06:56 EAT] — Task(s): 3.8 — hosted delivery and merged local launch
+- **Prompt summary:** Complete Task 3.8 through green hosted delivery, synchronize local `main` without disturbing the owner's dirty files, and perform the mandatory merged-main local platform launch.
+- **What I did:** Pushed commit `9734ecd`, opened PR #58, merged it as `4ec3ddd` only after Quality passed, fast-forwarded the original local `main` while preserving its generated `next-env.d.ts` drift plus the owner's reference-client fix/test, replaced the old project Redis container, and launched API/web detached from a clean merged-main worktree using the ignored runtime files as private environment sources.
+- **How:** Required environment presence was reported by variable name only. Old port owners were verified by `/proc` working directory before stopping; no unrelated process was killed. The first clean-worktree Redis start safely refused the occupied port, after which the exact old project container was shut down and recreated. Web uses the documented detached `next dev --webpack` workaround. No credential, address, token, key or connection string was displayed.
+- **Files touched:** this handoff only on the status-sync branch; feature code is in merge `4ec3ddd`; logs and screenshots remain in ignored artifact directories
+- **Migrations:** none
+- **Verification:** PR #58 Quality passed in 1m53s. Local `/login` returned HTTP 200; unauthenticated `/machines` returned HTTP 307 to the validated login return path; `/health/ready` returned HTTP 200 with overall `ok`, database `up` and Redis `up`. Ports 3000/3001 are owned by processes launched from the clean merged-main worktree, and the recreated Redis container is healthy. The in-app browser was unavailable, so browser evidence remains the passing 23/23 headless-Chromium suite rather than an unsupported claim.
+- **Locally running:** web `http://localhost:3000`, API `http://localhost:3001`. Working areas: login/home, users, reference data, machine list/detail/create/edit, CSV import, labels/scan, private Files, and the new administrator Active/Deleted/All registry filter plus remove/restore dialogs. Status, Bookings, Service and History tabs and dashboard metrics/reports remain “Coming soon”. Stop apps with `pkill -f 'pnpm --filter @app/api dev'` and `pkill -f 'pnpm --filter @app/web exec next dev --webpack'`; stop Redis with `docker compose -p tophill_inventory stop redis` or the documented in-container shutdown workaround.
+- **Result:** Task 3.8 is complete, merged, green and locally usable; its checklist item is ticked
+- **Progress after this session:** 28 / 71 (39.4%)
+- **Left undone / follow-ups:** Tasks 4.2/5.3 own matching creation locks, Task 4.4 active-registry status-board scope, Task 7.2 invalidation and Task 7.4 realtime events. The generated `next-env.d.ts` development/build path drift remains excluded from task commits; the owner's reference-client changes remain untouched.
+- **Next task:** 4.1 Machine condition state machine
+- **Branch / commit:** `phase-3/task-3.8-status-sync` / based on `4ec3ddd Merge pull request #58 from nevilndubi/phase-3/task-3.8-machine-retire-restore`
 
 ---
 
