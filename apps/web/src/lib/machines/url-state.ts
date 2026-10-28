@@ -8,6 +8,7 @@ export const DEFAULT_MACHINE_LIST_STATE: ListMachinesQuery = {
   direction: 'asc',
   page: 1,
   pageSize: MACHINE_PAGE_SIZE_DEFAULT,
+  registry: 'active',
   sort: 'asset_tag',
 };
 
@@ -20,6 +21,7 @@ const KNOWN_PARAMETERS = new Set([
   'location_id',
   'page',
   'pageSize',
+  'registry',
   'search',
   'service_due',
   'sort',
@@ -48,6 +50,7 @@ export const serializeMachineListState = (state: ListMachinesQuery): string => {
   if (state.condition) values.set('condition', state.condition);
   if (state.is_bookable !== undefined) values.set('is_bookable', String(state.is_bookable));
   if (state.service_due !== undefined) values.set('service_due', String(state.service_due));
+  if (state.registry !== 'active') values.set('registry', state.registry);
   if (state.page !== 1) values.set('page', String(state.page));
   if (state.pageSize !== MACHINE_PAGE_SIZE_DEFAULT) values.set('pageSize', String(state.pageSize));
   if (state.sort !== 'asset_tag') values.set('sort', state.sort);

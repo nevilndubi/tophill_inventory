@@ -24,6 +24,7 @@ export const MACHINE_SORT_FIELDS = [
 
 export const MACHINE_PAGE_SIZE_DEFAULT = 25;
 export const MACHINE_PAGE_SIZE_MAX = 100;
+export const MACHINE_REGISTRY_STATES = ['active', 'deleted', 'all'] as const;
 
 const normalizedText = (label: string, maximum: number) =>
   z
@@ -174,6 +175,7 @@ export const updateMachineSchema = z
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
 const queryBoolean = z.enum(['true', 'false']).transform((value) => value === 'true');
+const includeDeleted = z.literal('true').transform(() => true as const);
 
 export const listMachinesQuerySchema = z
   .object({
@@ -190,11 +192,21 @@ export const listMachinesQuerySchema = z
       .min(1)
       .max(MACHINE_PAGE_SIZE_MAX)
       .default(MACHINE_PAGE_SIZE_DEFAULT),
+    registry: z.enum(MACHINE_REGISTRY_STATES).default('active'),
     search: z.string().trim().min(2).max(100).optional(),
     service_due: queryBoolean.optional(),
     sort: z.enum(MACHINE_SORT_FIELDS).default('asset_tag'),
   })
   .strict();
+
+export const machineDetailQuerySchema = z
+  .object({ include_deleted: includeDeleted.optional() })
+  .strict();
+
+export const machineRegistryMutationSchema = z
+  .object({ reason: normalizedText('Reason', 200).optional() })
+  .strict()
+  .default({});
 
 export const machineIdParamsSchema = z.object({ id: z.uuid() }).strict();
 
@@ -206,10 +218,13 @@ export const machineAssetTagSchema = z
 export const machineAssetTagParamsSchema = z.object({ assetTag: machineAssetTagSchema }).strict();
 
 export type MachineCondition = (typeof MACHINE_CONDITIONS)[number];
+export type MachineRegistryState = (typeof MACHINE_REGISTRY_STATES)[number];
 export type MachineSortField = (typeof MACHINE_SORT_FIELDS)[number];
 export type CreateMachineInput = z.infer<typeof createMachineSchema>;
 export type UpdateMachineInput = z.infer<typeof updateMachineSchema>;
 export type ListMachinesQuery = z.infer<typeof listMachinesQuerySchema>;
+export type MachineDetailQuery = z.infer<typeof machineDetailQuerySchema>;
+export type MachineRegistryMutationInput = z.infer<typeof machineRegistryMutationSchema>;
 
 export type MachineReference = { id: string; name: string };
 export type MachineDepartmentReference = MachineReference & { code: string };
@@ -225,6 +240,7 @@ export type ManagedMachine = {
   description: string | null;
   id: string;
   isBookable: boolean;
+  registryStatus: 'ACTIVE' | 'DELETED';
   lastServicedAt: string | null;
   location: MachineReference;
   manufacturer: string;

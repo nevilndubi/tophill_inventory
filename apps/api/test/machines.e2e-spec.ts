@@ -12,6 +12,7 @@ import {
   MachineAlreadyDeletedException,
   MachineHasActiveBookingsException,
   MachineIdentityTakenException,
+  MachineNotDeletedException,
   MachineNotFoundException,
 } from '../src/machines/machines.errors';
 import { MachinesService } from '../src/machines/machines.service';
@@ -36,6 +37,7 @@ const machine = {
   description: null,
   id: ID,
   isBookable: true,
+  registryStatus: 'ACTIVE' as const,
   lastServicedAt: null,
   location: { id: LOCATION_ID, name: 'Bay A' },
   manufacturer: 'acme',
@@ -81,6 +83,7 @@ describe('Machines API (e2e)', () => {
       return machine;
     }),
     update: jest.fn(async () => machine),
+    restore: jest.fn(async () => machine),
   };
 
   beforeAll(async () => {
@@ -144,7 +147,7 @@ describe('Machines API (e2e)', () => {
       data: [machine],
       meta: { page: 1, pageSize: 25, total: 1 },
     });
-    expect(machines.list).toHaveBeenCalledWith({
+    expect(machines.list).toHaveBeenCalledWith(expect.objectContaining({ role: 'ADMIN' }), {
       category_id: CATEGORY_ID,
       condition: 'OPERATIONAL',
       department_id: DEPARTMENT_ID,
@@ -153,6 +156,7 @@ describe('Machines API (e2e)', () => {
       location_id: LOCATION_ID,
       page: 2,
       pageSize: 10,
+      registry: 'active',
       search: 'ventilator',
       service_due: true,
       sort: 'name',
@@ -258,6 +262,53 @@ describe('Machines API (e2e)', () => {
     }
   });
 
+  it('accepts a DELETE JSON body through CORS and normalizes the registry reason', async () => {
+    const preflight = await request(app.getHttpServer())
+      .options(`/api/v1/machines/${ID}`)
+      .set('Origin', 'http://127.0.0.1:3000')
+      .set('Access-Control-Request-Method', 'DELETE')
+      .set('Access-Control-Request-Headers', 'authorization,content-type')
+      .expect(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe('http://127.0.0.1:3000');
+    expect(preflight.headers['access-control-allow-methods']).toContain('DELETE');
+    expect(String(preflight.headers['access-control-allow-headers']).toLowerCase()).toContain(
+      'content-type',
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/machines/${ID}`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('Content-Type', 'application/json')
+      .send({ reason: '  Registry   correction  ' })
+      .expect(200);
+    expect(machines.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'ADMIN' }),
+      ID,
+      { reason: 'Registry correction' },
+      expect.any(String),
+    );
+  });
+
+  it('allows only ADMIN and SUPER_ADMIN to restore', async () => {
+    for (const role of ['ADMIN', 'SUPER_ADMIN'] as const) {
+      currentUser = user(role);
+      await request(app.getHttpServer())
+        .post(`/api/v1/machines/${ID}/restore`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reason: 'Corrected registry removal' })
+        .expect(201);
+    }
+    for (const role of ['BIOMED_TECH', 'DEPT_MANAGER', 'STAFF', 'VIEWER'] as const) {
+      currentUser = user(role);
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/machines/${ID}/restore`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(403);
+      expect(response.body.error.code).toBe('PERMISSION_DENIED');
+    }
+  });
+
   it('returns MACHINE_NOT_FOUND for malformed tags and validates UUID ids', async () => {
     const malformed = await request(app.getHttpServer())
       .get('/api/v1/machines/by-tag/not-a-tag')
@@ -314,12 +365,17 @@ describe('Machines API (e2e)', () => {
     [new MachineNotFoundException(), 404, 'MACHINE_NOT_FOUND'],
     [new MachineAlreadyDeletedException(), 409, 'MACHINE_ALREADY_DELETED'],
     [new MachineHasActiveBookingsException(2), 409, 'MACHINE_HAS_ACTIVE_BOOKINGS'],
+    [new MachineNotDeletedException(), 409, 'MACHINE_NOT_DELETED'],
   ] as const)('preserves stable errors and request IDs', async (error, status, code) => {
-    machines.delete.mockRejectedValueOnce(error);
-    const response = await request(app.getHttpServer())
-      .delete(`/api/v1/machines/${ID}`)
+    const isRestore = error instanceof MachineNotDeletedException;
+    (isRestore ? machines.restore : machines.delete).mockRejectedValueOnce(error);
+    const builder = isRestore
+      ? request(app.getHttpServer()).post(`/api/v1/machines/${ID}/restore`)
+      : request(app.getHttpServer()).delete(`/api/v1/machines/${ID}`);
+    const response = await builder
       .set('Authorization', `Bearer ${token}`)
       .set('x-request-id', `machine-${code}`)
+      .send({})
       .expect(status);
     expect(response.body.error).toMatchObject({ code, requestId: `machine-${code}` });
     expect(JSON.stringify(response.body)).not.toMatch(/constraint|prisma|sql/i);

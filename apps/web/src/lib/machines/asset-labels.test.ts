@@ -22,6 +22,7 @@ const machine = (
   id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
   location: { id: '44444444-4444-4444-8444-444444444444', name: 'Bay A' },
   name: `Machine ${index}`,
+  registryStatus: 'ACTIVE',
 });
 
 const matrixImage = (matrix: boolean[][], scale = 8) => {
@@ -66,6 +67,7 @@ describe('asset label contracts', () => {
     expect(stored).toHaveLength(MAX_LABEL_SELECTION);
     expect(readLabelSelection()).toEqual(stored);
     expect(isLabelSelectable(machine(1, 'RETIRED'))).toBe(false);
+    expect(isLabelSelectable({ ...machine(), registryStatus: 'DELETED' })).toBe(false);
     expect(isLabelSelectable(machine())).toBe(true);
     localStorage.setItem(LABEL_SELECTION_STORAGE_KEY, 'must remain unused');
     expect(localStorage.getItem(LABEL_SELECTION_STORAGE_KEY)).toBe('must remain unused');

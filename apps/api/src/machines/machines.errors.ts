@@ -47,6 +47,12 @@ export class MachineAlreadyDeletedException extends ConflictException {
   }
 }
 
+export class MachineNotDeletedException extends ConflictException {
+  constructor() {
+    super(body('MACHINE_NOT_DELETED', 'Machine is already in the active registry'));
+  }
+}
+
 export class MachineHasOpenSessionException extends ConflictException {
   constructor() {
     super(body('MACHINE_HAS_OPEN_SESSION', 'Machine has an open usage session'));

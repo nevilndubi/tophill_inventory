@@ -42,6 +42,7 @@ const machine = {
   description: '<script>alert(1)</script>',
   id: '33333333-3333-4333-8333-333333333333',
   isBookable: true,
+  registryStatus: 'ACTIVE',
   lastServicedAt: '2026-09-01T06:00:00.000Z',
   location: { id: '44444444-4444-4444-8444-444444444444', name: 'Bay A' },
   manufacturer: 'acme',
@@ -122,6 +123,17 @@ describe('MachinesList', () => {
     renderList();
     expect(await screen.findAllByText('Ward ventilator')).toHaveLength(2);
     expect(screen.queryByRole('link', { name: /register machine/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Registry visibility')).not.toBeInTheDocument();
+  });
+
+  it('keeps administrator registry visibility in the URL and resets pagination', async () => {
+    const user = userEvent.setup();
+    mocks.search = new URLSearchParams('page=3&registry=all');
+    renderList();
+    const registry = await screen.findByLabelText('Registry visibility');
+    expect(registry).toHaveValue('all');
+    await user.selectOptions(registry, 'deleted');
+    expect(mocks.replace).toHaveBeenCalledWith('/machines?registry=deleted', { scroll: false });
   });
 
   it('keeps label selection across the session and loads matching machines in one request', async () => {
@@ -151,6 +163,20 @@ describe('MachinesList', () => {
     renderList();
     const checkbox = await screen.findByLabelText('Select HM-000061 for label printing');
     expect(checkbox).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Print labels (0)' })).toBeDisabled();
+  });
+
+  it('marks deleted machines and never allows them into a label batch', async () => {
+    mocks.search = new URLSearchParams('registry=all');
+    mocks.listMachines.mockResolvedValue({
+      items: [{ ...machine, registryStatus: 'DELETED' }],
+      page: 1,
+      pageSize: 25,
+      total: 1,
+    });
+    renderList();
+    expect(await screen.findAllByText(/Removed from.*registry/i)).toHaveLength(2);
+    expect(screen.getByLabelText('Select HM-000061 for label printing')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Print labels (0)' })).toBeDisabled();
   });
 });

@@ -7,6 +7,7 @@ export type AuditRecordInput = {
   actorUserId: string;
   after?: Prisma.InputJsonObject;
   before?: Prisma.InputJsonObject;
+  context?: Prisma.InputJsonObject;
   entityId: string;
   entityType?: string;
   requestId: string;
@@ -19,7 +20,10 @@ export class AuditService {
       data: {
         action: input.action,
         actorUserId: input.actorUserId,
-        after: input.after,
+        after:
+          input.context === undefined
+            ? input.after
+            : ({ ...(input.after ?? {}), context: input.context } satisfies Prisma.InputJsonObject),
         before: input.before,
         entityId: input.entityId,
         entityType: input.entityType ?? 'user',

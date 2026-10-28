@@ -48,6 +48,7 @@ const machine = {
   description: 'Adult intensive-care ventilator',
   id: ids.machine,
   isBookable: true,
+  registryStatus: 'ACTIVE',
   lastServicedAt: '2026-09-01T06:00:00.000Z',
   location: { id: location.id, name: location.name },
   manufacturer: 'acme medical',
@@ -131,10 +132,20 @@ async function mockApi(page: Page) {
       return route.fulfill({ json: envelope([department]) });
     if (url.pathname === '/api/v1/locations')
       return route.fulfill({ json: envelope([location], { page: 1, pageSize: 200, total: 1 }) });
-    if (url.pathname === '/api/v1/machines' && request.method() === 'GET')
+    if (url.pathname === '/api/v1/machines' && request.method() === 'GET') {
+      const registry = url.searchParams.get('registry') ?? 'active';
+      const visible =
+        registry === 'all' ||
+        (registry === 'active' && currentMachine.registryStatus === 'ACTIVE') ||
+        (registry === 'deleted' && currentMachine.registryStatus === 'DELETED');
       return route.fulfill({
-        json: envelope([currentMachine], { page: 1, pageSize: 25, total: 1 }),
+        json: envelope(visible ? [currentMachine] : [], {
+          page: 1,
+          pageSize: 25,
+          total: visible ? 1 : 0,
+        }),
       });
+    }
     if (url.pathname === '/api/v1/machines' && request.method() === 'POST')
       return route.fulfill({
         json: envelope({
@@ -146,7 +157,8 @@ async function mockApi(page: Page) {
       });
     if (url.pathname.startsWith('/api/v1/machines/by-tag/')) {
       const tag = decodeURIComponent(url.pathname.split('/').at(-1) ?? '');
-      if (tag === machine.assetTag) return route.fulfill({ json: envelope(currentMachine) });
+      if (tag === machine.assetTag && currentMachine.registryStatus === 'ACTIVE')
+        return route.fulfill({ json: envelope(currentMachine) });
       return route.fulfill({
         status: 404,
         json: {
@@ -158,6 +170,15 @@ async function mockApi(page: Page) {
       const body = request.postDataJSON() as Record<string, unknown>;
       expect(body).toEqual({ name: 'ICU Ventilator Updated' });
       currentMachine = { ...currentMachine, ...body };
+      return route.fulfill({ json: envelope(currentMachine) });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}` && request.method() === 'DELETE') {
+      expect(request.postDataJSON()).toEqual({ reason: 'Registry record correction' });
+      currentMachine = { ...currentMachine, registryStatus: 'DELETED' };
+      return route.fulfill({ json: envelope(currentMachine) });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/restore` && request.method() === 'POST') {
+      currentMachine = { ...currentMachine, registryStatus: 'ACTIVE' };
       return route.fulfill({ json: envelope(currentMachine) });
     }
     if (url.pathname === `/api/v1/machines/${ids.machine}/attachments`)
@@ -206,8 +227,20 @@ async function mockApi(page: Page) {
           name: 'New Theatre Ventilator',
         }),
       });
-    if (url.pathname === `/api/v1/machines/${ids.machine}`)
+    if (url.pathname === `/api/v1/machines/${ids.machine}`) {
+      if (
+        currentMachine.registryStatus === 'DELETED' &&
+        url.searchParams.get('include_deleted') !== 'true'
+      ) {
+        return route.fulfill({
+          status: 404,
+          json: {
+            error: { code: 'MACHINE_NOT_FOUND', details: {}, message: 'Machine not found' },
+          },
+        });
+      }
       return route.fulfill({ json: envelope(currentMachine) });
+    }
     return route.fulfill({
       status: 404,
       json: { error: { code: 'NOT_FOUND', details: {}, message: 'Not found' } },
@@ -312,6 +345,55 @@ test('ADMIN can upload, view and delete a private machine attachment', async ({ 
   await expect(page.getByText('No files yet')).toBeVisible();
 });
 
+test('ADMIN removes and restores a machine while QR lookup and files follow registry visibility', async ({
+  context,
+}) => {
+  const page = await rolePage(context, 'ADMIN');
+  await page.goto(`/machines/${ids.machine}?tab=files`);
+  await page.getByLabel('Choose attachment').setInputFiles({
+    buffer: Buffer.from('%PDF-1.7\n%%EOF'),
+    mimeType: 'application/pdf',
+    name: 'inspection.pdf',
+  });
+  await expect(page.getByText('inspection.pdf')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Remove from active registry' }).click();
+  await page.getByLabel('Reason (required)').fill('Registry record correction');
+  await page.getByRole('button', { name: 'Remove machine' }).click();
+  await expect(page).toHaveURL(/\/machines\?registry=deleted$/);
+  await expect(
+    page
+      .getByText(/Removed from (?:active )?registry/)
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
+
+  await page.goto(`/scan/${machine.assetTag}`);
+  await expect(page.getByText('Machine not found')).toBeVisible();
+  await page.goto(`/machines/${ids.machine}?tab=files`);
+  await expect(page.getByText('Removed from the active registry')).toBeVisible();
+  await expect(page.getByText(/Attachments remain private and hidden/)).toBeVisible();
+  await expect(page.getByText('inspection.pdf')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Restore to active registry' }).click();
+  await page.getByRole('button', { name: 'Restore machine' }).click();
+  await expect(page).toHaveURL(new RegExp(`/machines/${ids.machine}$`));
+  await page.goto(`/scan/${machine.assetTag}`);
+  await expect(page.getByRole('heading', { name: machine.name })).toBeVisible();
+  await page.goto(`/machines/${ids.machine}?tab=files`);
+  await expect(page.getByText('inspection.pdf')).toBeVisible();
+});
+
+test('read-only roles cannot request deleted registry views or see registry controls', async ({
+  context,
+}) => {
+  const page = await rolePage(context, 'STAFF');
+  await page.goto('/machines');
+  await expect(page.getByLabel('Registry visibility')).toHaveCount(0);
+  await page.getByRole('link', { name: machine.name }).first().click();
+  await expect(page.getByRole('button', { name: /active registry/i })).toHaveCount(0);
+});
+
 test('mobile QR journey preserves the scan target through login and shows the machine', async ({
   browser,
 }) => {
@@ -373,6 +455,36 @@ test('bulk label selection uses one matching-list call and produces exact physic
   expect(singleBox?.width).toBeCloseTo(377.95, 0);
   expect(singleBox?.height).toBeCloseTo(188.98, 0);
 });
+
+for (const width of [360, 768, 1280]) {
+  test(`deleted registry workflow remains usable at ${width}px`, async ({ browser }) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { 'x-e2e-role': 'ADMIN' },
+      viewport: { height: 900, width },
+    });
+    const page = await context.newPage();
+    const browserErrors: string[] = [];
+    page.on('pageerror', (error) => browserErrors.push(error.message));
+    await mockApi(page);
+    await page.goto(`/machines/${ids.machine}`);
+    await page.getByRole('button', { name: 'Remove from active registry' }).click();
+    await page.getByLabel('Reason (required)').fill('Registry record correction');
+    await page.getByRole('button', { name: 'Remove machine' }).click();
+    await expect(page).toHaveURL(/\/machines\?registry=deleted$/);
+    await expect(
+      page
+        .getByText(/Removed from (?:active )?registry/)
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible();
+    await page.screenshot({
+      fullPage: true,
+      path: `.artifacts/task-3.8/deleted-registry-${width}.png`,
+    });
+    expect(browserErrors).toEqual([]);
+    await context.close();
+  });
+}
 
 for (const width of [360, 768, 1280]) {
   test(`scan and single-label views remain usable at ${width}px`, async ({ browser }) => {

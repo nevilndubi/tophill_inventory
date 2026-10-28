@@ -637,6 +637,22 @@ const EXPECTED_ACCESS_TABLE = [
     unauthenticated: 'DENY',
   },
   {
+    declaration: 'permission:machine:restore',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:id/restore',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
     declaration: 'permission:machine:read',
     inactive: 'DENY',
     method: 'GET',
@@ -827,6 +843,7 @@ const managedMachine = {
   description: null,
   id: TARGET_USER_ID,
   isBookable: true,
+  registryStatus: 'ACTIVE' as const,
   lastServicedAt: null,
   location: { id: DEPARTMENT_B, name: 'Bay A' },
   manufacturer: 'acme',
@@ -846,6 +863,7 @@ const machinesService = {
   list: jest.fn(async () => ({ items: [managedMachine], page: 1, pageSize: 25, total: 1 })),
   read: jest.fn(async () => managedMachine),
   readByAssetTag: jest.fn(async () => managedMachine),
+  restore: jest.fn(async () => managedMachine),
   update: jest.fn(async () => managedMachine),
 };
 const machineImportService = {

@@ -16,6 +16,7 @@ describe('machine list URL state', () => {
         is_bookable: 'false',
         page: '3',
         pageSize: '50',
+        registry: 'deleted',
         search: 'ventilator',
         service_due: 'true',
         sort: 'next_service_due_at',
@@ -27,6 +28,7 @@ describe('machine list URL state', () => {
       is_bookable: false,
       page: 3,
       pageSize: 50,
+      registry: 'deleted',
       search: 'ventilator',
       service_due: true,
       sort: 'next_service_due_at',
@@ -41,6 +43,7 @@ describe('machine list URL state', () => {
     '?search=x',
     '?is_bookable=perhaps',
     '?unknown=javascript%3Aalert(1)',
+    '?registry=everything',
   ])('falls back safely for hostile or invalid input %s', (query) => {
     expect(parseMachineListState(new URLSearchParams(query))).toEqual(DEFAULT_MACHINE_LIST_STATE);
   });
@@ -52,8 +55,9 @@ describe('machine list URL state', () => {
         condition: 'RETIRED',
         direction: 'desc',
         page: 2,
+        registry: 'deleted',
       }),
-    ).toBe('condition=RETIRED&page=2&direction=desc');
+    ).toBe('condition=RETIRED&registry=deleted&page=2&direction=desc');
   });
 
   it.each(MACHINE_SORT_FIELDS)('accepts the documented %s sort with both directions', (sort) => {

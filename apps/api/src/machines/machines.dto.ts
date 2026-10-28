@@ -1,8 +1,11 @@
 import {
   createMachineSchema,
   listMachinesQuerySchema,
+  machineDetailQuerySchema,
   machineImportQuerySchema,
   machineIdParamsSchema,
+  machineRegistryMutationSchema,
+  type MachineRegistryState,
   updateMachineSchema,
   type MachineCondition,
   type MachineSortField,
@@ -64,9 +67,18 @@ export class ListMachinesQueryDto extends createZodDto(listMachinesQuerySchema) 
   declare location_id?: string;
   declare page: number;
   declare pageSize: number;
+  declare registry: MachineRegistryState;
   declare search?: string;
   declare service_due?: boolean;
   declare sort: MachineSortField;
+}
+
+export class MachineDetailQueryDto extends createZodDto(machineDetailQuerySchema) {
+  declare include_deleted?: true;
+}
+
+export class MachineRegistryMutationDto extends createZodDto(machineRegistryMutationSchema) {
+  declare reason?: string;
 }
 
 export class MachineImportQueryDto extends createZodDto(machineImportQuerySchema) {

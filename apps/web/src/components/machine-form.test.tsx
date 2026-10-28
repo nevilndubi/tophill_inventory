@@ -37,6 +37,7 @@ const saved: ManagedMachine = {
   description: null,
   id: '44444444-4444-4444-8444-444444444444',
   isBookable: true,
+  registryStatus: 'ACTIVE',
   lastServicedAt: null,
   location,
   manufacturer: 'acme',

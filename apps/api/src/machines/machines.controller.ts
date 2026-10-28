@@ -28,8 +28,10 @@ import { getOrCreateRequestId } from '../common/http/request-id';
 import {
   CreateMachineDto,
   ListMachinesQueryDto,
+  MachineDetailQueryDto,
   MachineIdParamsDto,
   MachineImportQueryDto,
+  MachineRegistryMutationDto,
   UpdateMachineDto,
 } from './machines.dto';
 import { MachineImportService } from './machine-import.service';
@@ -48,9 +50,10 @@ export class MachinesController {
   @RequirePermission('machine:read')
   @ApiOperation({ summary: 'List active-registry machines' })
   async list(
+    @CurrentUser() actor: AuthenticatedUser,
     @Query() query: ListMachinesQueryDto,
   ): Promise<ApiResponse<readonly ManagedMachine[]>> {
-    const page = await this.machines.list(query);
+    const page = await this.machines.list(actor, query);
     return apiResponse(page.items, { page: page.page, pageSize: page.pageSize, total: page.total });
   }
 
@@ -117,8 +120,12 @@ export class MachinesController {
   @Get(':id')
   @RequirePermission('machine:read')
   @ApiOperation({ summary: 'Get an active-registry machine' })
-  get(@Param() params: MachineIdParamsDto): Promise<ManagedMachine> {
-    return this.machines.read(params.id);
+  get(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Query() query: MachineDetailQueryDto,
+  ): Promise<ManagedMachine> {
+    return this.machines.read(actor, params.id, query.include_deleted === true);
   }
 
   @Patch(':id')
@@ -139,8 +146,21 @@ export class MachinesController {
   delete(
     @CurrentUser() actor: AuthenticatedUser,
     @Param() params: MachineIdParamsDto,
+    @Body() input: MachineRegistryMutationDto,
     @Req() request: AuthenticatedRequest,
   ): Promise<ManagedMachine> {
-    return this.machines.delete(actor, params.id, getOrCreateRequestId(request));
+    return this.machines.delete(actor, params.id, input, getOrCreateRequestId(request));
+  }
+
+  @Post(':id/restore')
+  @RequirePermission('machine:restore')
+  @ApiOperation({ summary: 'Restore a machine to the active registry' })
+  restore(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Body() input: MachineRegistryMutationDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ManagedMachine> {
+    return this.machines.restore(actor, params.id, input, getOrCreateRequestId(request));
   }
 }

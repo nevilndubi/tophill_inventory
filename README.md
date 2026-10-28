@@ -95,6 +95,14 @@ conflict, preview again. Existing manufacturer/serial identities are skipped and
 so retrying the same file does not create duplicates. Asset tags remain database-generated and may
 contain gaps.
 
+Administrators can also remove a machine from the active registry from its detail page and restore
+it later through the **Deleted** registry filter on the Machines list. Removal is not retirement: it
+preserves the asset tag, condition, history, bookings, tickets and private files, but hides the
+machine from ordinary lists, QR scans and new work. Removal requires a short reason that must not
+contain patient information; restoration accepts an optional reason. A machine with an open usage
+session or an active booking cannot be removed. Only SUPER_ADMIN and ADMIN have the distinct
+`machine:restore` capability. Ordinary by-tag/QR lookup always hides removed machines.
+
 ### Asset tags, QR scanning and printing
 
 Open **Scan asset** to type an `HM-000001`-style tag, or open a machine and choose **Print label**.

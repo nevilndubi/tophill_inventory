@@ -156,6 +156,25 @@ RETIRED machines by default but all current list/detail/tag reads hide soft-dele
 the opposite side of the race, Task 4.2 checkout and Task 5.3 booking creation must lock the same
 machine row and reject a soft-deleted machine.
 
+Task 3.8 completes registry restoration without changing condition state. `POST
+/machines/:id/restore` locks the machine row, clears only `deleted_at`, and atomically writes
+`machine.restored`; two concurrent restores serialize, so exactly one succeeds and the other gets
+`MACHINE_NOT_DELETED`. Delete and restore accept an optional normalized 1–200 character reason,
+stored only in the audit payload context. A DELETE request body is supported by the browser,
+configured CORS methods/headers and Nest/Express JSON parser. Neither operation writes condition
+history or changes `condition`/`retired_on`, and restoration is not blocked by historical bookings,
+sessions, tickets, service records, files or history.
+
+Machine lists accept strict `registry=active|deleted|all` (default `active`). Deleted/all lists and
+`include_deleted=true` detail reads require `machine:restore`; authorization occurs before resource
+lookup. Ordinary detail and asset-tag/QR reads always hide deleted rows. Minimized DTOs expose only
+`registryStatus` (`ACTIVE` or `DELETED`), never `deleted_at`. The new `machine:restore` permission is
+GLOBAL only for SUPER_ADMIN and ADMIN; `machine:retire` continues to govern registry removal. The
+stable restore error is `MACHINE_NOT_DELETED`. Soft-deleted rows retain permanent identity and all
+relations, remain counted by reference-data deletion guards, cannot receive attachments, and cannot
+be selected for QR labels. Task 7.2 invalidates machine, reference-count and status-board caches on
+both registry operations; Task 7.4 emits the corresponding realtime events.
+
 **machine_status_history** — `id`, `machine_id`, `from_condition`, `to_condition`, `reason`, `changed_by_user_id`, `source` (`MANUAL | SERVICE_TICKET | SCHEDULE | SYSTEM`), `ticket_id` (nullable), `created_at`
 
 The first status-history record may have a null `from_condition`; subsequent records are immutable
@@ -331,7 +350,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 |---|---|
 | Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `GET /users/departments`, `POST /users/:id/{deactivate,reactivate}` |
 | Reference data | Category CRUD; department CRUD plus `GET /departments/:id/eligible-managers`; location CRUD with paginated/filterable lists |
-| Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `GET /machines/:id/history` |
+| Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `POST /machines/:id/restore`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `GET /machines/:id/history` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
 | Usage | `POST /machines/:id/check-out`, `POST /machines/:id/check-in` |
 | Booking | `GET /machines/:id/availability?from&to`, `GET/POST /bookings`, `PATCH /bookings/:id`, `POST /bookings/:id/{cancel,approve,reject}` |
@@ -355,9 +374,10 @@ field is rejected.
 Stable machine errors are `MACHINE_NOT_FOUND`, `MACHINE_IDENTITY_TAKEN`,
 `MACHINE_CATEGORY_NOT_FOUND`, `MACHINE_DEPARTMENT_NOT_FOUND`, `MACHINE_LOCATION_NOT_FOUND`,
 `MACHINE_ALREADY_DELETED`, `MACHINE_HAS_OPEN_SESSION`, `MACHINE_HAS_ACTIVE_BOOKINGS`,
-`MACHINE_DATES_INVALID`, and `MACHINE_VALUES_INVALID`. Prisma unique/FK/check failures are mapped to
+`MACHINE_NOT_DELETED`, `MACHINE_DATES_INVALID`, and `MACHINE_VALUES_INVALID`. Prisma unique/FK/check failures are mapped to
 these contracts without exposing database metadata. `machine.created`, `machine.updated`, and
-`machine.deleted` audit snapshots contain business fields and relationship IDs only.
+`machine.deleted`/`machine.restored` audit snapshots contain business fields and relationship IDs
+only; optional registry reasons are nested in their audit context.
 
 Task 3.7 adds `GET /machines/import/template` and `POST /machines/import`, both protected by
 `machine:create` (SUPER_ADMIN and ADMIN only). Version `v1` is comma-delimited UTF-8 with an exact
@@ -407,7 +427,7 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 | Use | Key pattern | TTL | Invalidation / notes |
 |---|---|---|---|
 | Status board snapshot | `board:v1:{filterHash}` | 15–30s | Deleted on any condition change, check-in/out, booking state change (use key-set `board:keys` or version counter `board:ver` to invalidate by bumping version) |
-| Machine detail | `machine:{id}:v1` | 5 min | Task 7.2 deletes it on update/delete/condition/usage change; create/update/delete also invalidate future machine-list/status-board key sets, and asset-tag lookup keys if introduced |
+| Machine detail | `machine:{id}:v1` | 5 min | Task 7.2 deletes it on update/delete/restore/condition/usage change; create/update/delete/restore also invalidate future machine-list/status-board/reference-count key sets, and asset-tag lookup keys if introduced |
 | Machine status (single) | `status:{id}` | 30s | Same triggers as board |
 | Reference data (categories, departments, locations) | `ref:{type}:v1` (`ref:departments:v1`, `ref:locations:v1`) | 10 min | Deleted on every successful write when Task 7.2 adds cache-aside behavior |
 | Availability grid | `avail:{machineId}:{date}` | 30s | Deleted on booking change for that machine |
@@ -440,6 +460,7 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | View status board / machines | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Create/edit/retire machines | ✅ | ✅ | ✅ (edit only) | ❌ | ❌ | ❌ |
+| Restore registry-removed machines | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Manage categories/departments/locations | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Upload/delete machine attachments | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Book a machine | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
@@ -455,7 +476,7 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 The matrix is encoded once in `packages/shared/src/permissions.ts` and consumed by both API guards and UI visibility checks.
 
 The stable permission names are `machine:read`, `machine:create`, `machine:update`,
-`machine:retire`, `reference:manage`, `attachment:upload`, `booking:create`, `booking:approve`,
+`machine:retire`, `machine:restore`, `reference:manage`, `attachment:upload`, `booking:create`, `booking:approve`,
 `usage:check-in-out`, `usage:force-end`, `fault:report`, `service:manage`, `user:manage`,
 `audit:read` and `report:read`. Each role has an explicit entry for every permission—there is no
 implicit role inheritance. Scope is one of `GLOBAL`, `OWN_DEPARTMENT` or `NONE`. The three initial
@@ -557,6 +578,10 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   preserve accessible, URL-addressable “Coming soon” tabs for Status, Bookings, Service and History.
   Files is a private attachment gallery in Task 3.5 with five-minute image/PDF links and direct
   signed uploads; read-only roles can view while `attachment:upload` controls upload/delete actions.
+  Task 3.8 adds the administrator-only, URL-persisted Active/Deleted/All registry filter and
+  confirmation flows for removal/restoration. Removed rows and details use icon + text + colour,
+  hide files and QR/label access, and explain that registry removal is not retirement; restoring
+  makes the same files and QR route visible again without altering history.
   Create/update visibility comes directly from `can()` (`machine:create` / `machine:update`),
   while API authorization remains authoritative. DATE values are formatted from their plain parts,
   timestamps use Africa/Nairobi, and `next_service_due_at` stays a labelled read-only calculation.

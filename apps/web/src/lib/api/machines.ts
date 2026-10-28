@@ -20,6 +20,7 @@ const queryString = (query: ListMachinesQuery): string => {
   values.set('page', String(query.page));
   values.set('pageSize', String(query.pageSize));
   if (query.search) values.set('search', query.search);
+  if (query.registry !== 'active') values.set('registry', query.registry);
   if (query.service_due !== undefined) values.set('service_due', String(query.service_due));
   values.set('sort', query.sort);
   values.set('direction', query.direction);
@@ -36,8 +37,10 @@ export const machinesApi = {
       method: 'POST',
     });
   },
-  get(id: string): Promise<ManagedMachine> {
-    return browserApi.request<ManagedMachine>(`/machines/${id}`);
+  get(id: string, includeDeleted = false): Promise<ManagedMachine> {
+    return browserApi.request<ManagedMachine>(
+      `/machines/${id}${includeDeleted ? '?include_deleted=true' : ''}`,
+    );
   },
   getByTag(assetTag: string): Promise<ManagedMachine> {
     return browserApi.request<ManagedMachine>(`/machines/by-tag/${encodeURIComponent(assetTag)}`);
@@ -85,6 +88,18 @@ export const machinesApi = {
     return browserApi.request<ManagedMachine>(`/machines/${id}`, {
       body: JSON.stringify(input),
       method: 'PATCH',
+    });
+  },
+  remove(id: string, reason: string): Promise<ManagedMachine> {
+    return browserApi.request<ManagedMachine>(`/machines/${id}`, {
+      body: JSON.stringify({ reason }),
+      method: 'DELETE',
+    });
+  },
+  restore(id: string, reason?: string): Promise<ManagedMachine> {
+    return browserApi.request<ManagedMachine>(`/machines/${id}/restore`, {
+      body: JSON.stringify(reason === undefined || reason.trim() === '' ? {} : { reason }),
+      method: 'POST',
     });
   },
 };
