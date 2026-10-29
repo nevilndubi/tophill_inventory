@@ -292,12 +292,12 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 29 / 71 tasks (40.8%) |
-| Current phase | Phase 4 complete through Task 4.1 — condition state machine and history |
-| Last updated | 2026-10-29 06:04 EAT |
-| Branch | `phase-4/task-4.1-status-sync` |
+| Current phase | Phase 4 Task 4.2 implementation verified — delivery and merged-main launch pending |
+| Last updated | 2026-10-29 06:51 EAT |
+| Branch | `phase-4/task-4.2-usage-sessions` |
 | Last commit | `e221558 Merge pull request #61 from nevilndubi/phase-4/task-4.1-condition-state-machine` |
-| Repo state | Task 4.1 is merged; PR #61 Quality passed; original local `main` is synchronized without altering the owner's three pre-existing web changes; merged-main Redis/API/web are running with safe readiness proof |
-| **Next task** | **4.2 Usage sessions: check-out / check-in API** |
+| Repo state | Task 4.2 code, hermetic checks and disposable-Neon proof pass in an isolated worktree; checklist remains unticked until conventional commit, green hosted merge, synchronized `main` and §6.4 local launch complete; the owner's three unrelated web changes remain untouched |
+| **Next task** | **Finish Task 4.2 delivery, then 4.3 live status service** |
 
 ---
 
@@ -318,7 +318,6 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 7.3 — login rate limiting:** add the application-owned Redis control when the rate-limiting task lands; Supabase's hosted Auth limits are the only login throttle until then.
 - **Task 7.3 — invitation rate limiting:** add an application-owned Redis limit for `POST /api/v1/users`; until then, the endpoint is permission-gated, uses a 16 KiB JSON body limit and inherits Supabase's service limits.
 - **Task 5.4 — cancel own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`; administrative or department cancellation remains a separate decision for that service.
-- **Task 4.2 — check in a session you hold:** proposed ownership rule layered on `usage:check-in-out` with `isOwner = true`; force-ending another user's session remains governed by `usage:force-end`.
 - **Task 5.4 — edit own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`, subject to booking-state and overlap checks.
 - **Task 9.3 — read own notifications:** proposed new `notification:read-own` permission for every authenticated application role, enforced with ownership rather than a global notification-read grant.
 - **Task 7.3 — attachment upload rate limiting:** apply a per-user Redis limit to signed-upload issuance; Task 3.5 already enforces authentication, permission, per-file validation and a 20-file machine cap.
@@ -326,7 +325,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 7.2 — cached user context:** invalidate `user:{supabaseId}` immediately whenever a user's role, department or active state changes so Task 2.3's next-request effect is preserved after caching is introduced. Replace the Task 2.6 conditionally skipped cache-invalidation sentinel with a real passing test; the sentinel deliberately fails once 7.2 is ticked.
 - **Task 7.2 — reference-data caching:** place cache-aside behind the category service's read method and invalidate every category list/detail key after each successful create, update or delete; Task 3.1 deliberately adds no cache.
 - **Task 7.2 — department/location reference caching:** add cache-aside at the Task 3.2 service read boundaries and invalidate `ref:departments:v1` and `ref:locations:v1` after every successful relevant write, including manager changes caused through user administration.
-- **Tasks 4.2 and 5.3 — close the machine/delete race:** checkout and booking creation must lock the machine row and reject a soft-deleted machine before inserting a session or booking; Task 3.8 deletion locks the same row before checking current sessions/bookings.
+- **Task 5.3 — close the machine/delete race for bookings:** booking creation must lock the machine row first and reject a soft-deleted machine before inserting a booking; Task 4.2 now uses the matching lock for checkout, and Task 3.8 deletion locks the same row before checking current sessions/bookings.
 - **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
 - **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, every reference-data machine-count key and any future asset-tag lookup key after successful create/update/delete/restore. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
 - **Task 7.4 — machine registry realtime:** publish delete and restore events after committed registry changes so clients can invalidate active/deleted lists, detail, status-board and reference-count views.
@@ -339,7 +338,13 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Physical print calibration:** verify both presets on the actual label printer/stock at 100% scale with “Fit to page” disabled, no browser margins, the test-sheet outlines measured with a ruler, and a phone scan before attaching labels.
 - **Task 7.3 — CSV import rate limiting:** apply Redis-backed limits to both the machine import and template-download endpoints; Task 3.7 keeps them authenticated and restricted to `machine:create` in the meantime.
 - **Machine import permission mapping:** `machine:create` is the approved working capability for template access and all import modes, so SUPER_ADMIN and ADMIN may import while BIOMED_TECH remains edit-only. Revisit only through a deliberate permission-matrix decision.
-- **Task 4.2 — condition-independent check-in:** allow a holder to end an existing open session even when the machine condition is no longer OPERATIONAL; reject every new checkout unless the effective condition rule permits it, and lock the same machine row so checkout cannot race a condition/registry change.
+- **Tasks 5.2 and 5.3 — usage-aware availability:** treat every open usage session as busy until its expected end, or until check-in when no expected end exists, so a booking cannot overlap equipment that is already in use.
+- **Task 5.5 — booking/session linkage:** link checkout to the caller's applicable confirmed booking and advance booking state; Task 4.2 deliberately leaves `booking_id` empty and does not mutate seeded or live bookings.
+- **Task 7.2 — usage cache invalidation:** invalidate `machine:{id}:v1` and future machine-list/status-board keys after every committed checkout, check-in or force-end.
+- **Task 7.3 — usage endpoint rate limiting:** add per-user Redis limits to machine checkout/check-in endpoints.
+- **Task 7.4 — usage realtime delivery:** publish the shared post-commit usage-session event through the approved realtime channel.
+- **Task 7.5 — usage idempotency:** add Redis-backed idempotency keys for checkout/check-in requests; database locking and the one-open-session index remain the current race authority.
+- **Task 9.2 — overdue usage alerts:** alert when sessions remain open substantially beyond `expected_end_at`; Task 4.2 records the expected time but schedules no jobs.
 - **Task 6.5 — condition impact on bookings:** flag and surface affected future bookings whenever a machine leaves OPERATIONAL; Task 4.1 records the transition but deliberately does not mutate bookings.
 - **Task 5.1 — effective bookability:** combine the stored booking-policy flags with the authoritative machine condition; Task 4.1 does not infer availability or alter booking policy.
 - **Task 4.3 — derived status display:** combine stored condition with open-session state without adding an `is_in_use` column; Task 4.1 exposes only condition/history.
@@ -448,6 +453,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D86 | 2026-10-28 | Require a trimmed 1–200 character removal reason and allow an optional restore reason in JSON bodies, storing the reason only in audit context; ordinary reads remain active-only, privileged list/detail reads use strict registry parameters, and by-tag lookup always hides deleted machines | Browser, exact-origin CORS, Nest parsing and the API e2e path all accept DELETE JSON bodies; contextual audit preserves operator intent without a schema change or patient-data field, while permission checks occur before lookup to prevent existence leaks | Dedicated removal endpoint; reason header; new database column; expose deleted QR/by-tag records |
 | D87 | 2026-10-28 | Adopt the owner-approved complete machine-condition graph: OPERATIONAL→NEEDS_SERVICE/UNDER_MAINTENANCE/OUT_OF_SERVICE/RETIRED; NEEDS_SERVICE→OPERATIONAL/UNDER_MAINTENANCE/OUT_OF_SERVICE/RETIRED; UNDER_MAINTENANCE→OPERATIONAL/OUT_OF_SERVICE/RETIRED; OUT_OF_SERVICE→UNDER_MAINTENANCE/RETIRED; RETIRED→UNDER_MAINTENANCE only. Every transition requires `service:manage`; entering or leaving RETIRED additionally requires `machine:retire` through shared `can()` | The explicit graph removes the former terminal-retirement ambiguity, keeps BIOMED_TECH able to manage service conditions but not retire/reinstate, and avoids role-name checks or implicit inheritance | Treat RETIRED as terminal; allow direct OUT_OF_SERVICE/RETIRED→OPERATIONAL; add a permission; check role strings |
 | D88 | 2026-10-28 | Treat condition and usage as independent facts: an open session permits NEEDS_SERVICE, blocks UNDER_MAINTENANCE/RETIRED, and permits OUT_OF_SERVICE only with `force: true` plus a reason of at least 10 characters; forced transition never ends the session. Serialize each transition with a machine-row lock and optimistic `fromCondition`, write machine/history/audit atomically, set/clear Nairobi `retired_on`, and emit the shared event only after commit | Unsafe equipment can be marked out of service immediately without falsifying usage history; row locking and `CONDITION_CHANGED` prevent technician overwrite races, while atomic records and post-commit events preserve audit/history truth | End the session implicitly; block every in-use transition; rely only on UI state; emit inside the transaction; use UTC timestamp conversion for the DATE |
+| D89 | 2026-10-29 | Track usage for every active-registry machine regardless of `is_bookable`; hide removed machines as `MACHINE_NOT_FOUND`; permit checkout only for OPERATIONAL or opted-in NEEDS_SERVICE machines; use `General equipment use` when optional purpose is omitted | Booking policy does not determine whether hospital equipment can be physically used, removed records must not leak through ordinary workflows, and the non-null database purpose needs a safe non-PHI reconciliation with the optional API field | Require `is_bookable`; expose `MACHINE_DELETED`; require purpose; add an `is_in_use` column |
+| D90 | 2026-10-29 | Serialize checkout/check-in by locking the machine first with a three-second lock timeout, read one PostgreSQL `now` for all transaction timing, and map true contention to retryable `MACHINE_BUSY`; if a timed-out checkout can see the concurrently created open session, return `MACHINE_IN_USE` instead | This matches registry/condition lock order, avoids clock skew, lets 20 competing checkouts converge on one success and nineteen useful conflicts, and still bounds unrelated lock waits | Application clock; session-first lock; unbounded wait; always return 503 after timeout |
+| D91 | 2026-10-29 | Block ad-hoc checkout on another user's overlapping CONFIRMED booking using `starts_at <= max(now + guard, expectedEndAt)` and `blocked_until > now`; own and PENDING bookings do not block. Audit usage actions as entity type `usage_session` with the session ID, machine ID in context, and emit browser-safe usage events only after commit | The guard covers already-started/no-show bookings, exact boundaries and longer expected sessions without leaking another user's identity; the audit convention lets the future timeline join events while the immutable session remains a record of fact | Only future start times; PENDING blockers; trust client time; mutate/link bookings now; emit inside the transaction |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -815,6 +823,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 4.2 Usage sessions: check-out / check-in API
 - **Branch / commit:** `phase-4/task-4.1-status-sync` / based on `e221558 Merge pull request #61 from nevilndubi/phase-4/task-4.1-condition-state-machine`
 
+### [2026-10-29 06:51 EAT] — Task(s): 4.2 — usage checkout/check-in implementation
+- **Prompt summary:** Implement the API-only machine checkout/check-in workflow with row locking, exact condition and booking-guard rules, holder/force-end authorization, atomic audits, post-commit events, hermetic coverage and disposable-Neon proof without starting the status UI.
+- **What I did:** Added strict shared checkout/check-in contracts and timing constants; two permission-classified machine routes; a bounded usage service with machine-first locking, database-clock timing, condition checks, safe conflict DTOs, the application-setting booking guard, holder check-in and scoped force-end; atomic usage audits; after-commit typed events; stable errors; route/access inventory rows; focused unit/e2e coverage; and a credential-safe disposable-Neon verifier. No schema or migration changed, and nothing from Task 4.3 is visible in the web UI.
+- **How:** Checkout/check-in take the machine row lock before reading current state, use one PostgreSQL timestamp, fail closed on an invalid 0–240 minute guard setting, and return a retryable `MACHINE_BUSY` after a three-second lock timeout unless a concurrently committed open session can be reported as `MACHINE_IN_USE`. The booking query is bounded to another user's overlapping CONFIRMED booking; holder, department and force authority come only from the authenticated Neon context and shared permission/scope helpers. Audit entity type is `usage_session`; booking IDs and booking states remain untouched.
+- **Files touched:** `packages/shared/src/{usage-sessions,event-types,index}.ts`; `apps/api/src/usage/*`; machine controller/module; API auth/RBAC inventories and usage e2e tests; `scripts/verify-usage-live.ts`; root scripts; `docs/ARCHITECTURE.md`; this handoff
+- **Migrations:** none; the Task 1.4 usage-session constraints and existing settings/booking schema satisfy Task 4.2; live `prisma migrate diff` reported `No difference detected.`
+- **Verification:** frozen install passed; `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` and the CI-shaped `pnpm build` passed. API: 34/34 suites, 360 passed and one intentional Task 7.2 sentinel skipped; web: 30 files/166 tests. Negative fixtures proved an unclassified usage route and widened BIOMED force-end permission fail, then were removed. Disposable Neon proved migrate/seed, normal and NEEDS_SERVICE checkout, unavailable-condition rejection, forced OUT_OF_SERVICE without ending usage, subsequent holder check-in, exact/+1 ms/own/already-started booking guard behavior, own/cross-department force-end, audit rollback, exactly 1 success plus 19 `MACHINE_IN_USE` results across 20 separate clients, and no drift. The branch was deleted; `dev` has zero proof audit rows, while `main`/`staging` do not yet contain the application audit table.
+- **Locally running:** deferred until conventional commit, green hosted Quality, merge and merged-main synchronization, as §6.4 requires
+- **Result:** Task 4.2 implementation and all local/live acceptance proofs pass; checklist remains unticked until hosted delivery and merged-main local launch complete
+- **Progress after this session:** 29 / 71 (40.8%); Task 4.2 partial
+- **Left undone / follow-ups:** Tasks 4.3/4.4/4.5 own derived live status and user-facing checkout/check-in screens; Tasks 5.2/5.3/5.5 own usage-aware booking availability and booking linkage; Tasks 7.2/7.3/7.4/7.5 own caching, rate limits, realtime and idempotency; Task 9.2 owns overdue alerts. The owner's three unrelated web changes remain untouched.
+- **Next task:** finish Task 4.2 delivery, then 4.3 Live status service
+- **Branch / commit:** `phase-4/task-4.2-usage-sessions` / `feat(usage): add checkout and check-in API` (pending)
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
@@ -914,6 +936,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 3.3 machine API/concurrency/query-plan proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machines:live`
 - Run the credential-safe Task 3.7 CSV dry-run/commit/race proof: `NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live`
 - Run the credential-safe Task 4.1 transition/concurrency/rollback proof: `NEON_PROJECT_ID=<project-id> pnpm verify:conditions:live`
+- Run the credential-safe Task 4.2 usage/booking-guard/concurrency proof: `NEON_PROJECT_ID=<project-id> pnpm verify:usage:live`
 - Configure/verify the private machine-attachment bucket: `pnpm storage:configure`
 - List orphaned private attachment objects older than 24 hours (read-only): `pnpm storage:reconcile`
 - Explicitly delete listed orphaned attachment objects: `pnpm storage:reconcile -- --delete`
@@ -951,6 +974,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Restore a registry-removed machine: `POST /api/v1/machines/:id/restore`; privileged deleted visibility uses `registry=deleted|all` on the list and `include_deleted=true` on detail, while by-tag lookup always remains active-only
 - Transition a machine condition: `POST /api/v1/machines/:id/condition`
 - Read paginated condition history: `GET /api/v1/machines/:id/history`; privileged deleted history uses `include_deleted=true`
+- Check out/check in a machine: `POST /api/v1/machines/:id/check-out`, `POST /api/v1/machines/:id/check-in`
 - List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
 - Confirm an upload: `POST /api/v1/attachments/confirm`
 - Request a five-minute download/delete an attachment: `GET /api/v1/attachments/:id/url`, `DELETE /api/v1/attachments/:id`

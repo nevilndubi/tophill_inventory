@@ -364,6 +364,8 @@ describe('API authentication (e2e)', () => {
       'POST /departments permission:reference:manage',
       'POST /locations permission:reference:manage',
       'POST /machines permission:machine:create',
+      'POST /machines/:id/check-in permission:usage:check-in-out',
+      'POST /machines/:id/check-out permission:usage:check-in-out',
       'POST /machines/:id/condition permission:service:manage',
       'POST /machines/:id/restore permission:machine:restore',
       'POST /machines/:machineId/attachments/sign-upload permission:attachment:upload',

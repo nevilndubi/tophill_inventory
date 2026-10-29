@@ -5,11 +5,22 @@ import { MachineImportService } from './machine-import.service';
 import { MachinesService } from './machines.service';
 import { ConditionEventsService } from './condition-events.service';
 import { ConditionService } from './condition.service';
+import { UsageClockService } from '../usage/usage-clock.service';
+import { UsageEventsService } from '../usage/usage-events.service';
+import { UsageService } from '../usage/usage.service';
 
 @Module({
   controllers: [MachinesController],
   imports: [AuditModule],
-  providers: [ConditionEventsService, ConditionService, MachineImportService, MachinesService],
-  exports: [ConditionService],
+  providers: [
+    ConditionEventsService,
+    ConditionService,
+    MachineImportService,
+    MachinesService,
+    UsageClockService,
+    UsageEventsService,
+    UsageService,
+  ],
+  exports: [ConditionService, UsageEventsService, UsageService],
 })
 export class MachinesModule {}

@@ -41,6 +41,8 @@ import {
 import { MachineImportService } from './machine-import.service';
 import { MachinesService } from './machines.service';
 import { ConditionService } from './condition.service';
+import { CheckInMachineDto, CheckOutMachineDto } from '../usage/usage.dto';
+import { UsageService } from '../usage/usage.service';
 
 @ApiBearerAuth('supabase')
 @ApiTags('machines')
@@ -50,6 +52,7 @@ export class MachinesController {
     private readonly machines: MachinesService,
     private readonly imports: MachineImportService,
     private readonly conditions: ConditionService,
+    private readonly usage: UsageService,
   ) {}
 
   @Get()
@@ -121,6 +124,37 @@ export class MachinesController {
   @ApiOperation({ summary: 'Find an active-registry machine by asset tag' })
   byTag(@Param('assetTag') assetTag: string): Promise<ManagedMachine> {
     return this.machines.readByAssetTag(assetTag);
+  }
+
+  @Post(':id/check-out')
+  @RequirePermission('usage:check-in-out')
+  @ApiOperation({
+    description:
+      'Purpose must contain no patient names or identifiers. Check-out applies to all machines; is_bookable governs bookings only.',
+    summary: 'Check out a machine',
+  })
+  checkOut(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Body() input: CheckOutMachineDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.usage.checkOut(actor, params.id, input, getOrCreateRequestId(request));
+  }
+
+  @Post(':id/check-in')
+  @RequirePermission('usage:check-in-out')
+  @ApiOperation({
+    description: 'Notes and force-end reasons must contain no patient names or identifiers.',
+    summary: 'Check in or explicitly force-end a machine usage session',
+  })
+  checkIn(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Body() input: CheckInMachineDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.usage.checkIn(actor, params.id, input, getOrCreateRequestId(request));
   }
 
   @Get(':id')
