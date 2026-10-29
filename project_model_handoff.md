@@ -226,7 +226,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 4 — Status: Usage & Condition
 - [x] 4.1 Condition state machine + status history
-- [ ] 4.2 Usage sessions: check-out / check-in API
+- [x] 4.2 Usage sessions: check-out / check-in API
 - [ ] 4.3 Live status service (derived display status)
 - [ ] 4.4 Status board UI (grid/list, filters, colour+icon+text)
 - [ ] 4.5 Machine detail: status panel & timeline
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 29 / 71 tasks (40.8%) |
-| Current phase | Phase 4 Task 4.2 implementation verified — delivery and merged-main launch pending |
-| Last updated | 2026-10-29 06:51 EAT |
-| Branch | `phase-4/task-4.2-usage-sessions` |
-| Last commit | `e221558 Merge pull request #61 from nevilndubi/phase-4/task-4.1-condition-state-machine` |
-| Repo state | Task 4.2 code, hermetic checks and disposable-Neon proof pass in an isolated worktree; checklist remains unticked until conventional commit, green hosted merge, synchronized `main` and §6.4 local launch complete; the owner's three unrelated web changes remain untouched |
-| **Next task** | **Finish Task 4.2 delivery, then 4.3 live status service** |
+| Overall progress | 30 / 71 tasks (42.3%) |
+| Current phase | Phase 4 complete through Task 4.2 — usage checkout/check-in API |
+| Last updated | 2026-10-29 19:20 EAT |
+| Branch | `phase-4/task-4.2-status-sync` |
+| Last commit | `2cc4be2 Merge pull request #63 from nevilndubi/phase-4/task-4.2-usage-sessions` |
+| Repo state | Task 4.2 is merged; PR #63 Quality passed; original local `main` is synchronized without altering the owner's three pre-existing web changes; merged-main Redis/API/web are running with safe readiness proof |
+| **Next task** | **4.3 Live status service** |
 
 ---
 
@@ -836,6 +836,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Tasks 4.3/4.4/4.5 own derived live status and user-facing checkout/check-in screens; Tasks 5.2/5.3/5.5 own usage-aware booking availability and booking linkage; Tasks 7.2/7.3/7.4/7.5 own caching, rate limits, realtime and idempotency; Task 9.2 owns overdue alerts. The owner's three unrelated web changes remain untouched.
 - **Next task:** finish Task 4.2 delivery, then 4.3 Live status service
 - **Branch / commit:** `phase-4/task-4.2-usage-sessions` / `feat(usage): add checkout and check-in API` (pending)
+
+### [2026-10-29 19:20 EAT] — Task(s): 4.2 — hosted delivery and merged local launch
+- **Prompt summary:** Complete Task 4.2 through green hosted delivery, preserve the owner's unrelated working-tree changes, synchronize local `main`, and perform the mandatory §6.4 merged-main platform restart.
+- **What I did:** Committed feature `4873914`, pushed it, opened PR #63, merged only after hosted Quality passed as `2cc4be2`, fast-forwarded the original local `main` while preserving the owner's generated declaration plus reference-client fix/test, verified the ignored runtime files by variable name and both database URLs against Neon `dev`, confirmed all nine migrations were already applied, replaced only the verified older project API/web processes, retained the healthy project Redis service, and launched fresh API/web instances from the clean merged code.
+- **How:** The feature and status work used the isolated worktree, so the owner's unrelated web edits never entered either commit. Port ownership was verified through `/proc` before terminating only known project process groups. Runtime configuration remained inside dotenv runners, and only safe HTTP/status metadata was reported.
+- **Files touched:** this handoff only on the status-sync branch; feature code is in merge `2cc4be2`; ignored runtime logs remain under each app's `.artifacts/local-run/` directory
+- **Migrations:** none; `prisma migrate deploy` found nine migrations and reported none pending on Neon `dev`
+- **Verification:** PR #63 Quality passed in 1m39s. The pre-push evidence remains: frozen install; format/lint/typecheck; API 34/34 suites with 360 passing tests plus one intentional Task 7.2 sentinel; web 30/30 files with 166 passing tests; CI-shaped production build; and disposable-Neon migration/seed/usage/booking-guard/force-scope/rollback/20-way-concurrency/no-drift proof. After merge, `/login` returned HTTP 200, unauthenticated `/machines` returned HTTP 307 to login, and `/health/ready` returned HTTP 200 with overall `ok`, database `up` and Redis `up`. Ports 3000/3001 belong to the clean merged worktree.
+- **Locally running:** web `http://localhost:3000`, API `http://localhost:3001`. Working areas remain login/home, users, reference data, machine list/detail/create/edit, CSV import, labels/scan, Files, registry delete/restore, condition Status and History. Task 4.2 is API-only: checkout/check-in is verified but has no screen yet; the first user-facing controls arrive in Tasks 4.4/4.5. Bookings, Service, live status board, dashboard metrics and reports remain “Coming soon”. Stop apps with `pkill -f 'pnpm --filter @app/api dev'` and `pkill -f 'pnpm --filter @app/web exec next dev --webpack'`; stop Redis with `docker compose -p tophill_inventory stop redis` or the documented in-container shutdown workaround.
+- **Result:** Task 4.2 is complete, merged, green and running locally; its checklist item is ticked
+- **Progress after this session:** 30 / 71 (42.3%)
+- **Left undone / follow-ups:** Task 4.3 owns the live derived status service; Tasks 4.4/4.5 own status and usage UI; Tasks 5.2/5.3/5.5 own usage-aware booking availability/linkage; Tasks 7.2/7.3/7.4/7.5 and 9.2 own the recorded operational follow-ups. The owner's three unrelated web changes remain untouched.
+- **Next task:** 4.3 Live status service
+- **Branch / commit:** `phase-4/task-4.2-status-sync` / based on `2cc4be2 Merge pull request #63 from nevilndubi/phase-4/task-4.2-usage-sessions`
 
 ---
 
