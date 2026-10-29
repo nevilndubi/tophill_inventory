@@ -16,6 +16,8 @@ import {
   MachineNotFoundException,
 } from '../src/machines/machines.errors';
 import { MachinesService } from '../src/machines/machines.service';
+import { ConditionService } from '../src/machines/condition.service';
+import { ConditionChangedException } from '../src/machines/condition.errors';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { REDIS_CLIENT } from '../src/redis/redis.constants';
 import { RedisService } from '../src/redis/redis.service';
@@ -85,6 +87,14 @@ describe('Machines API (e2e)', () => {
     update: jest.fn(async () => machine),
     restore: jest.fn(async () => machine),
   };
+  const conditions = {
+    history: jest.fn(async () => ({ items: [], page: 1, pageSize: 50, total: 0 })),
+    transition: jest.fn(async () => ({
+      condition: 'NEEDS_SERVICE',
+      machineId: ID,
+      retiredOn: null,
+    })),
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -105,6 +115,8 @@ describe('Machines API (e2e)', () => {
       })
       .overrideProvider(MachinesService)
       .useValue(machines)
+      .overrideProvider(ConditionService)
+      .useValue(conditions)
       .compile();
     app = moduleRef.createNestApplication({ bufferLogs: true });
     configureApplication(app);
@@ -260,6 +272,79 @@ describe('Machines API (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
     }
+  });
+
+  it('allows every active role to read minimized condition history', async () => {
+    for (const role of [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'BIOMED_TECH',
+      'DEPT_MANAGER',
+      'STAFF',
+      'VIEWER',
+    ] as const) {
+      currentUser = user(role);
+      await request(app.getHttpServer())
+        .get(`/api/v1/machines/${ID}/history?page=1&pageSize=50`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+    }
+  });
+
+  it('allows service managers to transition and denies other roles before validation', async () => {
+    for (const role of ['SUPER_ADMIN', 'ADMIN', 'BIOMED_TECH'] as const) {
+      currentUser = user(role);
+      await request(app.getHttpServer())
+        .post(`/api/v1/machines/${ID}/condition`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          fromCondition: 'OPERATIONAL',
+          reason: 'Verified equipment condition',
+          toCondition: 'NEEDS_SERVICE',
+        })
+        .expect(201);
+    }
+    expect(conditions.transition).toHaveBeenCalledWith(
+      ID,
+      'NEEDS_SERVICE',
+      expect.objectContaining({ force: false, source: 'MANUAL' }),
+    );
+    for (const role of ['DEPT_MANAGER', 'STAFF', 'VIEWER'] as const) {
+      currentUser = user(role);
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/machines/${ID}/condition`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(403);
+      expect(response.body.error.code).toBe('PERMISSION_DENIED');
+    }
+  });
+
+  it('rejects unknown fields and reports stale observed condition safely', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/machines/${ID}/condition`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        actor: ID,
+        fromCondition: 'OPERATIONAL',
+        reason: 'Verified equipment condition',
+        toCondition: 'NEEDS_SERVICE',
+      })
+      .expect(400);
+    conditions.transition.mockRejectedValueOnce(new ConditionChangedException('OUT_OF_SERVICE'));
+    const response = await request(app.getHttpServer())
+      .post(`/api/v1/machines/${ID}/condition`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fromCondition: 'OPERATIONAL',
+        reason: 'Verified equipment condition',
+        toCondition: 'NEEDS_SERVICE',
+      })
+      .expect(409);
+    expect(response.body.error).toMatchObject({
+      code: 'CONDITION_CHANGED',
+      details: { current_condition: 'OUT_OF_SERVICE' },
+    });
   });
 
   it('accepts a DELETE JSON body through CORS and normalizes the registry reason', async () => {

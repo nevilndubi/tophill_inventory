@@ -37,6 +37,7 @@ import { CategoriesService } from '../src/categories/categories.service';
 import { DepartmentsService } from '../src/reference/departments.service';
 import { LocationsService } from '../src/reference/locations.service';
 import { MachinesService } from '../src/machines/machines.service';
+import { ConditionService } from '../src/machines/condition.service';
 import { MachineImportService } from '../src/machines/machine-import.service';
 import { AttachmentsService } from '../src/attachments/attachments.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
@@ -664,6 +665,38 @@ const EXPECTED_ACCESS_TABLE = [
       STAFF: 'ALLOW',
       VIEWER: 'ALLOW',
     },
+    route: '/api/v1/machines/:id/history',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:service:manage',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:id/condition',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
     route: '/api/v1/machines/:machineId/attachments',
     successStatus: 200,
     unauthenticated: 'DENY',
@@ -866,6 +899,14 @@ const machinesService = {
   restore: jest.fn(async () => managedMachine),
   update: jest.fn(async () => managedMachine),
 };
+const conditionService = {
+  history: jest.fn(async () => ({ items: [], page: 1, pageSize: 50, total: 0 })),
+  transition: jest.fn(async () => ({
+    condition: 'NEEDS_SERVICE',
+    machineId: TARGET_USER_ID,
+    retiredOn: null,
+  })),
+};
 const machineImportService = {
   execute: jest.fn(async () => ({
     can_commit: true,
@@ -971,6 +1012,12 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
           model: 'V1',
           name: 'Ventilator',
           serialNumber: 'SN-1',
+        });
+      if (route === '/api/v1/machines/:id/condition')
+        builder = builder.send({
+          fromCondition: 'OPERATIONAL',
+          reason: 'Verified equipment condition',
+          toCondition: 'NEEDS_SERVICE',
         });
       if (route.endsWith('/attachments/sign-upload'))
         builder = builder.send({
@@ -1105,6 +1152,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(locationsService)
         .overrideProvider(MachinesService)
         .useValue(machinesService)
+        .overrideProvider(ConditionService)
+        .useValue(conditionService)
         .overrideProvider(MachineImportService)
         .useValue(machineImportService)
         .overrideProvider(AttachmentsService)

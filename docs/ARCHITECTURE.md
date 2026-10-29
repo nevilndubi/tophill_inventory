@@ -297,17 +297,32 @@ documented large-cardinality path.
 ## 4. State machines
 
 ### 4.1 Machine condition
-```
-OPERATIONAL ──fault reported / manual──► NEEDS_SERVICE
-NEEDS_SERVICE ──work starts──► UNDER_MAINTENANCE
-OPERATIONAL ──critical fault──► OUT_OF_SERVICE
-UNDER_MAINTENANCE ──ticket resolved & verified──► OPERATIONAL
-UNDER_MAINTENANCE ──cannot repair──► OUT_OF_SERVICE
-OUT_OF_SERVICE ──repaired──► UNDER_MAINTENANCE ──► OPERATIONAL
-ANY (except RETIRED) ──admin──► RETIRED   (terminal; restore = Admin-only, logged)
-```
-- Transitions are validated in one place (`ConditionService.transition()`); every transition writes `machine_status_history` and an audit entry and publishes a realtime event.
-- A machine with an **open usage session** cannot move to `UNDER_MAINTENANCE`/`OUT_OF_SERVICE`/`RETIRED` until checked in (or an Admin force-ends the session with a reason).
+The complete allowed-transition table is:
+
+| From | Allowed targets |
+|---|---|
+| `OPERATIONAL` | `NEEDS_SERVICE`, `UNDER_MAINTENANCE`, `OUT_OF_SERVICE`, `RETIRED` |
+| `NEEDS_SERVICE` | `OPERATIONAL`, `UNDER_MAINTENANCE`, `OUT_OF_SERVICE`, `RETIRED` |
+| `UNDER_MAINTENANCE` | `OPERATIONAL`, `OUT_OF_SERVICE`, `RETIRED` |
+| `OUT_OF_SERVICE` | `UNDER_MAINTENANCE`, `RETIRED` |
+| `RETIRED` | `UNDER_MAINTENANCE` (reinstate for inspection) |
+
+Every other pair returns `INVALID_TRANSITION`. All transitions require `service:manage`; crossing
+into or out of `RETIRED` additionally requires `machine:retire`, checked through the shared
+permission helper. Entering retirement sets `retired_on` to the Africa/Nairobi calendar date;
+reinstatement clears it. Registry deletion/restoration remains independent and never changes
+condition or retirement date.
+
+Transitions are validated only by `ConditionService.transition()`, inside a transaction that locks
+the machine row. A successful transition atomically updates the machine, appends immutable
+`machine_status_history`, records `machine.condition_changed`, and emits a typed in-process event
+only after commit. Manual requests carry the condition observed by the client and fail with
+`CONDITION_CHANGED` if it is stale.
+
+An open usage session does not block `NEEDS_SERVICE`. It always blocks `UNDER_MAINTENANCE` and
+`RETIRED`. `OUT_OF_SERVICE` is allowed while in use only with an explicit forced safety transition
+and a reason of at least ten characters; the session is never ended or altered. Check-in therefore
+remains valid in any condition, while Task 4.2 rejects new check-outs for an ineligible condition.
 
 ### 4.2 Usage (derived)
 - `IN_USE` ⇔ ∃ `usage_sessions` row with `ended_at IS NULL` for the machine.
@@ -350,7 +365,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 |---|---|
 | Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `GET /users/departments`, `POST /users/:id/{deactivate,reactivate}` |
 | Reference data | Category CRUD; department CRUD plus `GET /departments/:id/eligible-managers`; location CRUD with paginated/filterable lists |
-| Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `POST /machines/:id/restore`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `GET /machines/:id/history` |
+| Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `POST /machines/:id/restore`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `POST /machines/:id/condition`, `GET /machines/:id/history` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
 | Usage | `POST /machines/:id/check-out`, `POST /machines/:id/check-in` |
 | Booking | `GET /machines/:id/availability?from&to`, `GET/POST /bookings`, `PATCH /bookings/:id`, `POST /bookings/:id/{cancel,approve,reject}` |
@@ -378,6 +393,12 @@ Stable machine errors are `MACHINE_NOT_FOUND`, `MACHINE_IDENTITY_TAKEN`,
 these contracts without exposing database metadata. `machine.created`, `machine.updated`, and
 `machine.deleted`/`machine.restored` audit snapshots contain business fields and relationship IDs
 only; optional registry reasons are nested in their audit context.
+
+Condition errors are `MACHINE_DELETED`, `INVALID_TRANSITION`, `CONDITION_UNCHANGED`,
+`CONDITION_CHANGED`, `MACHINE_HAS_OPEN_SESSION`, and `CONDITION_FORCE_INVALID`. History is newest
+first, page-based (50 by default, 200 maximum), includes the registration row, and returns only
+from/to condition, source, reason, timestamp, and actor full name. Deleted-machine history follows
+the same `include_deleted=true` plus `machine:restore` rule as deleted detail reads.
 
 Task 3.7 adds `GET /machines/import/template` and `POST /machines/import`, both protected by
 `machine:create` (SUPER_ADMIN and ADMIN only). Version `v1` is comma-delimited UTF-8 with an exact
@@ -582,6 +603,10 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   confirmation flows for removal/restoration. Removed rows and details use icon + text + colour,
   hide files and QR/label access, and explain that registry removal is not retirement; restoring
   makes the same files and QR route visible again without altering history.
+  Task 4.1 makes Status and History functional: the Status tab renders only transitions allowed by
+  the current condition and shared permissions, collects a PHI-safe reason, and reveals the forced
+  out-of-service safety path only after an open-session conflict. History is accessible, paginated,
+  newest first, and shows safe actor/source metadata. Removed machines show condition read-only.
   Create/update visibility comes directly from `can()` (`machine:create` / `machine:update`),
   while API authorization remains authoritative. DATE values are formatted from their plain parts,
   timestamps use Africa/Nairobi, and `next_service_due_at` stays a labelled read-only calculation.

@@ -10,6 +10,8 @@ import { MachineConditionBadge } from '@/components/machine-condition-badge';
 import { MachineForm } from '@/components/machine-form';
 import { MachineAttachments } from '@/components/machine-attachments';
 import { MachineRegistryActions } from '@/components/machine-registry-actions';
+import { MachineConditionPanel } from '@/components/machine-condition-panel';
+import { MachineConditionHistory } from '@/components/machine-condition-history';
 import { useAuthenticatedUser } from '@/components/authenticated-user-provider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -183,7 +185,10 @@ export function MachineDetail({ id }: { id: string }) {
             {TABS.map((item) => (
               <TabsTrigger key={item} value={item}>
                 {TAB_LABELS[item]}
-                {item !== 'overview' && item !== 'files' ? (
+                {item !== 'overview' &&
+                item !== 'files' &&
+                item !== 'status' &&
+                item !== 'history' ? (
                   <span className="sr-only"> — Coming soon</span>
                 ) : null}
               </TabsTrigger>
@@ -287,24 +292,32 @@ export function MachineDetail({ id }: { id: string }) {
             <MachineAttachments machineId={value.id} />
           )}
         </TabsContent>
-        {TABS.filter((item) => item !== 'overview' && item !== 'files').map((item) => (
-          <TabsContent key={item} value={item} className="pt-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <h2>{TAB_LABELS[item]}</h2>
-                </CardTitle>
-                <CardDescription>Coming soon</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  This section arrives in a later project phase. No {TAB_LABELS[item].toLowerCase()}{' '}
-                  workflow is available yet.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
+        <TabsContent value="status" className="pt-3">
+          <MachineConditionPanel machine={value} role={user.role} />
+        </TabsContent>
+        <TabsContent value="history" className="pt-3">
+          <MachineConditionHistory machine={value} />
+        </TabsContent>
+        {TABS.filter((item) => !['overview', 'files', 'status', 'history'].includes(item)).map(
+          (item) => (
+            <TabsContent key={item} value={item} className="pt-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    <h2>{TAB_LABELS[item]}</h2>
+                  </CardTitle>
+                  <CardDescription>Coming soon</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    This section arrives in a later project phase. No{' '}
+                    {TAB_LABELS[item].toLowerCase()} workflow is available yet.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ),
+        )}
       </Tabs>
     </div>
   );

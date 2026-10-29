@@ -6,6 +6,9 @@ import type {
   UpdateMachineInput,
   MachineImportMode,
   MachineImportReport,
+  MachineConditionHistoryPage,
+  MachineConditionTransitionInput,
+  MachineConditionTransitionResult,
 } from '@app/shared';
 import { authenticatedBrowserFetch, browserApi } from './browser-client';
 import { ApiClientError } from './client';
@@ -44,6 +47,23 @@ export const machinesApi = {
   },
   getByTag(assetTag: string): Promise<ManagedMachine> {
     return browserApi.request<ManagedMachine>(`/machines/by-tag/${encodeURIComponent(assetTag)}`);
+  },
+  async history(
+    id: string,
+    page: number,
+    includeDeleted = false,
+  ): Promise<MachineConditionHistoryPage> {
+    const values = new URLSearchParams({ page: String(page), pageSize: '50' });
+    if (includeDeleted) values.set('include_deleted', 'true');
+    const result = await browserApi.requestWithMeta<MachineConditionHistoryPage['items']>(
+      `/machines/${id}/history?${values}`,
+    );
+    return {
+      items: result.data,
+      page: numericMeta(result.meta.page, page),
+      pageSize: numericMeta(result.meta.pageSize, 50),
+      total: numericMeta(result.meta.total, result.data.length),
+    };
   },
   async list(query: ListMachinesQuery): Promise<ManagedMachinePage> {
     const result = await browserApi.requestWithMeta<readonly ManagedMachine[]>(
@@ -99,6 +119,15 @@ export const machinesApi = {
   restore(id: string, reason?: string): Promise<ManagedMachine> {
     return browserApi.request<ManagedMachine>(`/machines/${id}/restore`, {
       body: JSON.stringify(reason === undefined || reason.trim() === '' ? {} : { reason }),
+      method: 'POST',
+    });
+  },
+  transition(
+    id: string,
+    input: MachineConditionTransitionInput,
+  ): Promise<MachineConditionTransitionResult> {
+    return browserApi.request<MachineConditionTransitionResult>(`/machines/${id}/condition`, {
+      body: JSON.stringify(input),
       method: 'POST',
     });
   },
