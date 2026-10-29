@@ -40,6 +40,7 @@ import { MachinesService } from '../src/machines/machines.service';
 import { ConditionService } from '../src/machines/condition.service';
 import { MachineImportService } from '../src/machines/machine-import.service';
 import { AttachmentsService } from '../src/attachments/attachments.service';
+import { UsageService } from '../src/usage/usage.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -686,6 +687,38 @@ const EXPECTED_ACCESS_TABLE = [
     unauthenticated: 'DENY',
   },
   {
+    declaration: 'permission:usage:check-in-out',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:id/check-out',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:usage:check-in-out',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/machines/:id/check-in',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
+  {
     declaration: 'permission:machine:read',
     inactive: 'DENY',
     method: 'GET',
@@ -946,6 +979,21 @@ const attachmentsService = {
     uploadUrl: 'signed-upload-redacted',
   })),
 };
+const usageSession = {
+  expectedEndAt: null,
+  id: '77777777-7777-4777-8777-777777777777',
+  machineId: TARGET_USER_ID,
+  purpose: 'General equipment use',
+  startedAt: '2026-10-29T09:00:00.000Z',
+};
+const usageService = {
+  checkIn: jest.fn(async () => ({
+    ...usageSession,
+    durationSeconds: 60,
+    endedAt: '2026-10-29T09:01:00.000Z',
+  })),
+  checkOut: jest.fn(async () => usageSession),
+};
 
 const configForVerifier = (jwksUrl: string) =>
   ({
@@ -1019,6 +1067,8 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
           reason: 'Verified equipment condition',
           toCondition: 'NEEDS_SERVICE',
         });
+      if (route === '/api/v1/machines/:id/check-out') builder = builder.send({});
+      if (route === '/api/v1/machines/:id/check-in') builder = builder.send({});
       if (route.endsWith('/attachments/sign-upload'))
         builder = builder.send({
           fileName: 'machine-photo.png',
@@ -1158,6 +1208,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(machineImportService)
         .overrideProvider(AttachmentsService)
         .useValue(attachmentsService)
+        .overrideProvider(UsageService)
+        .useValue(usageService)
         .compile();
 
     const productionModule = await createModule(false);

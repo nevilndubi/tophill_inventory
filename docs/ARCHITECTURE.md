@@ -326,8 +326,31 @@ remains valid in any condition, while Task 4.2 rejects new check-outs for an ine
 
 ### 4.2 Usage (derived)
 - `IN_USE` ⇔ ∃ `usage_sessions` row with `ended_at IS NULL` for the machine.
-- **Check-out** requires: machine `OPERATIONAL` (or `NEEDS_SERVICE` with the allow flag), no open session, and either the caller holds a `CONFIRMED` booking whose window includes now (±grace) **or** (ad-hoc) no other user's confirmed booking begins within `adhoc_checkout_guard_minutes`.
-- **Check-in** closes the session; if linked to a booking, booking → `COMPLETED`. Optionally prompts "Report a problem?" which opens the fault form.
+- Usage applies to every machine; `is_bookable` governs bookings only. Check-out requires
+  `OPERATIONAL`, or `NEEDS_SERVICE` with `allow_booking_when_needs_service`; every other condition
+  is unavailable. A soft-deleted machine is indistinguishable from a missing machine.
+- Check-out and check-in lock the machine row first with a three-second PostgreSQL `lock_timeout`,
+  then read deleted/condition/session state. Lock timeout returns retryable `MACHINE_BUSY`. Task 5.3
+  must use the same order: machine row, then bookings/sessions. A single transaction-scoped
+  PostgreSQL `now()` supplies session timestamps, expected-end validation and booking-guard time.
+- `expected_end_at`, when supplied, is 1 minute–24 hours after that database time. An omitted
+  purpose persists the non-PHI default `General equipment use`; supplied purpose is normalized and
+  limited to 200 characters. No booking is linked or transitioned in Task 4.2; Task 5.5 owns that
+  behavior.
+- Ad-hoc check-out rejects another user's `CONFIRMED` booking when `starts_at <= boundary` and
+  `blocked_until > now`, where `boundary` is the later of the setting-driven guard boundary and the
+  supplied expected end. The inclusive start makes a booking exactly at the boundary block while a
+  booking one millisecond later does not. Already-started, still-blocked bookings remain protected;
+  the caller's own bookings and `PENDING` bookings do not block. `checkout.adhoc_guard_minutes` must
+  be an integer 0–240; missing/invalid data fails closed as `SETTINGS_INVALID`.
+- Ordinary check-in closes only the holder's session and remains valid in every machine condition.
+  A non-holder must explicitly request force-end, provide a 10–200 character reason and hold
+  `usage:force-end`; SUPER_ADMIN/ADMIN are global and DEPT_MANAGER is limited to the locked
+  machine's owning department. Forced condition changes never end sessions.
+- Usage audits use entity type `usage_session` and the session ID; machine ID and forced/reason/note
+  context are stored without identity addresses. The session row intentionally does not identify
+  who ended it; the append-only audit row does. Check-out/check-in/force-end events are emitted only
+  after commit for Task 7.4. Booking linking and status transitions remain Task 5.5.
 
 ### 4.3 Display status (computed, `StatusService`)
 Priority order: `RETIRED` → `OUT_OF_SERVICE` → `UNDER_MAINTENANCE` → `IN_USE` → `AVAILABLE_NEEDS_SERVICE` → `AVAILABLE_OK`. Also returns: current user (name only), `since`, `expected_end_at`, `next_booking_at`, `service_due` flag.
@@ -399,6 +422,14 @@ Condition errors are `MACHINE_DELETED`, `INVALID_TRANSITION`, `CONDITION_UNCHANG
 first, page-based (50 by default, 200 maximum), includes the registration row, and returns only
 from/to condition, source, reason, timestamp, and actor full name. Deleted-machine history follows
 the same `include_deleted=true` plus `machine:restore` rule as deleted detail reads.
+
+Usage errors are `MACHINE_NOT_FOUND`, `MACHINE_NOT_AVAILABLE`, `MACHINE_IN_USE`,
+`UPCOMING_BOOKING_CONFLICT`, `NO_OPEN_SESSION`, `SESSION_NOT_HELD`, `FORCE_NOT_APPLICABLE`,
+`EXPECTED_END_INVALID`, retryable `MACHINE_BUSY`, retryable `SETTINGS_INVALID`, and
+`PERMISSION_DENIED`. The one-open-session partial unique index remains the race authority.
+`MACHINE_IN_USE` identifies the current caller's own session with a boolean and otherwise returns
+only holder ID/full name plus safe timing metadata. Booking conflicts return only the earliest start
+and whether it already began. Responses never contain addresses or authentication fields.
 
 Task 3.7 adds `GET /machines/import/template` and `POST /machines/import`, both protected by
 `machine:create` (SUPER_ADMIN and ADMIN only). Version `v1` is comma-delimited UTF-8 with an exact
