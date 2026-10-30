@@ -300,6 +300,11 @@ completed in 145.68 ms end to end against remote Neon, while the database execut
 5.88 ms; 200 rows took 152.35 ms, search 136.74 ms, and an `IN_USE` filter 147.04 ms. The linear
 plan estimate for 5,000 machines is about 58.83 ms of database execution. No index was added:
 Task 7.2 owns caching and Task 7.4 replaces polling pressure with realtime invalidation.
+Task 4.4 repeated the disposable-branch proof before wiring the board UI: the statement remained one
+query and drift-free, with database execution at 10.94 ms. Remote end-to-end measurements were
+163.80 ms for 50 rows, 332.45 ms for 200 rows, 157.27 ms for trigram search and 163.98 ms for a
+status filter. Those network/serialization observations reinforce the existing Task 7.2 cache and
+Task 7.4 realtime work; they do not justify a speculative index.
 
 ---
 
@@ -681,9 +686,9 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   Task 3.4 Playwright runs against the real Next routes with a development-only auth seam and
   browser-intercepted API responses; production builds cannot enable that seam.
 - **Asset labels and scan lookup:** QR labels are rendered in-browser as black-on-white SVG with error correction M and a four-module quiet zone; no third-party QR service receives data. The validated path-free `NEXT_PUBLIC_APP_ORIGIN` plus canonical upper-case asset tag forms the only QR payload. Print CSS provides a 100 mm × 50 mm single label and 3 × 8 A4 sheets of 70 mm × 37 mm cells with a configurable top offset and alignment test. Bulk selection is session-only, capped at 48, excludes retired/deleted machines, and reuses list data or one matching-list request. All `machine:read` roles may print. `/scan` and `/scan/[assetTag]` are authenticated/noindex, show only the stored condition plus placement, and leave Phase 4–6 actions visibly disabled.
-- **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes, encoded slash/backslash separators and `javascript:` input fall back to `/`. The proxy forwards its own validated current-path header to protected server layouts so deep scan paths survive both proxy login and server-side session recovery.
-- **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. The root placeholder is the only current route; future navigation labels remain disabled until their scheduled features exist.
-- **Status board UX:** card grid + table toggle; filters (department, category, status, location); each status shown as **icon + text + colour** (never colour alone); auto-updates through SSE.
+- **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes, encoded slash/backslash separators and `javascript:` input fall back to `/status`. The proxy forwards its own validated current-path header to protected server layouts so deep scan paths survive both proxy login and server-side session recovery.
+- **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. `/status` is the authenticated landing page and first navigation entry until the Phase 8 dashboard exists; future navigation labels remain disabled until their scheduled features exist.
+- **Status board UX:** `/status` consumes only the Task 4.3 contract and shared display metadata. It provides URL-persisted card/table views, repeatable status chips, reference/search/service filters, deterministic sort and pagination; each status uses **icon + text + colour** (never colour alone). Server `as_of` anchors relative time and freshness, with Nairobi absolute times, device-clock skew notice and a stale threshold. Polling is one request at a time around 30 seconds with ±10% jitter, visibility/offline pause, prompt resume, and capped exponential failure backoff while preserving the last successful rows. Check-out, holder check-in and scope-correct force-end call the Task 4.2 API; API authorization remains authoritative. Task 7.2 adds caching and Task 7.4 replaces polling with SSE/realtime invalidation.
 - **Calendar:** week/day timeline per machine; drag-to-select slot; conflicts shown inline from the availability endpoint.
 - **Tablet-first for wards;** large tap targets for check-in/out.
 - **Loading/empty/error states** designed for every list.

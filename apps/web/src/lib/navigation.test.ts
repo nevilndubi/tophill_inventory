@@ -4,10 +4,9 @@ import { NAVIGATION_ENTRIES, navigationForRole } from './navigation';
 
 const expectedLabels = {
   SUPER_ADMIN: [
-    'Overview',
+    'Status board',
     'Machines',
     'Scan asset',
-    'Status board',
     'Bookings',
     'Service',
     'Reports',
@@ -15,28 +14,19 @@ const expectedLabels = {
     'Administration',
   ],
   ADMIN: [
-    'Overview',
+    'Status board',
     'Machines',
     'Scan asset',
-    'Status board',
     'Bookings',
     'Service',
     'Reports',
     'Reference data',
     'Administration',
   ],
-  BIOMED_TECH: [
-    'Overview',
-    'Machines',
-    'Scan asset',
-    'Status board',
-    'Bookings',
-    'Service',
-    'Reports',
-  ],
-  DEPT_MANAGER: ['Overview', 'Machines', 'Scan asset', 'Status board', 'Bookings', 'Reports'],
-  STAFF: ['Overview', 'Machines', 'Scan asset', 'Status board', 'Bookings'],
-  VIEWER: ['Overview', 'Machines', 'Scan asset', 'Status board', 'Reports'],
+  BIOMED_TECH: ['Status board', 'Machines', 'Scan asset', 'Bookings', 'Service', 'Reports'],
+  DEPT_MANAGER: ['Status board', 'Machines', 'Scan asset', 'Bookings', 'Reports'],
+  STAFF: ['Status board', 'Machines', 'Scan asset', 'Bookings'],
+  VIEWER: ['Status board', 'Machines', 'Scan asset', 'Reports'],
 } as const satisfies Record<AppRole, readonly string[]>;
 
 describe('role-aware navigation', () => {
@@ -57,7 +47,8 @@ describe('role-aware navigation', () => {
   it('marks every unbuilt destination as coming soon instead of linking to a missing page', () => {
     expect(
       NAVIGATION_ENTRIES.filter(
-        (entry) => !['/', '/machines', '/scan', '/admin', '/admin/reference'].includes(entry.href),
+        (entry) =>
+          !['/status', '/machines', '/scan', '/admin', '/admin/reference'].includes(entry.href),
       ).every((entry) => entry.status === 'coming-soon'),
     ).toBe(true);
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/admin')?.status).toBe('available');
@@ -68,5 +59,6 @@ describe('role-aware navigation', () => {
       'available',
     );
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/scan')?.status).toBe('available');
+    expect(NAVIGATION_ENTRIES[0]).toMatchObject({ href: '/status', status: 'available' });
   });
 });

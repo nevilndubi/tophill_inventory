@@ -1,4 +1,4 @@
-export const DEFAULT_AUTHENTICATED_PATH = '/';
+export const DEFAULT_AUTHENTICATED_PATH = '/status';
 
 export function safeReturnPath(value: string | null | undefined): string {
   if (

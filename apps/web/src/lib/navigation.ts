@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ClipboardList,
   FileChartColumn,
-  LayoutDashboard,
   MonitorCog,
   QrCode,
   Settings,
@@ -23,9 +22,9 @@ export type NavigationEntry = {
 
 export const NAVIGATION_ENTRIES = [
   {
-    href: '/',
-    icon: LayoutDashboard,
-    label: 'Overview',
+    href: '/status',
+    icon: ClipboardList,
+    label: 'Status board',
     permission: 'machine:read',
     status: 'available',
   },
@@ -42,13 +41,6 @@ export const NAVIGATION_ENTRIES = [
     label: 'Scan asset',
     permission: 'machine:read',
     status: 'available',
-  },
-  {
-    href: '/status',
-    icon: ClipboardList,
-    label: 'Status board',
-    permission: 'machine:read',
-    status: 'coming-soon',
   },
   {
     href: '/bookings',

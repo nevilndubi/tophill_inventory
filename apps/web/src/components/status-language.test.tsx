@@ -6,7 +6,7 @@ describe('StatusLanguage', () => {
   it.each([
     ['available', 'Available'],
     ['in-use', 'In use'],
-    ['needs-service', 'Needs service'],
+    ['needs-service', 'Available — needs service'],
     ['maintenance', 'Under maintenance'],
     ['out-of-service', 'Out of service'],
     ['retired', 'Retired'],
@@ -17,6 +17,6 @@ describe('StatusLanguage', () => {
     expect(item).not.toBeNull();
     expect(within(item as HTMLElement).getByText(label)).toBeInTheDocument();
     expect(item?.querySelector('svg')).toBeInTheDocument();
-    expect(item?.className).toMatch(/text-status-/);
+    expect(item?.querySelector('span')?.className).toMatch(/text-status-/);
   });
 });
