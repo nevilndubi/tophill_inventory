@@ -50,17 +50,7 @@ export const locationsApi = {
     browserApi.request<ManagedLocation>(`/locations/${id}`, { method: 'DELETE' }),
   get: (id: string) => browserApi.request<ManagedLocation>(`/locations/${id}`),
   async list(query: Partial<ListLocationsQuery> = {}): Promise<ManagedLocationPage> {
-    const result = await browserApi.requestWithMeta<readonly ManagedLocation[]>(
-      `/locations${queryString(query)}`,
-    );
-    const numberOr = (value: unknown, fallback: number) =>
-      typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-    return {
-      items: result.data,
-      page: numberOr(result.meta.page, query.page ?? 1),
-      pageSize: numberOr(result.meta.pageSize, query.pageSize ?? 50),
-      total: numberOr(result.meta.total, result.data.length),
-    };
+    return browserApi.request<ManagedLocationPage>(`/locations${queryString(query)}`);
   },
   update: (id: string, input: UpdateLocationInput) =>
     browserApi.request<ManagedLocation>(`/locations/${id}`, {
