@@ -295,8 +295,8 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Current phase | Phase 4 complete through Task 4.4 — responsive live status board and usage quick actions |
 | Last updated | 2026-10-30 08:20 EAT |
 | Branch | `phase-4/task-4.4-status-board-ui` |
-| Last commit | `feat(web): add live machine status board` pending |
-| Repo state | Task 4.4 implementation, disposable-branch proof and every required local quality gate are complete in its isolated clean worktree; commit/PR/green merge, merged-main local launch and final task-worktree cleanup remain in this session |
+| Last commit | `4bc3b41 feat(web): add live machine status board` |
+| Repo state | Task 4.4 implementation, disposable-branch proof and every required local quality gate are committed in its isolated clean worktree; PR/green merge, merged-main local launch and final task-worktree cleanup remain in this session |
 | **Next task** | **4.5 Machine detail status panel and timeline** |
 
 ---
@@ -941,7 +941,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Progress after this session:** 32 / 71 (45.1%)
 - **Left undone / follow-ups:** Task 4.5 owns machine-detail usage/timeline; Tasks 7.2/7.3/7.4 own board caching, rate limiting and realtime replacement; the wall-display idea remains backlog. The live browser used mocked API/auth while disposable Neon proved data/query behavior; no hosted identity or protected-branch data was used.
 - **Next task:** 4.5 Machine detail status panel and timeline
-- **Branch / commit:** `phase-4/task-4.4-status-board-ui` / `feat(web): add live machine status board` pending
+- **Branch / commit:** `phase-4/task-4.4-status-board-ui` / `4bc3b41 feat(web): add live machine status board`
 
 ---
 
