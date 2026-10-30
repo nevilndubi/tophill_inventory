@@ -292,6 +292,15 @@ that cheaper than the existing trigram GIN indexes. This is an expected small-ta
 not evidence for a speculative replacement index; the existing `gin_trgm_ops` indexes remain the
 documented large-cardinality path.
 
+Task 4.3 exercised the implemented live-status statement against 500 active-registry machines.
+The statement used one database round trip, and its per-machine next-booking lookup selected the
+existing `bookings_no_overlap` GiST index; PostgreSQL estimated it cheaper than the separate
+`bookings_machine_id_starts_at_idx` btree for this data distribution. The default 50-row request
+completed in 145.68 ms end to end against remote Neon, while the database execution portion was
+5.88 ms; 200 rows took 152.35 ms, search 136.74 ms, and an `IN_USE` filter 147.04 ms. The linear
+plan estimate for 5,000 machines is about 58.83 ms of database execution. No index was added:
+Task 7.2 owns caching and Task 7.4 replaces polling pressure with realtime invalidation.
+
 ---
 
 ## 4. State machines
@@ -353,7 +362,35 @@ remains valid in any condition, while Task 4.2 rejects new check-outs for an ine
   after commit for Task 7.4. Booking linking and status transitions remain Task 5.5.
 
 ### 4.3 Display status (computed, `StatusService`)
-Priority order: `RETIRED` → `OUT_OF_SERVICE` → `UNDER_MAINTENANCE` → `IN_USE` → `AVAILABLE_NEEDS_SERVICE` → `AVAILABLE_OK`. Also returns: current user (name only), `since`, `expected_end_at`, `next_booking_at`, `service_due` flag.
+
+`StatusService` is the sole application boundary for derived live status. It persists no display
+status or `is_in_use` value. Its exact priority is `RETIRED` → `OUT_OF_SERVICE` →
+`UNDER_MAINTENANCE` → `IN_USE` → `AVAILABLE_NEEDS_SERVICE` → `AVAILABLE_OK`; usage is true only
+when an open `usage_sessions` row exists. A shared browser-safe contract owns this enum, order,
+labels, the mapping to all six existing icon/text/colour styles, and `isMachineUsable()`. Both the
+status service and Task 4.2 checkout use that same usability predicate: condition must be
+`OPERATIONAL`, or opted-in `NEEDS_SERVICE`, and no session may be open. Caller-specific booking
+guards are intentionally not part of `usable`.
+
+`GET /api/v1/machines/:id/status` and `GET /api/v1/status/board` require `machine:read`, return
+`Cache-Control: no-store` and `Vary: Authorization`, and hide soft-deleted machines. RETIRED rows
+remain visible. Responses contain minimized machine/category/department/location data, condition,
+derived status, `usable`, `service_due`, `next_booking_at`, `open_session`, and `as_of`. The open
+session is returned even when a higher-priority condition wins; it exposes only session ID, holder
+ID/full name, start/expected-end, current-user ownership and overdue state. `service_due` is false
+for RETIRED and otherwise means a non-null due time at or before `as_of`. `next_booking_at` is the
+earliest strictly-future `CONFIRMED` start and never exposes the requester.
+
+One parameterized SQL statement supplies the board data, total, and six complete counts. A
+materialized request clock gives every calculation one PostgreSQL timestamp. A CASE expression
+derives status; the open session is joined through its partial unique index; a bounded LATERAL
+lookup finds the next confirmed booking; relation and holder data are joined without N+1 reads.
+The single-machine endpoint reuses the same query builder. Board filters are strict:
+`department_id`, `category_id`, `location_id`, repeatable `status`, escaped 2–100 character `q`,
+`service_due=true`, `page`, `page_size` (50 default, 200 maximum), `sort=asset_tag|name|status`, and
+`order=asc|desc`. Status sorting uses this priority then asset tag and ID; other sorts also end in
+an ID tie-breaker. `counts` apply every filter except `status` and include zeros for all six states;
+`total` applies the status filter too.
 
 ### 4.4 Booking
 ```

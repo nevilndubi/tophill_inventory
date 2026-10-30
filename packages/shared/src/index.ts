@@ -26,6 +26,27 @@ export {
 } from './category-management';
 
 export {
+  deriveDisplayStatus,
+  DISPLAY_STATUSES,
+  DISPLAY_STATUS_METADATA,
+  DISPLAY_STATUS_PRIORITY,
+  isMachineUsable,
+  MACHINE_STATUS_STYLE_NAMES,
+  STATUS_BOARD_PAGE_SIZE_DEFAULT,
+  STATUS_BOARD_PAGE_SIZE_MAX,
+  STATUS_BOARD_SORT_FIELDS,
+  statusBoardQuerySchema,
+  type DisplayStatus,
+  type MachineLiveStatus,
+  type MachineOpenSessionStatus,
+  type MachineStatusBoard,
+  type MachineStatusCounts,
+  type MachineStatusStyleName,
+  type StatusBoardQuery,
+  type StatusBoardSortField,
+} from './display-status';
+
+export {
   AUDIT_ACTIONS,
   auditActionSchema,
   NOTIFICATION_TYPES,

@@ -41,6 +41,7 @@ import { ConditionService } from '../src/machines/condition.service';
 import { MachineImportService } from '../src/machines/machine-import.service';
 import { AttachmentsService } from '../src/attachments/attachments.service';
 import { UsageService } from '../src/usage/usage.service';
+import { StatusService } from '../src/status/status.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -671,6 +672,22 @@ const EXPECTED_ACCESS_TABLE = [
     unauthenticated: 'DENY',
   },
   {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/machines/:id/status',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
     declaration: 'permission:service:manage',
     inactive: 'DENY',
     method: 'POST',
@@ -779,6 +796,22 @@ const EXPECTED_ACCESS_TABLE = [
       VIEWER: 'ALLOW',
     },
     route: '/api/v1/attachments/:id/url',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/status/board',
     successStatus: 200,
     unauthenticated: 'DENY',
   },
@@ -993,6 +1026,39 @@ const usageService = {
     endedAt: '2026-10-29T09:01:00.000Z',
   })),
   checkOut: jest.fn(async () => usageSession),
+};
+const liveStatus = {
+  as_of: '2026-10-29T12:00:00.000Z',
+  asset_tag: 'HM-000061',
+  category: { id: TARGET_USER_ID, name: 'Ventilator' },
+  department: { code: 'ICU', id: DEPARTMENT_A, name: 'Intensive Care' },
+  display_status: 'AVAILABLE_OK' as const,
+  id: TARGET_USER_ID,
+  location: { id: DEPARTMENT_B, name: 'Bay A' },
+  name: 'Ventilator',
+  next_booking_at: null,
+  open_session: null,
+  service_due: false,
+  stored_condition: 'OPERATIONAL' as const,
+  usable: true,
+};
+const statusService = {
+  board: jest.fn(async () => ({
+    as_of: liveStatus.as_of,
+    counts: {
+      AVAILABLE_NEEDS_SERVICE: 0,
+      AVAILABLE_OK: 1,
+      IN_USE: 0,
+      OUT_OF_SERVICE: 0,
+      RETIRED: 0,
+      UNDER_MAINTENANCE: 0,
+    },
+    items: [liveStatus],
+    page: 1,
+    page_size: 50,
+    total: 1,
+  })),
+  get: jest.fn(async () => liveStatus),
 };
 
 const configForVerifier = (jwksUrl: string) =>
@@ -1210,6 +1276,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(attachmentsService)
         .overrideProvider(UsageService)
         .useValue(usageService)
+        .overrideProvider(StatusService)
+        .useValue(statusService)
         .compile();
 
     const productionModule = await createModule(false);
