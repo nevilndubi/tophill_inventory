@@ -8,10 +8,11 @@ import { ConditionService } from './condition.service';
 import { UsageClockService } from '../usage/usage-clock.service';
 import { UsageEventsService } from '../usage/usage-events.service';
 import { UsageService } from '../usage/usage.service';
+import { StatusModule } from '../status/status.module';
 
 @Module({
   controllers: [MachinesController],
-  imports: [AuditModule],
+  imports: [AuditModule, StatusModule],
   providers: [
     ConditionEventsService,
     ConditionService,

@@ -36,6 +36,7 @@
     "verify:machines:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-machines-live.ts",
     "verify:conditions:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-condition-live.ts",
     "verify:usage:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-usage-live.ts",
+    "verify:status:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-status-live.ts",
     "verify:machine-import:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-machine-import-live.ts",
     "verify:attachments:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-attachments-live.ts",
     "storage:configure": "tsx scripts/configure-supabase-storage.ts",

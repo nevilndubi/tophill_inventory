@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   can,
   getPermissionScope,
+  isMachineUsable,
   USAGE_DEFAULT_PURPOSE,
   USAGE_EXPECTED_END_HOURS_MAX,
   USAGE_EXPECTED_END_MINUTES_MIN,
@@ -323,8 +324,14 @@ export class UsageService {
   }
 
   private assertCheckOutCondition(machine: LockedMachine): void {
-    if (machine.condition === 'OPERATIONAL') return;
-    if (machine.condition === 'NEEDS_SERVICE' && machine.allowBookingWhenNeedsService) return;
+    if (
+      isMachineUsable({
+        allowBookingWhenNeedsService: machine.allowBookingWhenNeedsService,
+        condition: machine.condition,
+        hasOpenSession: false,
+      })
+    )
+      return;
     throw new MachineNotAvailableException();
   }
 

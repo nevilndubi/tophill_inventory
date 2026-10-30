@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Headers,
   Param,
   Patch,
@@ -17,6 +18,7 @@ import {
   machineImportCsv,
   MACHINE_IMPORT_TEMPLATE_VERSION,
   type MachineImportReport,
+  type MachineLiveStatus,
   type ManagedMachine,
   type MachineConditionHistoryItem,
   type MachineConditionTransitionResult,
@@ -43,6 +45,7 @@ import { MachinesService } from './machines.service';
 import { ConditionService } from './condition.service';
 import { CheckInMachineDto, CheckOutMachineDto } from '../usage/usage.dto';
 import { UsageService } from '../usage/usage.service';
+import { StatusService } from '../status/status.service';
 
 @ApiBearerAuth('supabase')
 @ApiTags('machines')
@@ -53,6 +56,7 @@ export class MachinesController {
     private readonly imports: MachineImportService,
     private readonly conditions: ConditionService,
     private readonly usage: UsageService,
+    private readonly status: StatusService,
   ) {}
 
   @Get()
@@ -155,6 +159,18 @@ export class MachinesController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.usage.checkIn(actor, params.id, input, getOrCreateRequestId(request));
+  }
+
+  @Get(':id/status')
+  @RequirePermission('machine:read')
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'Read the live derived status for an active-registry machine' })
+  statusForMachine(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+  ): Promise<MachineLiveStatus> {
+    return this.status.get(actor, params.id);
   }
 
   @Get(':id')
