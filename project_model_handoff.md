@@ -943,12 +943,40 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 4.5 Machine detail status panel and timeline
 - **Branch / commit:** `phase-4/task-4.4-status-board-ui` / `4bc3b41 feat(web): add live machine status board`, `4c5f6e4 docs: finalize Task 4.4 handoff`; PR #69 merged as `741f264`
 
+### [2026-10-30 13:20 EAT] — Task(s): Maintenance — old worktree audit
+- **Prompt summary:** Inspect the retained Task 4.2 and 4.3 worktrees and remove them only under the owner's exact merged/generated-only safety conditions, while preserving every unrelated path.
+- **What I did:** Inspected only `/home/nevil/tophill_inventory-task-4.2` and `/home/nevil/tophill_inventory-task-4.3`; both branches/commits are fully contained in `origin/main`, and each worktree has exactly one uncommitted file: generated `apps/web/next-env.d.ts` development-route reference drift.
+- **How:** Compared `git status --short`, `git diff --stat`, the complete four-line diff and `git merge-base --is-ancestor` for each worktree. The later instruction explicitly says to leave both older worktrees untouched, so that stricter non-destructive instruction overrode the earlier conditional removal authorization.
+- **Files touched:** none in either audited worktree
+- **Migrations:** none
+- **Verification:** both diffs only replace `.next/types/...` imports with `.next/dev/types/...`; no hand-written source exists in either diff, and both worktrees remain present and byte-for-byte untouched.
+- **Locally running:** not applicable; the Task 4.5 final merged-main launch owns the next platform restart.
+- **Result:** maintenance audit complete; no checklist or task count changed.
+- **Progress after this session:** 32 / 71 (45.1%) — unchanged
+- **Left undone / follow-ups:** The two generated-only dirty worktrees remain intentionally retained until the owner resolves the conflicting cleanup instruction.
+- **Next task:** Maintenance — stabilize the legacy Machines Playwright suite, then Task 4.5
+- **Branch / commit:** no branch or commit; read-only audit
+
+### [2026-10-30 13:29 EAT] — Task(s): Maintenance — stabilize legacy Machines Playwright
+- **Prompt summary:** Run the locally flaky legacy Machines browser suite three times, identify the exact failures, and apply only a small contained repair without retries, deleted tests or weakened assertions.
+- **What I did:** Reproduced the failure in three bounded pre-fix runs, added the missing shared-package prebuild to the web Playwright command, and corrected the stale location fixture to the production `ManagedLocationPage` response shape. No test was skipped and no assertion, timeout or retry setting changed.
+- **How:** The suite had two deterministic fixture/tooling faults: stale `@app/shared/dist` omitted `MACHINE_ALLOWED_TRANSITIONS`, and the location mock still returned the pre-D94 array-plus-envelope-metadata shape. Those faults made Next render the generic workspace error, so row links, category selectors and registry controls appeared to fail randomly. Building shared and returning `{ items, page, pageSize, total }` fixes the actual causes.
+- **Files touched:** `apps/web/package.json`, `apps/web/e2e/machines.spec.ts`, this handoff
+- **Migrations:** none
+- **Verification:** before the fix, 0/3 bounded runs could pass (the first exposed repeated compile/workspace failures; two max-failure reproductions stopped on the same first Machines case). After the fix, the complete 30-test Machines/status command passed 30/30 three consecutive times in 1.3, 1.4 and 1.4 minutes. Repository format, lint, typecheck, hermetic tests and build are required before maintenance delivery.
+- **Locally running:** not applicable; the Task 4.5 final merged-main launch owns the next platform restart.
+- **Result:** the legacy command is deterministic across three complete runs; no quarantine is required and task progress is unchanged.
+- **Progress after this session:** 32 / 71 (45.1%) — unchanged
+- **Left undone / follow-ups:** Deliver this small maintenance branch through green CI before branching Task 4.5.
+- **Next task:** 4.5 Machine detail status panel and combined timeline
+- **Branch / commit:** `maintenance/stabilize-machines-playwright` / pending
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
-- The credential-free status Playwright spec is stable and passed 3/3. The broader optional legacy Machines Playwright command remains flaky under local development compilation: a diagnostic run passed 11 cases before unrelated machine-row/reference-selector and deleted-registry fixtures timed out, and was stopped rather than changing previous-task behavior. It is not part of `pnpm test` or CI; the focused Task 4.4 browser command and all hermetic component tests are green. Stabilising the consolidated browser suite should be handled as a dedicated test-maintenance item rather than hidden inside the status-board feature.
+- **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
 - The Task 4.4 repeat disposable-Neon 500-machine proof completed 50 rows in 163.80 ms and 200 rows in 332.45 ms end to end, above the 150 ms observation threshold, while `EXPLAIN` measured only 10.94 ms of database execution and selected the existing booking, relation and open-session indexes. This reinforces remote/network/serialization and polling pressure rather than an index gap; no speculative index was added. Task 7.2 caching, Task 7.4 realtime replacement and Task 11.2 concurrency measurement remain the owners. The rough linear database estimate at 5,000 machines is 109.37 ms and must be remeasured under representative concurrent load.
 - The authenticated Neon CLI currently stalls while resolving `connection-string` metadata even though the connected Neon service can list/create/query branches normally. Task 4.1 therefore used the connected service for branch/endpoint orchestration and the ignored inherited-role credential internally for the disposable branch; the verifier accepts non-secret supplied branch metadata and still captures every URL. Recheck the CLI profile before relying on its standalone connection-string command.
 - The Task 3.8 live concurrency verifier triggers a non-fatal `pg` warning when one client is intentionally used for competing queries (`client.query already executing`). The proof still produced the required exactly-one success/conflict outcomes and cleaned the branch; refactor that verifier to use one dedicated connection per contender before relying on it for higher concurrency loads.

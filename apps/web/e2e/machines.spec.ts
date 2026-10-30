@@ -146,7 +146,9 @@ async function mockApi(page: Page) {
     if (url.pathname === '/api/v1/departments')
       return route.fulfill({ json: envelope([department]) });
     if (url.pathname === '/api/v1/locations')
-      return route.fulfill({ json: envelope([location], { page: 1, pageSize: 200, total: 1 }) });
+      return route.fulfill({
+        json: envelope({ items: [location], page: 1, pageSize: 200, total: 1 }),
+      });
     if (url.pathname === '/api/v1/machines' && request.method() === 'GET') {
       const registry = url.searchParams.get('registry') ?? 'active';
       const visible =

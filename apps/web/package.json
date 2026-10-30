@@ -8,6 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "pretest:e2e:machines": "pnpm --filter @app/shared build",
     "test:e2e:machines": "playwright test --config playwright.config.ts"
   },
   "dependencies": {
