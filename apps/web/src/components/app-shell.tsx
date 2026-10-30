@@ -96,13 +96,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const heading = pathname.startsWith('/machines')
     ? 'Machines'
-    : pathname.startsWith('/scan')
-      ? 'Scan asset'
-      : pathname.startsWith('/admin/reference')
-        ? 'Reference data'
-        : pathname.startsWith('/admin')
-          ? 'Administration'
-          : 'Overview';
+    : pathname.startsWith('/status')
+      ? 'Status board'
+      : pathname.startsWith('/scan')
+        ? 'Scan asset'
+        : pathname.startsWith('/admin/reference')
+          ? 'Reference data'
+          : pathname.startsWith('/admin')
+            ? 'Administration'
+            : 'Overview';
   return (
     <div className="min-h-screen bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-20 border-r border-sidebar-border bg-sidebar md:block lg:w-64">

@@ -81,10 +81,13 @@ pnpm dev
 
 Open `http://localhost:3000` and sign in with a confirmed, administrator-provisioned Supabase
 account. The API listens on `http://localhost:3001`; its readiness probe is
-`http://localhost:3001/health/ready`. The working areas are Overview, Machines, Reference data and
-Administration. The machine detail Files tab supports private photos, PDFs, signed downloads and
-permission-gated uploads/deletes. Status, Bookings, Service and History remain labelled “Coming
-soon” until their scheduled tasks.
+`http://localhost:3001/health/ready`. The post-login landing page is **Live status**, where every
+active role can filter the current equipment board and permitted roles can check machines out, check
+their own sessions in, or force-end scoped sessions. The other working areas are Machines, Reference
+data and Administration. The machine detail Files, Status and History tabs support private files,
+condition transitions and condition history. Bookings and Service remain labelled “Coming soon”
+until their scheduled tasks; the combined usage timeline and detail-level usage controls arrive in
+Task 4.5.
 
 Administrators can open **Machines → Import CSV** to download the versioned blank template or a
 separate three-row example, preview row-level validation, and then choose an atomic full import or

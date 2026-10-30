@@ -228,7 +228,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 4.1 Condition state machine + status history
 - [x] 4.2 Usage sessions: check-out / check-in API
 - [x] 4.3 Live status service (derived display status)
-- [ ] 4.4 Status board UI (grid/list, filters, colour+icon+text)
+- [x] 4.4 Status board UI (grid/list, filters, colour+icon+text)
 - [ ] 4.5 Machine detail: status panel & timeline
 
 ### Phase 5 — Booking Engine
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 31 / 71 tasks (43.7%) |
-| Current phase | Phase 4 complete through Task 4.3 — authoritative derived live status API |
-| Last updated | 2026-10-30 03:15 EAT |
-| Branch | `phase-4/task-4.3-status-sync` |
-| Last commit | `9571727 Merge pull request #65 from nevilndubi/phase-4/task-4.3-live-status-service` |
-| Repo state | Task 4.3 is merged; PR #65 Quality passed; original local `main` is synchronized without altering the owner's three pre-existing web changes; Redis/API/web are running from the clean merged-code worktree with safe readiness proof |
-| **Next task** | **4.4 Status board UI** |
+| Overall progress | 32 / 71 tasks (45.1%) |
+| Current phase | Phase 4 complete through Task 4.4 — responsive live status board and usage quick actions |
+| Last updated | 2026-10-30 08:20 EAT |
+| Branch | `phase-4/task-4.4-status-board-ui` |
+| Last commit | `feat(web): add live machine status board` pending |
+| Repo state | Task 4.4 implementation, disposable-branch proof and every required local quality gate are complete in its isolated clean worktree; commit/PR/green merge, merged-main local launch and final task-worktree cleanup remain in this session |
+| **Next task** | **4.5 Machine detail status panel and timeline** |
 
 ---
 
@@ -329,7 +329,6 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
 - **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, every reference-data machine-count key and any future asset-tag lookup key after successful create/update/delete/restore. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
 - **Task 7.4 — machine registry realtime:** publish delete and restore events after committed registry changes so clients can invalidate active/deleted lists, detail, status-board and reference-count views.
-- **Task 4.4 — status-board UI and polling:** consume the authoritative Task 4.3 status contract, show active-registry machines only, poll every 30 seconds, extend stored-condition badges with derived icon/text/colour states, and provide a check-in action when forced OUT_OF_SERVICE still has an open session. Every open board screen multiplies API load until Task 7.2 caching and Task 7.4 realtime replacement land.
 - **Task 4.5 — machine-detail live usage:** add the holder-safe usage controls and combined condition/usage timeline using Task 4.3's `open_session` payload; do not reconstruct status in the browser.
 - **Node type major:** revisit the ignored `@types/node` semver-major update only when the pinned runtime moves from Node 24; keep runtime and declaration majors aligned and verify the complete workspace during that runtime upgrade.
 - **TypeScript 6:** revisit the ignored TypeScript semver-major update in a dedicated toolchain task after Next.js, NestJS, Prisma, ts-jest, tsup and ESLint support is verified together and the hosted Quality pipeline passes.
@@ -351,6 +350,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 6.5 — condition impact on bookings:** flag and surface affected future bookings whenever a machine leaves OPERATIONAL; Task 4.1 records the transition but deliberately does not mutate bookings.
 - **Task 5.1 — effective bookability:** combine the stored booking-policy flags with the authoritative machine condition; Task 4.1 does not infer availability or alter booking policy.
 - **Tasks 7.2 and 7.4 — condition invalidation/realtime:** invalidate `machine:{id}:v1` and future status-board/list keys after every committed transition, then publish the shared typed condition-transition event through the realtime channel.
+- **Ward wall-display mode:** consider a large-text, action-free view that auto-rotates department filters. It is a useful future mode for `/status`, but needs product and device-security decisions before implementation.
 
 ### Backlog (future ideas — OUT of current scope, do not build without approval)
 - QR scan from phone camera (PWA) for instant check-in/out
@@ -462,6 +462,8 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D93 | 2026-10-30 | Compute status detail/board with one parameterized PostgreSQL statement and one statement timestamp; counts apply all filters except status, total applies every filter, status is derived/filterable in SQL, and both endpoints use no-store plus Authorization variance | One clock makes due/overdue/booking boundaries consistent, SQL pagination/counts remain correct, the shared query builder prevents detail/board drift, and live user-relative data must not be cached by browsers before Task 7.2 | Application-side derivation/filtering; per-machine queries; separate clocks/count queries; ETags or browser caching now |
 | D94 | 2026-10-30 | Consume the location endpoint as a `ManagedLocationPage` inside the standard success envelope, and stop tracking `apps/web/next-env.d.ts` while keeping it in TypeScript's include list | The location controller returns pagination inside its data object, so treating envelope metadata as pagination breaks every location selector. Next.js 16.4.2 regenerates `next-env.d.ts` for development and build with different route-type paths, and its current official guidance recommends ignoring the file | Change the API envelope; preserve the broken `requestWithMeta` adapter; keep committing development/build-generated declaration churn |
 | D95 | 2026-10-30 | Declare Express 5.3.0 as a direct API runtime dependency at the exact version already resolved by Nest's Express platform | `configure-application.ts` imports Express directly, so Node production resolution must not rely on a transitive framework package; pinning the existing version avoids a duplicate copy | Keep relying on the transitive dependency; change the HTTP adapter; install a different Express release |
+| D96 | 2026-10-30 | Make `/status` the authenticated landing page and first typed navigation entry until Phase 8, with one validated URL model for grid/table mode, filters, repeatable status chips, sort and pagination | Every role has `machine:read`; the live board is the most useful current operational screen, and URL state preserves refresh/Back/shared-link behavior without client-side result filtering | Keep the placeholder overview; component-only state; create a separate status administration area |
+| D97 | 2026-10-30 | Poll the authoritative board one request at a time around 30 seconds with jitter, visibility/offline pause, prompt resume and capped backoff; anchor relative time to server `as_of`; derive quick actions only through shared permission/scope helpers and Task 4.2 endpoints | This keeps stale/network failures non-destructive, avoids request overlap and browser-clock trust, supports shared tablets, and preserves Neon/API authority until Tasks 7.2/7.4 replace polling pressure | Browser-clock-only time; fixed overlapping interval; clear rows or sign out after a poll failure; duplicate role names or status logic in the web app |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -913,12 +915,41 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 4.4 Status board UI
 - **Branch / commit:** `maintenance/fix-api-production-start` / `fix(api): declare Express runtime dependency` pending
 
+### [2026-10-30 07:00 EAT] — Task(s): Maintenance — merged worktree hygiene
+- **Prompt summary:** Inventory all task worktrees and remove only those that were merged and clean, retaining any worktree with an uncommitted file; establish the platform-run location for future task cleanup.
+- **What I did:** Removed the clean, merged paginated-location and Task 4.1 worktrees, then removed the clean Express maintenance worktree after PR #68 merged. Retained the detached Task 4.2 worktree and Task 4.3 worktree because each still contains an uncommitted generated `apps/web/next-env.d.ts` change.
+- **How:** Used `git worktree list`, per-worktree `git status --short --branch`, commit-containment checks against `origin/main`, and explicit worktree removal only after both clean/merged conditions were proven. No stash, reset, checkout, file removal or forced worktree deletion was used.
+- **Files touched:** this handoff only
+- **Migrations:** none
+- **Verification:** the original main workspace remained clean and synchronized; the two dirty older worktrees remained byte-for-byte untouched. The exact merged Task 4.4 platform will run from `/home/nevil/tophill_inventory` (the main workspace), after which its clean task worktree will be removed.
+- **Locally running:** deferred to the mandatory post-merge §6.4 launch.
+- **Result:** maintenance only; task progress remains 31 / 71 (43.7%).
+- **Progress after this session:** 31 / 71 (43.7%) — unchanged
+- **Left undone / follow-ups:** The two dirty generated-declaration worktrees require an owner decision or a future safe byte-identical reconciliation; they were intentionally not removed.
+- **Next task:** 4.4 Status board UI
+- **Branch / commit:** no branch/commit; recorded with Task 4.4 documentation
+
+### [2026-10-30 08:20 EAT] — Task(s): 4.4 Status board UI
+- **Prompt summary:** Build the authenticated responsive live-status board from the Task 4.3 contract, with URL state, accessible status language, resilient polling/freshness, permission- and scope-correct Task 4.2 quick actions, credential-free browser coverage and disposable-Neon evidence.
+- **What I did:** Added `/status` as the default authenticated landing page and first typed navigation entry; implemented six complete status chips, grid/table results, strict URL filters/search/sort/pagination/view state, reference selectors, server-anchored Nairobi/relative time, clock-skew and stale warnings, accessible empty/loading/error states, no-overlap polling/backoff, and check-out/check-in/force-end dialogs. Higher-priority conditions retain the open-session safety warning/action, and IN_USE plus NEEDS_SERVICE renders both facts. Shared metadata and shared permission scopes remain the only status/capability source (D96–D97).
+- **How:** Added typed board/usage clients, pure URL/polling/scope helpers, a reusable shared-metadata badge, TanStack Query structural sharing/invalidation, and a mocked real-Next Playwright suite. The interactive browser connector had no connected browser, so the authorized Playwright fallback exercised the rendered routes. No migration or API behavior changed.
+- **Files touched:** web status page/components/API and status helpers/tests, navigation/landing/auth-return expectations, Playwright config/spec, `docs/ARCHITECTURE.md`, this handoff
+- **Migrations:** none; the disposable proof reported `No difference detected`.
+- **Verification:** frozen install, format, lint, typecheck, the full hermetic suite (API 384 passed plus one intentional Redis-cache reminder skip; web 194 passed) and the production build passed. Task-specific Playwright passed 3/3 in 9.7 seconds at 360/768/1280, producing ignored screenshots `status-360.png`, `status-768.png`, `status-1280.png`. The disposable Neon verifier applied migrations/seed, proved all priority conflicts, 60-machine detail/board parity, one-query behavior and five documented indexes, then deleted branch `br-muddy-haze-bao1ndov`. Hosted Quality remains the merge gate.
+- **Locally running:** pending mandatory post-merge §6.4 restart from exact local `main`.
+- **Result:** Task 4.4 complete; progress 32 / 71 (45.1%).
+- **Progress after this session:** 32 / 71 (45.1%)
+- **Left undone / follow-ups:** Task 4.5 owns machine-detail usage/timeline; Tasks 7.2/7.3/7.4 own board caching, rate limiting and realtime replacement; the wall-display idea remains backlog. The live browser used mocked API/auth while disposable Neon proved data/query behavior; no hosted identity or protected-branch data was used.
+- **Next task:** 4.5 Machine detail status panel and timeline
+- **Branch / commit:** `phase-4/task-4.4-status-board-ui` / `feat(web): add live machine status board` pending
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
-- The Task 4.3 disposable-Neon 500-machine proof completed the default 50-row board in 145.68 ms, but the maximum 200-row response took 152.35 ms end to end, slightly above the 150 ms observation threshold. `EXPLAIN` measured only 5.88 ms of database execution and selected the existing `bookings_no_overlap` index, so no speculative index was added; Task 7.2 caching and Task 7.4 realtime replacement own polling/network pressure. The rough linear database estimate at 5,000 machines is 58.83 ms and must be remeasured under Task 11.2 concurrency.
+- The credential-free status Playwright spec is stable and passed 3/3. The broader optional legacy Machines Playwright command remains flaky under local development compilation: a diagnostic run passed 11 cases before unrelated machine-row/reference-selector and deleted-registry fixtures timed out, and was stopped rather than changing previous-task behavior. It is not part of `pnpm test` or CI; the focused Task 4.4 browser command and all hermetic component tests are green. Stabilising the consolidated browser suite should be handled as a dedicated test-maintenance item rather than hidden inside the status-board feature.
+- The Task 4.4 repeat disposable-Neon 500-machine proof completed 50 rows in 163.80 ms and 200 rows in 332.45 ms end to end, above the 150 ms observation threshold, while `EXPLAIN` measured only 10.94 ms of database execution and selected the existing booking, relation and open-session indexes. This reinforces remote/network/serialization and polling pressure rather than an index gap; no speculative index was added. Task 7.2 caching, Task 7.4 realtime replacement and Task 11.2 concurrency measurement remain the owners. The rough linear database estimate at 5,000 machines is 109.37 ms and must be remeasured under representative concurrent load.
 - The authenticated Neon CLI currently stalls while resolving `connection-string` metadata even though the connected Neon service can list/create/query branches normally. Task 4.1 therefore used the connected service for branch/endpoint orchestration and the ignored inherited-role credential internally for the disposable branch; the verifier accepts non-secret supplied branch metadata and still captures every URL. Recheck the CLI profile before relying on its standalone connection-string command.
 - The Task 3.8 live concurrency verifier triggers a non-fatal `pg` warning when one client is intentionally used for competing queries (`client.query already executing`). The proof still produced the required exactly-one success/conflict outcomes and cleaned the branch; refactor that verifier to use one dedicated connection per contender before relying on it for higher concurrency loads.
 - On this workstation, detached Next.js 16.4.2 Turbopack development startup can log `Ready` but stall before binding port 3000; clearing the generated dev cache did not change it. The merged app starts and serves correctly with `next dev --webpack`, which is the current detached local-run workaround. Browser tests and production builds remain green; investigate the Turbopack/PTY interaction in a dedicated tooling task rather than Task 3.7.

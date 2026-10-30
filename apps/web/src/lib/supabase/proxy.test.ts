@@ -79,7 +79,7 @@ describe('Supabase request proxy', () => {
     );
 
     expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('http://localhost:3000/');
+    expect(response.headers.get('location')).toBe('http://localhost:3000/status');
   });
 
   it('does not turn a retryable provider outage into a login redirect', async () => {

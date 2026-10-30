@@ -75,7 +75,7 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
     expect(screen.getByLabelText('Email address')).toBeDisabled();
     resolveSignIn?.({ error: null });
-    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/status'));
   });
 
   it('supports the development-only browser journey without contacting Supabase', async () => {
