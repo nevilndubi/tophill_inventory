@@ -293,10 +293,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 32 / 71 tasks (45.1%) |
 | Current phase | Phase 4 complete through Task 4.4 — responsive live status board and usage quick actions |
-| Last updated | 2026-10-30 08:20 EAT |
-| Branch | `phase-4/task-4.4-status-board-ui` |
-| Last commit | `4bc3b41 feat(web): add live machine status board` |
-| Repo state | Task 4.4 implementation, disposable-branch proof and every required local quality gate are committed in its isolated clean worktree; PR/green merge, merged-main local launch and final task-worktree cleanup remain in this session |
+| Last updated | 2026-10-30 08:26 EAT |
+| Branch | `main` |
+| Last commit | `741f264 Merge pull request #69 from nevilndubi/phase-4/task-4.4-status-board-ui` |
+| Repo state | Clean synchronized `main`; PR #69 merged after hosted Quality passed, and Redis/API/web are running from the main workspace with safe readiness checks green. The clean Task 4.4 worktree was removed; the two older dirty generated-declaration worktrees remain untouched. |
 | **Next task** | **4.5 Machine detail status panel and timeline** |
 
 ---
@@ -935,13 +935,13 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **How:** Added typed board/usage clients, pure URL/polling/scope helpers, a reusable shared-metadata badge, TanStack Query structural sharing/invalidation, and a mocked real-Next Playwright suite. The interactive browser connector had no connected browser, so the authorized Playwright fallback exercised the rendered routes. No migration or API behavior changed.
 - **Files touched:** web status page/components/API and status helpers/tests, navigation/landing/auth-return expectations, Playwright config/spec, `docs/ARCHITECTURE.md`, this handoff
 - **Migrations:** none; the disposable proof reported `No difference detected`.
-- **Verification:** frozen install, format, lint, typecheck, the full hermetic suite (API 384 passed plus one intentional Redis-cache reminder skip; web 194 passed) and the production build passed. Task-specific Playwright passed 3/3 in 9.7 seconds at 360/768/1280, producing ignored screenshots `status-360.png`, `status-768.png`, `status-1280.png`. The disposable Neon verifier applied migrations/seed, proved all priority conflicts, 60-machine detail/board parity, one-query behavior and five documented indexes, then deleted branch `br-muddy-haze-bao1ndov`. Hosted Quality remains the merge gate.
-- **Locally running:** pending mandatory post-merge §6.4 restart from exact local `main`.
+- **Verification:** frozen install, format, lint, typecheck, the full hermetic suite (API 384 passed plus one intentional Redis-cache reminder skip; web 194 passed) and the production build passed. Task-specific Playwright passed 3/3 in 9.7 seconds at 360/768/1280, producing ignored screenshots `status-360.png`, `status-768.png`, `status-1280.png`. The disposable Neon verifier applied migrations/seed, proved all priority conflicts, 60-machine detail/board parity, one-query behavior and five documented indexes, then deleted branch `br-muddy-haze-bao1ndov`. PR #69 hosted Quality passed in 1m47s before merge.
+- **Locally running:** yes, from exact merged `main` in `/home/nevil/tophill_inventory`. Web returned HTTP 200, unauthenticated `/status` returned 307 to the validated login return path, and root readiness returned overall `ok`, database `up`, Redis `up`. Logs and PID files are under ignored `.artifacts/local-run`; stop with `kill -- -$(ps -o pgid= -p "$(cat .artifacts/local-run/api.pid)" | tr -d ' ')` and the equivalent `web.pid`, then `docker compose stop redis`.
 - **Result:** Task 4.4 complete; progress 32 / 71 (45.1%).
 - **Progress after this session:** 32 / 71 (45.1%)
 - **Left undone / follow-ups:** Task 4.5 owns machine-detail usage/timeline; Tasks 7.2/7.3/7.4 own board caching, rate limiting and realtime replacement; the wall-display idea remains backlog. The live browser used mocked API/auth while disposable Neon proved data/query behavior; no hosted identity or protected-branch data was used.
 - **Next task:** 4.5 Machine detail status panel and timeline
-- **Branch / commit:** `phase-4/task-4.4-status-board-ui` / `4bc3b41 feat(web): add live machine status board`
+- **Branch / commit:** `phase-4/task-4.4-status-board-ui` / `4bc3b41 feat(web): add live machine status board`, `4c5f6e4 docs: finalize Task 4.4 handoff`; PR #69 merged as `741f264`
 
 ---
 
