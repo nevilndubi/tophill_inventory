@@ -397,6 +397,31 @@ The single-machine endpoint reuses the same query builder. Board filters are str
 an ID tie-breaker. `counts` apply every filter except `status` and include zeros for all six states;
 `total` applies the status filter too.
 
+### 4.3.1 Machine activity timeline
+
+`GET /api/v1/machines/:id/timeline` requires `machine:read` and combines condition history with
+usage facts behind `TimelineService`; the older condition-only `/history` contract remains
+unchanged while it still has clients. The browser-safe discriminated contract contains only
+`MACHINE_REGISTERED`, `CONDITION_CHANGED`, `USAGE_STARTED` and `USAGE_ENDED`. The registration
+history row (`from_condition IS NULL`) is emitted once as registration rather than duplicated as a
+condition event. Service and booking events are intentionally absent until their authoritative
+workflows exist.
+
+Events sort newest first by event time, then rank `USAGE_ENDED`, `CONDITION_CHANGED`,
+`USAGE_STARTED`, `MACHINE_REGISTERED`, then immutable ID. Stable keys use the kind plus source ID.
+Page size defaults to 50 and is capped at 200. The first response returns database `as_of` as its
+`until` cutoff; later pages send that cutoff so concurrent inserts cannot shift pagination or its
+total. A future cutoff is rejected. Soft-deleted machines follow the existing
+`include_deleted=true` plus `machine:restore` ordering and existence-leak protection.
+
+One parameterized `UNION ALL` statement reads the machine, condition and usage facts, returns the
+database clock, page and cutoff-stable total without per-event reads. The ending actor and forced
+flag come from only the earliest matching `usage.checked_in`/`usage.force_ended` audit row, selected
+through `(entity_type, entity_id, created_at)`; the query extracts only actor ID and
+`context.forced`, never raw audit before/after payloads. Missing historical audit data produces a
+null actor and a neutral label. Duration and overdue-at-end are server-computed. The endpoint sends
+`Cache-Control: no-store` and `Vary: Authorization`.
+
 ### 4.4 Booking
 ```
 PENDING ──approve──► CONFIRMED ──check-in──► IN_PROGRESS ──check-in complete──► COMPLETED
@@ -430,7 +455,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 |---|---|
 | Auth/Users | `GET /me`, `GET/POST/PATCH /users`, `GET /users/departments`, `POST /users/:id/{deactivate,reactivate}` |
 | Reference data | Category CRUD; department CRUD plus `GET /departments/:id/eligible-managers`; location CRUD with paginated/filterable lists |
-| Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `POST /machines/:id/restore`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `POST /machines/:id/condition`, `GET /machines/:id/history` |
+| Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `POST /machines/:id/restore`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `POST /machines/:id/condition`, `GET /machines/:id/history`, `GET /machines/:id/timeline` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
 | Usage | `POST /machines/:id/check-out`, `POST /machines/:id/check-in` |
 | Booking | `GET /machines/:id/availability?from&to`, `GET/POST /bookings`, `PATCH /bookings/:id`, `POST /bookings/:id/{cancel,approve,reject}` |
@@ -522,6 +547,7 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 |---|---|---|---|
 | Status board snapshot | `board:v1:{filterHash}` | 15–30s | Deleted on any condition change, check-in/out, booking state change (use key-set `board:keys` or version counter `board:ver` to invalidate by bumping version) |
 | Machine detail | `machine:{id}:v1` | 5 min | Task 7.2 deletes it on update/delete/restore/condition/usage change; create/update/delete/restore also invalidate future machine-list/status-board/reference-count key sets, and asset-tag lookup keys if introduced |
+| Machine timeline | `timeline:{id}:v1:{until}:{page}` | short, Task 7.2 to choose | Invalidate after registration, condition, usage-start/end and future service/booking timeline events; preserve cutoff-stable page semantics |
 | Machine status (single) | `status:{id}` | 30s | Same triggers as board |
 | Reference data (categories, departments, locations) | `ref:{type}:v1` (`ref:departments:v1`, `ref:locations:v1`) | 10 min | Deleted on every successful write when Task 7.2 adds cache-aside behavior |
 | Availability grid | `avail:{machineId}:{date}` | 30s | Deleted on booking change for that machine |
@@ -685,6 +711,13 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
   timestamps use Africa/Nairobi, and `next_service_due_at` stays a labelled read-only calculation.
   Task 3.4 Playwright runs against the real Next routes with a development-only auth seam and
   browser-intercepted API responses; production builds cannot enable that seam.
+  Task 4.5 replaces the condition-only History tab with the combined timeline while keeping the
+  API's condition-history endpoint intact. One shared detail-status query feeds the header badge,
+  Overview and Status tab and is the detail page's only timer; the timeline refreshes after a
+  successful mutation, a relevant condition/open-session/day-boundary status change, or return to
+  a long-hidden History tab. A cutoff-stable page shows “New activity — show latest” instead of
+  silently reshuffling. Board and detail reuse the same checkout/check-in/force-end components and
+  error mapping; removed-machine detail is read-only for authorized administrators.
 - **Asset labels and scan lookup:** QR labels are rendered in-browser as black-on-white SVG with error correction M and a four-module quiet zone; no third-party QR service receives data. The validated path-free `NEXT_PUBLIC_APP_ORIGIN` plus canonical upper-case asset tag forms the only QR payload. Print CSS provides a 100 mm × 50 mm single label and 3 × 8 A4 sheets of 70 mm × 37 mm cells with a configurable top offset and alignment test. Bulk selection is session-only, capped at 48, excludes retired/deleted machines, and reuses list data or one matching-list request. All `machine:read` roles may print. `/scan` and `/scan/[assetTag]` are authenticated/noindex, show only the stored condition plus placement, and leave Phase 4–6 actions visibly disabled.
 - **Return paths:** login accepts only a relative path beginning with one `/`; protocol-relative paths, absolute URLs, backslashes, encoded slash/backslash separators and `javascript:` input fall back to `/status`. The proxy forwards its own validated current-path header to protected server layouts so deep scan paths survive both proxy login and server-side session recovery.
 - **Bootstrap shell:** the Phase 0 shell uses a mobile navigation drawer below 768px, a compact icon rail from 768px, and the full sidebar from 1024px. `/status` is the authenticated landing page and first navigation entry until the Phase 8 dashboard exists; future navigation labels remain disabled until their scheduled features exist.

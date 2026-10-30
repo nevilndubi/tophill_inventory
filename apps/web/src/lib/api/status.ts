@@ -2,6 +2,7 @@ import type {
   CheckInMachineInput,
   CheckOutMachineInput,
   MachineStatusBoard,
+  MachineLiveStatus,
   StatusBoardQuery,
   UsageSessionDto,
 } from '@app/shared';
@@ -25,6 +26,8 @@ const queryString = (query: StatusBoardQuery): string => {
 export const statusApi = {
   board: (query: StatusBoardQuery) =>
     browserApi.request<MachineStatusBoard>(`/status/board?${queryString(query)}`),
+  machine: (machineId: string) =>
+    browserApi.request<MachineLiveStatus>(`/machines/${machineId}/status`),
   checkIn: (machineId: string, input: CheckInMachineInput) =>
     browserApi.request<UsageSessionDto>(`/machines/${machineId}/check-in`, {
       body: JSON.stringify(input),

@@ -42,6 +42,7 @@ import { MachineImportService } from '../src/machines/machine-import.service';
 import { AttachmentsService } from '../src/attachments/attachments.service';
 import { UsageService } from '../src/usage/usage.service';
 import { StatusService } from '../src/status/status.service';
+import { TimelineService } from '../src/machines/timeline.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -683,6 +684,22 @@ const EXPECTED_ACCESS_TABLE = [
       STAFF: 'ALLOW',
       VIEWER: 'ALLOW',
     },
+    route: '/api/v1/machines/:id/timeline',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
     route: '/api/v1/machines/:id/status',
     successStatus: 200,
     unauthenticated: 'DENY',
@@ -1060,6 +1077,16 @@ const statusService = {
   })),
   get: jest.fn(async () => liveStatus),
 };
+const timelineService = {
+  list: jest.fn(async () => ({
+    as_of: '2026-10-29T12:00:00.000Z',
+    items: [],
+    page: 1,
+    page_size: 50,
+    total: 0,
+    until: '2026-10-29T12:00:00.000Z',
+  })),
+};
 
 const configForVerifier = (jwksUrl: string) =>
   ({
@@ -1278,6 +1305,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(usageService)
         .overrideProvider(StatusService)
         .useValue(statusService)
+        .overrideProvider(TimelineService)
+        .useValue(timelineService)
         .compile();
 
     const productionModule = await createModule(false);
@@ -1433,6 +1462,18 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         }
       }
     }
+  });
+
+  it('marks the live combined timeline as private, uncached authorization-varying data', async () => {
+    currentUser = makeUser('STAFF');
+
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/machines/${TARGET_USER_ID}/timeline`)
+      .set('Authorization', `Bearer ${validToken}`)
+      .expect(200);
+
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers.vary).toContain('Authorization');
   });
 
   it('matches the unauthenticated and inactive columns for every production route', async () => {

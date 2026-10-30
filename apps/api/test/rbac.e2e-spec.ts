@@ -271,6 +271,7 @@ describe('API role authorization (e2e)', () => {
       'GET /machines/:id permission:machine:read',
       'GET /machines/:id/history permission:machine:read',
       'GET /machines/:id/status permission:machine:read',
+      'GET /machines/:id/timeline permission:machine:read',
       'GET /machines/:machineId/attachments permission:machine:read',
       'GET /machines/by-tag/:assetTag permission:machine:read',
       'GET /machines/import/template permission:machine:create',

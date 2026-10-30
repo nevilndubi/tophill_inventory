@@ -90,6 +90,9 @@ export function MachineConditionPanel({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['machine', machine.id] }),
         queryClient.invalidateQueries({ queryKey: ['machine-history', machine.id] }),
+        queryClient.invalidateQueries({ queryKey: ['machine-timeline', machine.id] }),
+        queryClient.invalidateQueries({ queryKey: ['machine-status', machine.id] }),
+        queryClient.invalidateQueries({ queryKey: ['status-board'] }),
         queryClient.invalidateQueries({ queryKey: ['machines'] }),
       ]);
       close();

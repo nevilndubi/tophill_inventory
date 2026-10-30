@@ -4,6 +4,7 @@ import {
   machineDetailQuerySchema,
   machineConditionTransitionSchema,
   machineHistoryQuerySchema,
+  machineTimelineQuerySchema,
   machineImportQuerySchema,
   machineIdParamsSchema,
   machineRegistryMutationSchema,
@@ -11,6 +12,7 @@ import {
   updateMachineSchema,
   type MachineCondition,
   type MachineSortField,
+  type MachineTimelineQuery,
 } from '@app/shared';
 import { createZodDto } from '../common/validation/zod-dto';
 
@@ -94,6 +96,13 @@ export class MachineHistoryQueryDto extends createZodDto(machineHistoryQuerySche
   declare include_deleted?: true;
   declare page: number;
   declare pageSize: number;
+}
+
+export class MachineTimelineQueryDto extends createZodDto(machineTimelineQuerySchema) {
+  declare include_deleted?: true;
+  declare page: MachineTimelineQuery['page'];
+  declare page_size: MachineTimelineQuery['page_size'];
+  declare until?: MachineTimelineQuery['until'];
 }
 
 export class MachineImportQueryDto extends createZodDto(machineImportQuerySchema) {

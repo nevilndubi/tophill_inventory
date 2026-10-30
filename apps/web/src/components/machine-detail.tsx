@@ -10,8 +10,9 @@ import { MachineConditionBadge } from '@/components/machine-condition-badge';
 import { MachineForm } from '@/components/machine-form';
 import { MachineAttachments } from '@/components/machine-attachments';
 import { MachineRegistryActions } from '@/components/machine-registry-actions';
-import { MachineConditionPanel } from '@/components/machine-condition-panel';
-import { MachineConditionHistory } from '@/components/machine-condition-history';
+import { MachineLiveStatusPanel } from '@/components/machine-live-status-panel';
+import { MachineTimeline } from '@/components/machine-timeline';
+import { DisplayStatusBadge } from '@/components/display-status-badge';
 import { useAuthenticatedUser } from '@/components/authenticated-user-provider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ApiClientError } from '@/lib/api/client';
 import { machinesApi } from '@/lib/api/machines';
+import { statusApi } from '@/lib/api/status';
+import { statusPollDelay } from '@/lib/status/polling';
 import { formatDateOnly, formatNairobiDateTime, isServiceOverdue } from '@/lib/machines/formatting';
 
 const TABS = ['overview', 'status', 'bookings', 'service', 'files', 'history'] as const;
@@ -67,6 +70,16 @@ export function MachineDetail({ id }: { id: string }) {
   const machine = useQuery({
     queryFn: () => machinesApi.get(id, mayRestore),
     queryKey: ['machine', id, { includeDeleted: mayRestore }],
+  });
+  const liveStatus = useQuery({
+    enabled: machine.data?.registryStatus === 'ACTIVE',
+    queryFn: () => statusApi.machine(id),
+    queryKey: ['machine-status', id],
+    refetchInterval: (query) => {
+      if (typeof document !== 'undefined' && (document.hidden || !navigator.onLine)) return false;
+      return statusPollDelay(query.state.fetchFailureCount, Math.random() * 0.2 - 0.1);
+    },
+    refetchIntervalInBackground: false,
   });
 
   useEffect(() => {
@@ -147,6 +160,9 @@ export function MachineDetail({ id }: { id: string }) {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold tracking-tight">{value.name}</h1>
             <MachineConditionBadge condition={value.condition} />
+            {liveStatus.data ? (
+              <DisplayStatusBadge status={liveStatus.data.display_status} />
+            ) : null}
           </div>
           <p className="mt-2 font-mono text-sm text-muted-foreground">{value.assetTag}</p>
         </div>
@@ -293,10 +309,15 @@ export function MachineDetail({ id }: { id: string }) {
           )}
         </TabsContent>
         <TabsContent value="status" className="pt-3">
-          <MachineConditionPanel machine={value} role={user.role} />
+          <MachineLiveStatusPanel
+            machine={value}
+            onRetry={() => void liveStatus.refetch()}
+            status={liveStatus.data}
+            statusError={liveStatus.isError}
+          />
         </TabsContent>
         <TabsContent value="history" className="pt-3">
-          <MachineConditionHistory machine={value} />
+          <MachineTimeline machine={value} status={liveStatus.data} />
         </TabsContent>
         {TABS.filter((item) => !['overview', 'files', 'status', 'history'].includes(item)).map(
           (item) => (
