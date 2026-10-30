@@ -9,6 +9,7 @@ import type {
   MachineConditionHistoryPage,
   MachineConditionTransitionInput,
   MachineConditionTransitionResult,
+  MachineTimelinePage,
 } from '@app/shared';
 import { authenticatedBrowserFetch, browserApi } from './browser-client';
 import { ApiClientError } from './client';
@@ -64,6 +65,18 @@ export const machinesApi = {
       pageSize: numericMeta(result.meta.pageSize, 50),
       total: numericMeta(result.meta.total, result.data.length),
     };
+  },
+  timeline(
+    id: string,
+    options: { includeDeleted?: boolean; page: number; pageSize: number; until?: string },
+  ): Promise<MachineTimelinePage> {
+    const values = new URLSearchParams({
+      page: String(options.page),
+      page_size: String(options.pageSize),
+    });
+    if (options.includeDeleted) values.set('include_deleted', 'true');
+    if (options.until) values.set('until', options.until);
+    return browserApi.request<MachineTimelinePage>(`/machines/${id}/timeline?${values}`);
   },
   async list(query: ListMachinesQuery): Promise<ManagedMachinePage> {
     const result = await browserApi.requestWithMeta<readonly ManagedMachine[]>(

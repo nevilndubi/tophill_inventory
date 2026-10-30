@@ -8,6 +8,8 @@ import { MachineDetail } from './machine-detail';
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   history: vi.fn(),
+  timeline: vi.fn(),
+  status: vi.fn(),
   remove: vi.fn(),
   replace: vi.fn(),
   restore: vi.fn(),
@@ -21,15 +23,29 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => mocks.search,
 }));
 vi.mock('./authenticated-user-provider', () => ({
-  useAuthenticatedUser: () => ({ user: { role: mocks.role } }),
+  useAuthenticatedUser: () => ({
+    user: {
+      department: { code: 'ICU', id: '22222222-2222-4222-8222-222222222222', name: 'ICU' },
+      id: '99999999-9999-4999-8999-999999999999',
+      role: mocks.role,
+    },
+  }),
 }));
 vi.mock('@/lib/api/machines', () => ({
   machinesApi: {
     get: mocks.get,
     history: mocks.history,
+    timeline: mocks.timeline,
     remove: mocks.remove,
     restore: mocks.restore,
     transition: mocks.transition,
+  },
+}));
+vi.mock('@/lib/api/status', () => ({
+  statusApi: {
+    checkIn: vi.fn(),
+    checkOut: vi.fn(),
+    machine: mocks.status,
   },
 }));
 vi.mock('./machine-attachments', () => ({
@@ -85,6 +101,29 @@ describe('MachineDetail', () => {
       retiredOn: null,
     });
     mocks.history.mockResolvedValue({ items: [], page: 1, pageSize: 50, total: 0 });
+    mocks.timeline.mockResolvedValue({
+      as_of: '2026-10-30T12:00:00.000Z',
+      items: [],
+      page: 1,
+      page_size: 50,
+      total: 0,
+      until: '2026-10-30T12:00:00.000Z',
+    });
+    mocks.status.mockResolvedValue({
+      as_of: '2026-10-30T12:00:00.000Z',
+      asset_tag: machine.assetTag,
+      category: machine.category,
+      department: machine.department,
+      display_status: 'AVAILABLE_OK',
+      id: machine.id,
+      location: machine.location,
+      name: machine.name,
+      next_booking_at: null,
+      open_session: null,
+      service_due: false,
+      stored_condition: machine.condition,
+      usable: true,
+    });
     sessionStorage.clear();
   });
 
@@ -123,26 +162,31 @@ describe('MachineDetail', () => {
 
   it('renders minimized newest-first condition history with safe actor metadata', async () => {
     mocks.search = new URLSearchParams('tab=history');
-    mocks.history.mockResolvedValue({
+    mocks.timeline.mockResolvedValue({
+      as_of: '2026-10-30T12:00:00.000Z',
       items: [
         {
-          actor: { fullName: 'Test Technician' },
-          createdAt: '2026-10-28T12:00:00.000Z',
-          fromCondition: 'OPERATIONAL',
-          id: '55555555-5555-4555-8555-555555555555',
+          actor: { full_name: 'Test Technician' },
+          event_id: 'condition:55555555-5555-4555-8555-555555555555',
+          from_condition: 'OPERATIONAL',
+          kind: 'CONDITION_CHANGED',
+          occurred_at: '2026-10-28T12:00:00.000Z',
           reason: 'Inspection found a fault',
           source: 'MANUAL',
-          toCondition: 'NEEDS_SERVICE',
+          to_condition: 'NEEDS_SERVICE',
         },
       ],
       page: 1,
-      pageSize: 50,
+      page_size: 50,
       total: 1,
+      until: '2026-10-30T12:00:00.000Z',
     });
     renderDetail();
-    expect(await screen.findByText('Inspection found a fault')).toBeInTheDocument();
-    expect(screen.getByText(/Manual · Test Technician/)).toBeInTheDocument();
+    expect(await screen.findByText(/Inspection found a fault/)).toBeInTheDocument();
+    expect(screen.getByText(/by Test Technician/i)).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'History' })).toHaveAccessibleName('History');
+    expect(mocks.status).toHaveBeenCalledTimes(1);
+    expect(mocks.timeline).toHaveBeenCalledTimes(1);
   });
 
   it('requires a PHI-safe removal reason and navigates to the deleted registry view', async () => {

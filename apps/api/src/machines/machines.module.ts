@@ -9,6 +9,7 @@ import { UsageClockService } from '../usage/usage-clock.service';
 import { UsageEventsService } from '../usage/usage-events.service';
 import { UsageService } from '../usage/usage.service';
 import { StatusModule } from '../status/status.module';
+import { TimelineService } from './timeline.service';
 
 @Module({
   controllers: [MachinesController],
@@ -18,6 +19,7 @@ import { StatusModule } from '../status/status.module';
     ConditionService,
     MachineImportService,
     MachinesService,
+    TimelineService,
     UsageClockService,
     UsageEventsService,
     UsageService,

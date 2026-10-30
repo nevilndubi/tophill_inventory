@@ -22,6 +22,7 @@ import {
   type ManagedMachine,
   type MachineConditionHistoryItem,
   type MachineConditionTransitionResult,
+  type MachineTimelinePage,
 } from '@app/shared';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -35,6 +36,7 @@ import {
   MachineDetailQueryDto,
   MachineConditionTransitionDto,
   MachineHistoryQueryDto,
+  MachineTimelineQueryDto,
   MachineIdParamsDto,
   MachineImportQueryDto,
   MachineRegistryMutationDto,
@@ -46,6 +48,7 @@ import { ConditionService } from './condition.service';
 import { CheckInMachineDto, CheckOutMachineDto } from '../usage/usage.dto';
 import { UsageService } from '../usage/usage.service';
 import { StatusService } from '../status/status.service';
+import { TimelineService } from './timeline.service';
 
 @ApiBearerAuth('supabase')
 @ApiTags('machines')
@@ -57,6 +60,7 @@ export class MachinesController {
     private readonly conditions: ConditionService,
     private readonly usage: UsageService,
     private readonly status: StatusService,
+    private readonly timeline: TimelineService,
   ) {}
 
   @Get()
@@ -194,6 +198,19 @@ export class MachinesController {
   ): Promise<ApiResponse<readonly MachineConditionHistoryItem[]>> {
     const page = await this.conditions.history(actor, params.id, query);
     return apiResponse(page.items, { page: page.page, pageSize: page.pageSize, total: page.total });
+  }
+
+  @Get(':id/timeline')
+  @RequirePermission('machine:read')
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'List the combined machine condition and usage timeline' })
+  timelineForMachine(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: MachineIdParamsDto,
+    @Query() query: MachineTimelineQueryDto,
+  ): Promise<MachineTimelinePage> {
+    return this.timeline.list(actor, params.id, query);
   }
 
   @Post(':id/condition')

@@ -116,6 +116,19 @@ export {
 } from './machine-management';
 
 export {
+  MACHINE_TIMELINE_EVENT_KINDS,
+  machineTimelineQuerySchema,
+  type ConditionChangedTimelineEvent,
+  type MachineRegisteredTimelineEvent,
+  type MachineTimelineEvent,
+  type MachineTimelineEventKind,
+  type MachineTimelinePage,
+  type MachineTimelineQuery,
+  type UsageEndedTimelineEvent,
+  type UsageStartedTimelineEvent,
+} from './machine-timeline';
+
+export {
   checkInMachineSchema,
   checkOutMachineSchema,
   USAGE_DEFAULT_PURPOSE,

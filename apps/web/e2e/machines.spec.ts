@@ -75,6 +75,8 @@ async function mockApi(page: Page) {
     condition: machine.condition as MachineCondition,
   };
   let attachments: Array<Record<string, unknown>> = [];
+  let openSession = false;
+  const usageTimeline: Array<Record<string, unknown>> = [];
   const history: Array<Record<string, unknown>> = [
     {
       actor: { fullName: 'Test administrator' },
@@ -221,6 +223,109 @@ async function mockApi(page: Page) {
       currentMachine = { ...currentMachine, condition: body.toCondition };
       return route.fulfill({
         json: envelope({ condition: body.toCondition, machineId: ids.machine, retiredOn: null }),
+      });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/status`) {
+      const asOf = new Date().toISOString();
+      return route.fulfill({
+        json: envelope({
+          as_of: asOf,
+          asset_tag: currentMachine.assetTag,
+          category: currentMachine.category,
+          department: currentMachine.department,
+          display_status:
+            currentMachine.condition === 'RETIRED' ||
+            currentMachine.condition === 'OUT_OF_SERVICE' ||
+            currentMachine.condition === 'UNDER_MAINTENANCE'
+              ? currentMachine.condition
+              : openSession
+                ? 'IN_USE'
+                : currentMachine.condition === 'NEEDS_SERVICE'
+                  ? 'AVAILABLE_NEEDS_SERVICE'
+                  : 'AVAILABLE_OK',
+          id: currentMachine.id,
+          location: currentMachine.location,
+          name: currentMachine.name,
+          next_booking_at: null,
+          open_session: openSession
+            ? {
+                expected_end_at: null,
+                held_by_current_user: true,
+                holder: {
+                  full_name: 'Test administrator',
+                  id: '99999999-9999-4999-8999-999999999999',
+                },
+                id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                overdue: false,
+                started_at: asOf,
+              }
+            : null,
+          service_due: false,
+          stored_condition: currentMachine.condition,
+          usable: !openSession && currentMachine.condition === 'OPERATIONAL',
+        }),
+      });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/check-out`) {
+      openSession = true;
+      usageTimeline.unshift({
+        event_id: 'usage-start:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        expected_end_at: null,
+        holder: { full_name: 'Test administrator' },
+        is_open: true,
+        kind: 'USAGE_STARTED',
+        occurred_at: '2026-10-30T11:00:00.000Z',
+        purpose: 'Ward round',
+        session_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        started_at: '2026-10-30T11:00:00.000Z',
+      });
+      return route.fulfill({ json: envelope({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }) });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/check-in`) {
+      openSession = false;
+      const start = usageTimeline.find((event) => event.kind === 'USAGE_STARTED');
+      if (start) start.is_open = false;
+      usageTimeline.unshift({
+        duration_seconds: 3600,
+        end_note: null,
+        ended_at: '2026-10-30T12:00:00.000Z',
+        ending_actor: { full_name: 'Test administrator' },
+        event_id: 'usage-end:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        expected_end_at: null,
+        forced: false,
+        holder: { full_name: 'Test administrator' },
+        kind: 'USAGE_ENDED',
+        occurred_at: '2026-10-30T12:00:00.000Z',
+        overdue_at_end: false,
+        purpose: 'Ward round',
+        session_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        started_at: '2026-10-30T11:00:00.000Z',
+      });
+      return route.fulfill({ json: envelope({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }) });
+    }
+    if (url.pathname === `/api/v1/machines/${ids.machine}/timeline`) {
+      const items = [
+        ...usageTimeline,
+        ...history.map((entry) => ({
+          actor: { full_name: (entry.actor as { fullName: string }).fullName },
+          event_id: `${entry.fromCondition === null ? 'registered' : 'condition'}:${String(entry.id)}`,
+          ...(entry.fromCondition === null ? {} : { from_condition: entry.fromCondition }),
+          kind: entry.fromCondition === null ? 'MACHINE_REGISTERED' : 'CONDITION_CHANGED',
+          occurred_at: entry.createdAt,
+          reason: entry.reason,
+          source: entry.source,
+          to_condition: entry.toCondition,
+        })),
+      ];
+      return route.fulfill({
+        json: envelope({
+          as_of: '2026-10-30T12:00:00.000Z',
+          items,
+          page: 1,
+          page_size: 50,
+          total: items.length,
+          until: '2026-10-30T12:00:00.000Z',
+        }),
       });
     }
     if (url.pathname === `/api/v1/machines/${ids.machine}/history`)
@@ -452,15 +557,31 @@ test('condition actions and history follow the role matrix', async ({ context })
   await expect(staff.getByText('No permitted transitions are available.')).toBeVisible();
 });
 
+test('machine detail reuses check-out/check-in controls and refreshes the combined timeline', async ({
+  context,
+}) => {
+  const page = await rolePage(context, 'ADMIN');
+  await page.goto(`/machines/${ids.machine}?tab=status`);
+  await page.getByRole('button', { name: 'Check out' }).click();
+  await page.getByRole('button', { name: 'Check out' }).last().click();
+  await expect(page.getByText('Machine checked out.')).toBeVisible();
+  await page.getByRole('button', { name: 'Check in' }).click();
+  await page.getByRole('button', { name: 'Check in' }).last().click();
+  await expect(page.getByText('Machine checked in.')).toBeVisible();
+  await page.getByRole('tab', { name: 'History' }).click();
+  await expect(page.getByRole('heading', { name: 'Usage ended' })).toBeVisible();
+  await expect(page.getByText(/Checked in after 1 h 00 min/)).toBeVisible();
+});
+
 for (const width of [360, 768, 1280]) {
   test(`condition history remains usable at ${width}px`, async ({ browser }) => {
     const context = await browser.newContext({ viewport: { height: 900, width } });
     const page = await rolePage(context, 'ADMIN');
     await page.goto(`/machines/${ids.machine}?tab=history`);
-    await expect(page.getByText('Machine registered')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Machine registered' })).toBeVisible();
     await page.screenshot({
       fullPage: true,
-      path: `.artifacts/task-4.1/condition-history-${width}.png`,
+      path: `.artifacts/task-4.5/timeline-${width}.png`,
     });
     await context.close();
   });
