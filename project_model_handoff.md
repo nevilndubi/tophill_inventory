@@ -293,10 +293,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 31 / 71 tasks (43.7%) |
 | Current phase | Phase 4 complete through Task 4.3 — authoritative derived live status API |
-| Last updated | 2026-10-30 03:02 EAT |
-| Branch | `phase-4/task-4.3-live-status-service` |
-| Last commit | `feat(status): add derived live status service` (Task 4.3 delivery commit) |
-| Repo state | Task 4.3 implementation and disposable-Neon proof are complete in an isolated clean worktree; the owner's three pre-existing web changes remain untouched in the original checkout; hosted delivery and the merged-main §6.4 restart remain to close this turn |
+| Last updated | 2026-10-30 03:15 EAT |
+| Branch | `phase-4/task-4.3-status-sync` |
+| Last commit | `9571727 Merge pull request #65 from nevilndubi/phase-4/task-4.3-live-status-service` |
+| Repo state | Task 4.3 is merged; PR #65 Quality passed; original local `main` is synchronized without altering the owner's three pre-existing web changes; Redis/API/web are running from the clean merged-code worktree with safe readiness proof |
 | **Next task** | **4.4 Status board UI** |
 
 ---
@@ -870,10 +870,25 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 4.4 Status board UI
 - **Branch / commit:** `phase-4/task-4.3-live-status-service` / `feat(status): add derived live status service`
 
+### [2026-10-30 03:15 EAT] — Task(s): 4.3 — hosted delivery and merged local launch
+- **Prompt summary:** Complete Task 4.3 through conventional commit, green hosted delivery, merge, synchronized local `main`, and the mandatory §6.4 clean merged-code restart without absorbing the owner's three unrelated web changes.
+- **What I did:** Committed feature `d8a38bc`, pushed it, opened PR #65, merged only after hosted Quality passed as `9571727`, fast-forwarded the original local `main`, retained its owner-authored `next-env.d.ts`/reference-client changes exactly, confirmed the ignored runtime files by variable name only, stopped only the verified older Task 4.2 project process groups, retained healthy Redis, and launched fresh API/web processes from the clean worktree based on the merge.
+- **How:** Git worktree isolation kept the owner changes outside both the feature commit and runtime compilation. The ignored API/web environment files are linked only into the clean worktree and remain untracked. Ports were checked before stopping known project processes; no unrelated process was killed. API runs through the repository's Nest development launcher and web uses the existing webpack development workaround, with ignored logs under each app's `.artifacts/local-run/` directory.
+- **Files touched:** this handoff only on the status-sync branch; feature code/docs are in merge `9571727`; ignored runtime environment links and logs are not tracked
+- **Migrations:** none; the disposable proof applied all nine migrations, reported no drift, then deleted its branch; local readiness uses the existing Neon `dev` configuration
+- **Verification:** PR #65 Quality passed in 1m59s. Final local evidence: format/lint/typecheck green; API 36/36 suites with 384 passing tests plus one intentional Task 7.2 sentinel; web 30/30 files with 166 passing tests; CI-shaped production build passed. Runtime `/login` is HTTP 200, unauthenticated `/machines` is HTTP 307 to login, and `/health/ready` is HTTP 200 with overall `ok`, database `up` and Redis `up`. Ports 3000/3001 resolve to the clean merged-code worktree.
+- **Locally running:** web `http://localhost:3000`, API `http://localhost:3001`. Existing working pages remain login/home, users, reference data, machine list/detail/create/edit, CSV import, labels/scan, Files, registry delete/restore, condition Status and History. Task 4.3 is API/service-only, so its new derived status detail/board endpoints have no screen yet; the status board and user-facing usage controls arrive in Tasks 4.4/4.5. Bookings, Service, dashboard metrics and reports remain “Coming soon”. Stop apps with `pkill -f '/home/nevil/tophill_inventory-task-4.3/apps/api'` and `pkill -f '/home/nevil/tophill_inventory-task-4.3/apps/web'`; stop Redis with `docker compose -p tophill_inventory stop redis` or the documented in-container shutdown workaround.
+- **Result:** Task 4.3 is complete, merged, green and running locally; its checklist item is ticked
+- **Progress after this session:** 31 / 71 (43.7%)
+- **Left undone / follow-ups:** Task 4.4 owns the board UI/polling; Task 4.5 owns detail usage controls/timeline; Tasks 7.2/7.3/7.4 own caching, limits and realtime; Task 5.5 owns booked-now state; Task 9.2 owns overdue alerts. The compiled-API direct-launch dependency issue is recorded in Known Issues. The owner's three unrelated web changes remain untouched.
+- **Next task:** 4.4 Status board UI
+- **Branch / commit:** `phase-4/task-4.3-status-sync` / based on `9571727 Merge pull request #65 from nevilndubi/phase-4/task-4.3-live-status-service`
+
 ---
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
+- The API imports `express` directly in `configure-application.ts` but `apps/api/package.json` does not declare `express` as a direct dependency. On this workstation `node dist/main` therefore fails module resolution even though the Nest development launcher, all tests and the production build pass because Nest's platform package carries it transitively. Add/pin the direct runtime dependency and exercise the compiled artifact in a small maintenance task; Task 4.3 uses the working documented development launcher and does not broaden scope into dependency repair.
 - The Task 4.3 disposable-Neon 500-machine proof completed the default 50-row board in 145.68 ms, but the maximum 200-row response took 152.35 ms end to end, slightly above the 150 ms observation threshold. `EXPLAIN` measured only 5.88 ms of database execution and selected the existing `bookings_no_overlap` index, so no speculative index was added; Task 7.2 caching and Task 7.4 realtime replacement own polling/network pressure. The rough linear database estimate at 5,000 machines is 58.83 ms and must be remeasured under Task 11.2 concurrency.
 - The authenticated Neon CLI currently stalls while resolving `connection-string` metadata even though the connected Neon service can list/create/query branches normally. Task 4.1 therefore used the connected service for branch/endpoint orchestration and the ignored inherited-role credential internally for the disposable branch; the verifier accepts non-secret supplied branch metadata and still captures every URL. Recheck the CLI profile before relying on its standalone connection-string command.
 - The Task 3.8 live concurrency verifier triggers a non-fatal `pg` warning when one client is intentionally used for competing queries (`client.query already executing`). The proof still produced the required exactly-one success/conflict outcomes and cleaned the branch; refactor that verifier to use one dedicated connection per contender before relying on it for higher concurrency loads.
