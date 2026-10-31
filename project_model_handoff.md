@@ -293,10 +293,10 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 |---|---|
 | Overall progress | 33 / 71 tasks (46.5%) |
 | Current phase | Phase 5 — Task 5.1 implementation and external verification in progress |
-| Last updated | 2026-10-31 22:41 EAT |
+| Last updated | 2026-10-31 23:09 EAT |
 | Branch | `phase-5/task-5.1-booking-rules-config` |
-| Last commit | `14e5621 feat(booking): add policy rules and admin settings` |
-| Repo state | Task 5.1 PR #74 is open from the isolated branch based on merged main `cfa0ff4`; hosted Quality passed. Workspace tests, typecheck, lint, formatting and production build pass. Explicit integration and merged-main runtime verification remain pending because no dedicated integration database variables or local runtime are configured. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
+| Last commit | `4b29377 docs: record Task 5.1 PR verification` |
+| Repo state | Task 5.1 PR #74 is open from the isolated branch based on merged main `cfa0ff4`; hosted Quality passed. Workspace tests, typecheck, lint, formatting and production build pass. Disposable-Neon migration/default and buffer-boundary proofs passed using direct SQL, and the proof branch was deleted. The guarded integration suite and merged-main runtime/login verification remain pending. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
 | **Next task** | **5.1 Booking rules and configuration** |
 
 ---
@@ -1018,12 +1018,21 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** Continue Task 5.1 verification; do not start Task 5.2 yet.
 - **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / `14e5621`; PR #74.
 
+### [2026-10-31 23:09 EAT] — Task(s): 5.1 disposable-Neon migration proof
+- **Prompt summary:** Finish the authorized disposable-Neon proof of booking-policy defaults, migration idempotency, and the machine buffer constraint.
+- **What I did:** Used temporary branch `br-floral-darkness-ba0mm828` from `dev`, applied and reapplied the migration SQL statements in a transaction, ran the constraint boundary checks, then deleted the temporary branch.
+- **Verification:** Confirmed all seven defaults (`max_duration=240`, `min_duration=15`, `min_lead=15`, `max_advance_days=60`, `default_buffer=0`, `no_show_grace=15`, `checkout_guard=30`). Changed the maximum to 999, reran the defaults insert with `ON CONFLICT DO NOTHING`, confirmed 999 was preserved, and restored 240. A temporary machine row with buffer 0 was accepted; buffer 241 was rejected by `machines_buffer_minutes_range_check`. The temporary proof row was removed, and a branch-list lookup confirmed the proof branch was deleted.
+- **Limitations:** This was a direct SQL migration/default proof; it did not run `prisma migrate deploy` or the guarded `pnpm test:integration` suite, and it did not update a migration ledger. The integration suite still lacks its guarded connection/branch environment. PR #74 remains open; post-merge Redis/API/web readiness and login checks have not run.
+- **Result:** The disposable database migration/default and buffer-boundary proofs are complete. Task 5.1 remains in progress pending the explicit integration suite and merged-main runtime/login acceptance.
+- **Next task:** Resolve remaining Task 5.1 delivery gates; do not start Task 5.2 yet.
+- **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / `4b29377`; PR #74.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
 - PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
 - At the 2026-10-31 Task 4.5 handoff reconciliation, no processes were listening on ports 3000, 3001 or 6379. The next merged-main completion must start and verify Redis/API/web rather than inheriting the older “running” status.
-- Task 5.1's hermetic suites and hosted Quality pass, but the explicit disposable-Neon migration/default proof and merged-main runtime/login acceptance are pending because the required database branch variables are not configured in this environment.
+- Task 5.1's hermetic suites, hosted Quality, and direct-SQL disposable-Neon migration/default/buffer-boundary proofs pass. The guarded `pnpm test:integration` suite remains unrun because its dedicated connection/branch environment is not configured; merged-main Redis/API/web readiness and login acceptance also remain pending until PR #74 is merged.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
