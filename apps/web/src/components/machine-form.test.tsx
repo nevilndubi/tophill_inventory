@@ -10,11 +10,13 @@ const mocks = vi.hoisted(() => ({
   listCategories: vi.fn(),
   listDepartments: vi.fn(),
   listLocations: vi.fn(),
+  policy: vi.fn(),
   push: vi.fn(),
   update: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ back: vi.fn(), push: mocks.push }) }));
 vi.mock('@/lib/api/categories', () => ({ categoriesApi: { list: mocks.listCategories } }));
+vi.mock('@/lib/api/booking', () => ({ bookingApi: { policy: mocks.policy } }));
 vi.mock('@/lib/api/reference', () => ({
   departmentsApi: { list: mocks.listDepartments },
   locationsApi: { list: mocks.listLocations },
@@ -72,6 +74,15 @@ describe('MachineForm', () => {
     mocks.listLocations.mockResolvedValue({ items: [location], page: 1, pageSize: 200, total: 1 });
     mocks.create.mockResolvedValue(saved);
     mocks.update.mockResolvedValue(saved);
+    mocks.policy.mockResolvedValue({
+      bufferMinutes: { source: 'global', value: 0 },
+      bookable: { reason: null, value: true },
+      maxDurationMinutes: { source: 'category', value: 180 },
+      maxAdvanceDays: { source: 'global', value: 60 },
+      minDurationMinutes: { source: 'global', value: 15 },
+      minLeadMinutes: { source: 'global', value: 15 },
+      requiresApproval: { source: 'machine', value: true },
+    });
   });
 
   it('normalizes registration values and omits booking booleans left at system defaults', async () => {
@@ -115,6 +126,24 @@ describe('MachineForm', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() =>
       expect(mocks.update).toHaveBeenCalledWith(saved.id, { name: 'Updated name' }),
+    );
+  });
+
+  it('shows effective inherited values and allows custom overrides including a zero buffer', async () => {
+    const user = userEvent.setup();
+    renderForm(saved);
+    expect(await screen.findByText('180 minutes (category)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Maximum booking override (minutes)')).toHaveValue(null);
+    const buffer = screen.getByLabelText('Machine buffer override (minutes)');
+    expect(buffer).toHaveValue(null);
+    await user.type(screen.getByLabelText('Maximum booking override (minutes)'), '120');
+    await user.type(buffer, '0');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(saved.id, {
+        bufferMinutes: 0,
+        maxBookingMinutes: 120,
+      }),
     );
   });
 

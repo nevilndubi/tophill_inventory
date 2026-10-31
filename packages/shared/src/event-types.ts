@@ -35,6 +35,7 @@ export const AUDIT_ACTIONS = [
   'location.updated',
   'service_ticket.created',
   'service_ticket.updated',
+  'settings.updated',
   'usage.checked_in',
   'usage.checked_out',
   'usage.force_ended',

@@ -292,11 +292,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 33 / 71 tasks (46.5%) |
-| Current phase | Phase 4 complete through Task 4.5 — machine detail status panel and combined timeline |
-| Last updated | 2026-10-31 21:39 EAT |
-| Branch | `main` |
-| Last commit | `d95d1b6 Merge pull request #72 from nevilndubi/phase-4/task-4.5-machine-detail-status-timeline` |
-| Repo state | PR #72 is merged on `origin/main`; hosted Quality passed. The handoff reconciliation is being prepared separately before Task 5.1. Existing Task 4.2/4.3 and Task 4.5 worktrees have local changes and remain untouched. No active listeners were found on ports 3000, 3001 or 6379 during this reconciliation. |
+| Current phase | Phase 5 — Task 5.1 implementation and external verification in progress |
+| Last updated | 2026-10-31 23:09 EAT |
+| Branch | `phase-5/task-5.1-booking-rules-config` |
+| Last commit | `4b29377 docs: record Task 5.1 PR verification` |
+| Repo state | Task 5.1 PR #74 is open from the isolated branch based on merged main `cfa0ff4`; hosted Quality passed. Workspace tests, typecheck, lint, formatting and production build pass. Disposable-Neon migration/default and buffer-boundary proofs passed using direct SQL, and the proof branch was deleted. The guarded integration suite and merged-main runtime/login verification remain pending. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
 | **Next task** | **5.1 Booking rules and configuration** |
 
 ---
@@ -467,6 +467,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D98 | 2026-10-30 | Expose a browser-safe combined machine timeline containing only registration, condition-change, usage-start and usage-end facts; order by event timestamp, explicit kind rank and immutable ID, and freeze subsequent pages at the first database `as_of` cutoff | The contract represents authoritative Phase 4 facts, gives React stable keys and prevents new events from reshuffling page boundaries; booking and service events can be added when those workflows exist | Emit placeholders; transform arbitrary audit rows into events; use unstable live offset pages; remove the Task 4.1 history endpoint |
 | D99 | 2026-10-30 | Resolve a usage-ending actor only from the earliest matching ending audit row and expose actor ID plus the forced flag, with a neutral null actor when historical data has no audit | Usage sessions do not store the ending user, while append-only audit is the existing source; narrow extraction avoids exposing audit snapshots or inventing history | Add a mutable ending-user column; return raw audit payloads; infer the holder ended it; query once per event |
 | D100 | 2026-10-30 | Share one detail-status query/poll across the machine header and tabs, refresh the timeline only after mutations or relevant status/visibility changes, and reuse board usage-action components on detail | This avoids duplicate polling and capability/error drift, preserves cutoff-stable pages, and keeps the API authoritative while caching/realtime remain deferred | Separate tab pollers; duplicate board/detail actions; a second timeline timer; browser-derived permissions |
+| D101 | 2026-10-31 | Resolve effective maximum duration machine override → category default → global setting; resolve buffer machine override → global setting; keep minimum duration, lead time and advance window global-only, approval machine-owned, and bookability tied to enabled state plus the shared condition rule | One authoritative resolver feeds subsequent availability/booking work and keeps policy distinct from live occupancy; NEEDS_SERVICE is permitted only with its explicit machine opt-in | Duplicate API/web precedence; treat an open session as policy; apply `is_bookable` to checkout |
+| D102 | 2026-10-31 | Update global booking settings with optimistic `expectedUpdatedAt`, row locks, cross-field/override validation and a transactional `settings.updated` audit event; serialize machine/category maximum writes against the global minimum setting | Concurrent configuration writes must not commit an impossible minimum/maximum pair, stale managers must reload, and settings mutations need the same audit guarantees as other administration | Last-write-wins; read-then-write without locks; audit outside the transaction |
+| D103 | 2026-10-31 | Allow a 0–240 minute machine buffer and fail the additive migration before constraint replacement if stored buffers are outside range or existing global/machine/category duration limits would conflict | Zero is a valid no-buffer policy, while a migration must not silently rewrite an existing override or install defaults that make current policies unusable | Keep the old positive-only constraint; clamp existing data without operator review; enforce only a UI bound |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -992,11 +995,44 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 5.1 Booking rules and configuration
 - **Branch / commit:** `docs/reconcile-task-4.5-handoff` / pending
 
+### [2026-10-31 22:41 EAT] — Task(s): 5.1 Booking rules and configuration (implementation pending external verification)
+- **Prompt summary:** Implement authoritative booking policy resolution, booking-window validation, global settings administration, machine/category override rules, tests and documentation on the isolated Task 5.1 branch.
+- **What I did:** Added shared effective-policy/settings contracts and window validation; API policy/settings reads and optimistic, audited updates; machine/category minimum-duration conflict protection; the additive defaults/buffer migration; manager-gated settings UI; machine override inheritance display; six-role route coverage; and focused service/component coverage.
+- **How:** Policy reads are bounded to one machine/category lookup and one settings-key lookup. Settings updates lock configuration rows, reject stale writes and incompatible maxima, and audit changed keys in the transaction. Machine/category maximum writes share-lock the global minimum setting. Soft-deleted machines resolve as `MACHINE_NOT_FOUND`.
+- **Files touched:** Shared booking policy/display status; API booking module and machine/category services/tests; settings and machine web components/API client/navigation/tests; additive Prisma migration; `docs/ARCHITECTURE.md`; this handoff.
+- **Migrations:** Added `20261031200000_booking_policy_settings`. It seeds all seven number defaults without overwriting existing values, rejects incompatible existing duration settings/overrides, and fails before replacing the machine buffer constraint if saved values are outside 0–240.
+- **Verification:** `pnpm test` passed (API 40 suites: 416 passed, 1 skipped; web 38 files: 205 passed). `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `git diff --check`, and full `pnpm build` passed; the build used non-production placeholder URL/key values for required web environment configuration. `pnpm exec tsx scripts/assert-api-production-build.ts` passed. The explicit `pnpm test:integration` suite was not run because no `INTEGRATION_DATABASE_URL` / `INTEGRATION_DATABASE_BRANCH` is configured.
+- **Locally running:** No Redis/API/web instance was started; merged-main readiness/login verification remains pending and must not be inferred from build results.
+- **Result:** Implementation and hermetic validation are ready for delivery review. Task 5.1 remains in progress until the dedicated database migration/default proof, requested Git/CI delivery, and merged-main runtime checks are completed.
+- **Progress after this session:** 33 / 71 (46.5%)
+- **Left undone / follow-ups:** Run the explicit integration suite on an approved disposable Neon branch; deliver through the repository PR/CI workflow; then verify the merged-main Redis/API/web readiness and login path without exposing secrets. Do not mark Task 5.1 complete until these checks pass.
+- **Next task:** Continue Task 5.1 verification and delivery.
+- **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / implementation commit pending.
+
+### [2026-10-31 22:41 EAT] — Task(s): 5.1 PR and hosted Quality
+- **Prompt summary:** Publish the Task 5.1 implementation through the repository pull-request workflow and wait for hosted checks.
+- **What I did:** Committed the implementation as `14e5621` and opened PR #74, preserving the repository PR template. Hosted Quality passed; the Supabase Preview check was skipped by its configured conditions.
+- **Verification:** `pnpm build` passed again on the committed tree with non-production placeholder web environment values. PR #74's Quality check passed. The dedicated Neon integration suite and merged-main runtime/login checks are still not run.
+- **Result:** The implementation is committed and reviewable; Task 5.1 remains in progress while live database and runtime acceptance evidence is unavailable.
+- **Left undone / follow-ups:** Configure an approved disposable Neon integration target, run the migration/default proof, and complete post-merge Redis/API/web readiness and login checks before marking Task 5.1 complete.
+- **Next task:** Continue Task 5.1 verification; do not start Task 5.2 yet.
+- **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / `14e5621`; PR #74.
+
+### [2026-10-31 23:09 EAT] — Task(s): 5.1 disposable-Neon migration proof
+- **Prompt summary:** Finish the authorized disposable-Neon proof of booking-policy defaults, migration idempotency, and the machine buffer constraint.
+- **What I did:** Used temporary branch `br-floral-darkness-ba0mm828` from `dev`, applied and reapplied the migration SQL statements in a transaction, ran the constraint boundary checks, then deleted the temporary branch.
+- **Verification:** Confirmed all seven defaults (`max_duration=240`, `min_duration=15`, `min_lead=15`, `max_advance_days=60`, `default_buffer=0`, `no_show_grace=15`, `checkout_guard=30`). Changed the maximum to 999, reran the defaults insert with `ON CONFLICT DO NOTHING`, confirmed 999 was preserved, and restored 240. A temporary machine row with buffer 0 was accepted; buffer 241 was rejected by `machines_buffer_minutes_range_check`. The temporary proof row was removed, and a branch-list lookup confirmed the proof branch was deleted.
+- **Limitations:** This was a direct SQL migration/default proof; it did not run `prisma migrate deploy` or the guarded `pnpm test:integration` suite, and it did not update a migration ledger. The integration suite still lacks its guarded connection/branch environment. PR #74 remains open; post-merge Redis/API/web readiness and login checks have not run.
+- **Result:** The disposable database migration/default and buffer-boundary proofs are complete. Task 5.1 remains in progress pending the explicit integration suite and merged-main runtime/login acceptance.
+- **Next task:** Resolve remaining Task 5.1 delivery gates; do not start Task 5.2 yet.
+- **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / `4b29377`; PR #74.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
 - PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
 - At the 2026-10-31 Task 4.5 handoff reconciliation, no processes were listening on ports 3000, 3001 or 6379. The next merged-main completion must start and verify Redis/API/web rather than inheriting the older “running” status.
+- Task 5.1's hermetic suites, hosted Quality, and direct-SQL disposable-Neon migration/default/buffer-boundary proofs pass. The guarded `pnpm test:integration` suite remains unrun because its dedicated connection/branch environment is not configured; merged-main Redis/API/web readiness and login acceptance also remain pending until PR #74 is merged.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.

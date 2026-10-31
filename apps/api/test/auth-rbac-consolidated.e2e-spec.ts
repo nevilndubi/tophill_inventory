@@ -43,6 +43,8 @@ import { AttachmentsService } from '../src/attachments/attachments.service';
 import { UsageService } from '../src/usage/usage.service';
 import { StatusService } from '../src/status/status.service';
 import { TimelineService } from '../src/machines/timeline.service';
+import { BookingPolicyService } from '../src/booking/booking-policy.service';
+import { BookingSettingsService } from '../src/booking/booking-settings.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -75,6 +77,39 @@ type ExpectedAccessRow = {
   route: string;
   successStatus: number;
   unauthenticated: AccessExpectation;
+};
+const bookingPolicyService = {
+  get: jest.fn(async () => ({
+    bufferMinutes: { source: 'global', value: 0 },
+    bookable: { reason: null, value: true },
+    maxDurationMinutes: { source: 'global', value: 240 },
+    maxAdvanceDays: { source: 'global', value: 60 },
+    minDurationMinutes: { source: 'global', value: 15 },
+    minLeadMinutes: { source: 'global', value: 15 },
+    requiresApproval: { source: 'machine', value: false },
+  })),
+};
+const bookingSettingsService = {
+  read: jest.fn(async () => ({
+    adhocGuardMinutes: 30,
+    defaultBufferMinutes: 0,
+    maxAdvanceDays: 60,
+    maxDurationMinutes: 240,
+    minDurationMinutes: 15,
+    minLeadMinutes: 15,
+    noShowGraceMinutes: 15,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  })),
+  update: jest.fn(async () => ({
+    adhocGuardMinutes: 30,
+    defaultBufferMinutes: 0,
+    maxAdvanceDays: 60,
+    maxDurationMinutes: 240,
+    minDurationMinutes: 15,
+    minLeadMinutes: 15,
+    noShowGraceMinutes: 15,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  })),
 };
 
 // This is deliberately hand-transcribed from Architecture §§5 and 7. Do not derive it from
@@ -705,6 +740,54 @@ const EXPECTED_ACCESS_TABLE = [
     unauthenticated: 'DENY',
   },
   {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/machines/:id/booking-policy',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/settings/booking',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:reference:manage',
+    inactive: 'DENY',
+    method: 'PATCH',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'DENY',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/settings/booking',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
     declaration: 'permission:service:manage',
     inactive: 'DENY',
     method: 'POST',
@@ -1116,17 +1199,20 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
       builder = client.delete(path);
       break;
     case 'PATCH':
-      builder = client
-        .patch(path)
-        .send(
-          route.startsWith('/api/v1/categories') ||
-            route.startsWith('/api/v1/departments') ||
-            route.startsWith('/api/v1/locations')
+      builder = client.patch(path).send(
+        route === '/api/v1/settings/booking'
+          ? {
+              expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+              maxDurationMinutes: 240,
+            }
+          : route.startsWith('/api/v1/categories') ||
+              route.startsWith('/api/v1/departments') ||
+              route.startsWith('/api/v1/locations')
             ? { name: 'Updated reference' }
             : route.startsWith('/api/v1/machines')
               ? { name: 'Updated machine' }
               : { fullName: 'Updated User' },
-        );
+      );
       break;
     case 'POST':
       builder = client.post(path);
@@ -1307,6 +1393,10 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(statusService)
         .overrideProvider(TimelineService)
         .useValue(timelineService)
+        .overrideProvider(BookingPolicyService)
+        .useValue(bookingPolicyService)
+        .overrideProvider(BookingSettingsService)
+        .useValue(bookingSettingsService)
         .compile();
 
     const productionModule = await createModule(false);

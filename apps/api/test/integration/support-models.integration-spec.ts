@@ -36,7 +36,10 @@ const DEFAULT_SETTINGS_INSERT = `
     ('booking.max_duration_minutes', '240'::jsonb),
     ('booking.min_lead_minutes', '15'::jsonb),
     ('booking.no_show_grace_minutes', '15'::jsonb),
-    ('checkout.adhoc_guard_minutes', '30'::jsonb)
+    ('checkout.adhoc_guard_minutes', '30'::jsonb),
+    ('booking.max_advance_days', '60'::jsonb),
+    ('booking.min_duration_minutes', '15'::jsonb),
+    ('booking.default_buffer_minutes', '0'::jsonb)
   ON CONFLICT (key) DO NOTHING
 `;
 
@@ -471,11 +474,14 @@ describe('Support tables database integration', () => {
       ['booking.min_lead_minutes', 15],
       ['booking.no_show_grace_minutes', 15],
       ['checkout.adhoc_guard_minutes', 30],
+      ['booking.max_advance_days', 60],
+      ['booking.min_duration_minutes', 15],
+      ['booking.default_buffer_minutes', 0],
     ]);
     const defaults = await prisma.appSetting.findMany({
       where: { key: { in: [...expected.keys()] } },
     });
-    expect(defaults).toHaveLength(4);
+    expect(defaults).toHaveLength(7);
     for (const setting of defaults) {
       expect(setting.value).toBe(expected.get(setting.key));
     }
@@ -495,11 +501,23 @@ describe('Support tables database integration', () => {
         [[...expected.keys()]],
       );
       expect(customized.rows[0]?.value).toBe(999);
-      expect(count.rows[0]?.count).toBe('4');
+      expect(count.rows[0]?.count).toBe('7');
     } finally {
       await client.query('ROLLBACK');
       client.release();
     }
+  });
+
+  it('installs the inclusive machine booking-buffer range constraint', async () => {
+    const constraints = await sql.query<{ constraint_name: string; definition: string }>(
+      `SELECT conname AS constraint_name, pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+       WHERE conrelid = 'machines'::regclass
+         AND conname = 'machines_buffer_minutes_range_check'`,
+    );
+    expect(constraints.rows).toHaveLength(1);
+    expect(constraints.rows[0]?.definition).toMatch(/buffer_minutes >= 0/u);
+    expect(constraints.rows[0]?.definition).toMatch(/buffer_minutes <= 240/u);
   });
 
   it('creates every stable index, timestamptz column and restrictive user relation', async () => {

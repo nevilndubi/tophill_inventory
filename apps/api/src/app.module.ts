@@ -20,6 +20,7 @@ import { ReferenceModule } from './reference/reference.module';
 import { MachinesModule } from './machines/machines.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { StatusModule } from './status/status.module';
+import { BookingModule } from './booking/booking.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { StatusModule } from './status/status.module';
     LoggerModule.forRoot({ pinoHttp: pinoHttpOptions }),
     PrismaModule,
     StatusModule,
+    BookingModule,
     AttachmentsModule,
     MachinesModule,
     ReferenceModule,
