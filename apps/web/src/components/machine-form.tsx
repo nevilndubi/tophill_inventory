@@ -21,6 +21,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { categoriesApi } from '@/lib/api/categories';
+import { bookingApi } from '@/lib/api/booking';
 import { ApiClientError } from '@/lib/api/client';
 import { machinesApi } from '@/lib/api/machines';
 import { departmentsApi, locationsApi } from '@/lib/api/reference';
@@ -156,6 +157,7 @@ const FRIENDLY_ERRORS: Record<string, string> = {
   MACHINE_LOCATION_NOT_FOUND: 'Choose an existing location.',
   MACHINE_NOT_FOUND: 'This machine no longer exists.',
   MACHINE_VALUES_INVALID: 'One or more values are outside the allowed range.',
+  POLICY_CONFLICT: 'The maximum booking duration cannot be shorter than the global minimum.',
 };
 
 const friendlyError = (error: unknown): string =>
@@ -228,6 +230,11 @@ export function MachineForm({ machine = null }: { machine?: ManagedMachine | nul
     queryKey: ['locations', { page: locationPage, pageSize: 50, search: locationSearch }],
     staleTime: 5 * 60_000,
   });
+  const bookingPolicy = useQuery({
+    enabled: Boolean(machine),
+    queryFn: () => bookingApi.policy(machine!.id),
+    queryKey: ['machine', machine?.id, 'booking-policy'],
+  });
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -268,6 +275,7 @@ export function MachineForm({ machine = null }: { machine?: ManagedMachine | nul
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['machines'] }),
         queryClient.invalidateQueries({ queryKey: ['machine', saved.id] }),
+        queryClient.invalidateQueries({ queryKey: ['machine', saved.id, 'booking-policy'] }),
       ]);
       if (machine) {
         toast.success('Machine updated.');
@@ -473,7 +481,8 @@ export function MachineForm({ machine = null }: { machine?: ManagedMachine | nul
         <CardHeader>
           <CardTitle>Booking policy</CardTitle>
           <CardDescription>
-            “System default” preserves database defaults during registration.
+            Leave an override blank to inherit the category maximum or global default. Machine
+            buffer overrides replace the global default.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -499,13 +508,55 @@ export function MachineForm({ machine = null }: { machine?: ManagedMachine | nul
                 </SelectField>
               ),
             )}
-            {textField('maxBookingMinutes', 'Maximum booking (minutes)', {
+            {textField('maxBookingMinutes', 'Maximum booking override (minutes)', {
               min: 5,
               max: 1440,
               type: 'number',
             })}
-            {textField('bufferMinutes', 'Buffer (minutes)', { min: 1, max: 1440, type: 'number' })}
+            {textField('bufferMinutes', 'Machine buffer override (minutes)', {
+              min: 0,
+              max: 240,
+              type: 'number',
+            })}
           </div>
+          {machine ? (
+            <div className="mt-4 rounded-md border p-4">
+              <h3 className="font-medium">Currently effective policy</h3>
+              {bookingPolicy.isPending ? (
+                <p className="mt-2 text-sm text-muted-foreground" role="status">
+                  Loading effective policy…
+                </p>
+              ) : bookingPolicy.isError ? (
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <p role="alert">Effective policy could not be loaded.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void bookingPolicy.refetch()}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              ) : (
+                <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-muted-foreground">Maximum duration</dt>
+                    <dd>
+                      {bookingPolicy.data.maxDurationMinutes.value} minutes (
+                      {bookingPolicy.data.maxDurationMinutes.source})
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Buffer</dt>
+                    <dd>
+                      {bookingPolicy.data.bufferMinutes.value} minutes (
+                      {bookingPolicy.data.bufferMinutes.source})
+                    </dd>
+                  </div>
+                </dl>
+              )}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

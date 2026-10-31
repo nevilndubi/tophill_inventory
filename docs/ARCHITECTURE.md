@@ -123,21 +123,41 @@ through `next_machine_asset_tag()` and is permanently unique, including after so
 and their pair is permanently unique; a deleted machine's physical serial identity therefore cannot
 be re-registered. A machine may use a location owned by a different department because shared
 equipment placement is intentional; the department and location foreign keys remain independent.
-Nullable booking and service intervals must be positive, retirement date and condition must agree,
-and warranty expiry cannot precede commissioning when both dates are known. All machine relations
-use non-cascading `ON DELETE RESTRICT` behavior.
+Nullable booking maximum and service intervals must be positive, buffers may be zero, retirement
+date and condition must agree, and warranty expiry cannot precede commissioning when both dates
+are known. All machine relations use non-cascading `ON DELETE RESTRICT` behavior.
 
 Task 3.3 exposes machine registration and registry maintenance through minimized DTOs. Create
 requires `name`, `categoryId`, `manufacturer`, `model`, `serialNumber`, `departmentId`, and
 `locationId`; location is therefore required by the existing schema. Description, lifecycle dates,
 booking-policy overrides, and service fields are optional. Names/manufacturer/model/serial are
 bounded to 120 characters, description to 2,000, service intervals to 1–3,650 days, booking limits
-to 5–1,440 minutes, and buffers to 1–1,440 minutes. DATE columns accept and return only
+to 5–1,440 minutes, and machine buffers to 0–240 minutes. DATE columns accept and return only
 `YYYY-MM-DD`; `last_serviced_at` accepts an offset-bearing ISO-8601 instant. Manufacturer and serial
 are additionally lowercased after Unicode NFC/whitespace normalization. Clients cannot write asset
 tags, condition, retirement/deletion state, `next_service_due_at`, IDs, timestamps, or relation
 objects. These API maxima intentionally narrow the Task 1.3 database checks, which require only
 positive interval values; the database remains the final lower-bound/race backstop.
+
+Task 5.1 resolves the effective booking policy as machine maximum → category maximum → global
+maximum; machine buffer → global buffer; global-only minimum duration, lead time and advance
+window; and the machine approval flag. A machine is bookable only when enabled and OPERATIONAL,
+or NEEDS_SERVICE with its explicit opt-in. Other conditions are never bookable. This condition
+rule is shared with status/usability logic; open usage sessions affect availability, not policy
+bookability, and checkout does not consult the `is_bookable` flag.
+
+`GET /api/v1/machines/:id/booking-policy` returns effective values with their source using one
+machine/category read and one setting-key read; missing and soft-deleted machines both return
+`MACHINE_NOT_FOUND`. `GET /api/v1/settings/booking` is available to machine readers, and
+`PATCH /api/v1/settings/booking` requires `reference:manage`. The patch carries the latest
+`updatedAt` as `expectedUpdatedAt`; a stale write returns `SETTINGS_CHANGED`. Settings are plain
+JSON numbers with shared bounds and strict shape validation. Updates lock the setting rows, validate
+the complete resulting configuration, reject a global minimum duration that conflicts with any
+saved machine/category maximum, and write changed values plus a `settings.updated` audit row in
+one transaction. Machine/category maximum writes share-lock the minimum setting and reject a
+maximum below it, preventing concurrent policy changes from committing an invalid combination.
+Booking-window validation reports specific codes for malformed windows, too-short/long duration,
+lead-time and advance-window violations, unbookable machines, and invalid stored policy.
 
 Registration relies on the database asset-tag default, so concurrent writers are safe and rolled
 back inserts may leave harmless sequence gaps. It atomically creates the first SYSTEM history row
@@ -241,8 +261,9 @@ deleted.
 - Stable indexes are `audit_logs_entity_type_entity_id_created_at_idx`, `audit_logs_actor_user_id_created_at_idx`, and `audit_logs_created_at_idx`, all with newest-first timestamps.
 
 **app_settings** — `key` (string PK), `value` (jsonb), timestamps
-- The migration idempotently inserts plain JSON-number defaults with `ON CONFLICT (key) DO NOTHING`: `booking.max_duration_minutes = 240`, `booking.min_lead_minutes = 15`, `booking.no_show_grace_minutes = 15`, and `checkout.adhoc_guard_minutes = 30`. These conservative local defaults cap a booking at four hours, require 15 minutes' lead, allow 15 minutes before no-show handling, and protect the next booking for 30 minutes from ad-hoc checkout.
-- Task 5.1 validates each key's JSON value shape and exposes settings management; the database only enforces the stable namespaced key format now.
+- The migration idempotently inserts plain JSON-number defaults with `ON CONFLICT (key) DO NOTHING`: `booking.max_duration_minutes = 240`, `booking.min_duration_minutes = 15`, `booking.min_lead_minutes = 15`, `booking.max_advance_days = 60`, `booking.default_buffer_minutes = 0`, `booking.no_show_grace_minutes = 15`, and `checkout.adhoc_guard_minutes = 30`. Existing values are preserved on migration/reseed.
+- Shared settings validation bounds maximum duration to 5–1,440 minutes, minimum duration to 5–120, minimum lead to 0–1,440, advance window to 1–365 days, global buffer to 0–240, no-show grace to 0–120 and checkout guard to 0–240. The stable namespaced-key format remains database-enforced; JSON shape and cross-field business rules are application-enforced.
+- The policy migration preflights existing global duration values, machine/category maximums and stored buffers before changing the buffer constraint. It aborts with a clear error if the defaults would create an invalid policy or existing buffers exceed 0–240; it does not silently rewrite saved policy. The replacement check accepts zero and caps stored values at 240.
 
 ### 3.2 Key indexes
 - `machines (department_id)`, `machines (category_id)`, `machines (condition)`, `machines (next_service_due_at)`; `pg_trgm` GIN indexes with `gin_trgm_ops` on `name`, `asset_tag`, `serial_number`

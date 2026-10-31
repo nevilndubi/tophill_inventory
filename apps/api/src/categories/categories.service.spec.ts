@@ -32,6 +32,7 @@ const row = { ...category, machineCount: 2, totalMachineCount: 3 };
 
 const makeHarness = () => {
   const tx = {
+    $queryRaw: jest.fn(async () => [{ value: 15 }]),
     machine: { count: jest.fn(async () => 0) },
     machineCategory: {
       create: jest.fn(async () => category),

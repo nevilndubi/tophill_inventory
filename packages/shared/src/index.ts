@@ -26,6 +26,25 @@ export {
 } from './category-management';
 
 export {
+  BOOKING_POLICY_BOUNDS,
+  BOOKING_SETTING_DEFAULTS,
+  BOOKING_SETTINGS_DEFAULTS,
+  bookingSettingsSchema,
+  resolveEffectivePolicy,
+  updateBookingSettingsSchema,
+  validateBookingWindow,
+  type BookingPolicyCategory,
+  type BookingPolicyMachine,
+  type BookingPolicySource,
+  type BookingSettings,
+  type BookingWindowErrorCode,
+  type BookingWindowResult,
+  type EffectiveBookingPolicy,
+  type SourcedValue,
+  type UpdateBookingSettings,
+} from './booking-policy';
+
+export {
   deriveDisplayStatus,
   DISPLAY_STATUSES,
   DISPLAY_STATUS_METADATA,
@@ -89,6 +108,7 @@ export {
   MACHINE_CONDITIONS,
   MACHINE_ALLOWED_TRANSITIONS,
   MACHINE_STATUS_SOURCES,
+  isBookableCondition,
   MACHINE_PAGE_SIZE_DEFAULT,
   MACHINE_PAGE_SIZE_MAX,
   MACHINE_REGISTRY_STATES,

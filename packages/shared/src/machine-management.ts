@@ -88,7 +88,7 @@ const isoDateTime = z
 
 const machineFields = {
   allowBookingWhenNeedsService: z.boolean().optional(),
-  bufferMinutes: nullableInteger('Buffer time', 1, 1440).optional(),
+  bufferMinutes: nullableInteger('Buffer time', 0, 240).optional(),
   categoryId: z.uuid(),
   commissionedOn: isoDate('Commissioned date').nullable().optional(),
   departmentId: z.uuid(),
@@ -256,6 +256,12 @@ export const machineAssetTagSchema = z
 export const machineAssetTagParamsSchema = z.object({ assetTag: machineAssetTagSchema }).strict();
 
 export type MachineCondition = (typeof MACHINE_CONDITIONS)[number];
+
+export const isBookableCondition = (
+  condition: MachineCondition,
+  allowBookingWhenNeedsService: boolean,
+): boolean =>
+  condition === 'OPERATIONAL' || (condition === 'NEEDS_SERVICE' && allowBookingWhenNeedsService);
 export type MachineStatusSource = (typeof MACHINE_STATUS_SOURCES)[number];
 export type MachineRegistryState = (typeof MACHINE_REGISTRY_STATES)[number];
 export type MachineSortField = (typeof MACHINE_SORT_FIELDS)[number];

@@ -292,11 +292,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 33 / 71 tasks (46.5%) |
-| Current phase | Phase 4 complete through Task 4.5 — machine detail status panel and combined timeline |
-| Last updated | 2026-10-31 21:39 EAT |
-| Branch | `main` |
-| Last commit | `d95d1b6 Merge pull request #72 from nevilndubi/phase-4/task-4.5-machine-detail-status-timeline` |
-| Repo state | PR #72 is merged on `origin/main`; hosted Quality passed. The handoff reconciliation is being prepared separately before Task 5.1. Existing Task 4.2/4.3 and Task 4.5 worktrees have local changes and remain untouched. No active listeners were found on ports 3000, 3001 or 6379 during this reconciliation. |
+| Current phase | Phase 5 — Task 5.1 implementation and external verification in progress |
+| Last updated | 2026-10-31 22:41 EAT |
+| Branch | `phase-5/task-5.1-booking-rules-config` |
+| Last commit | `cfa0ff4 Merge pull request #73 from nevilndubi/docs/reconcile-task-4.5-handoff` (Task 5.1 changes are not committed yet) |
+| Repo state | Task 5.1 implementation is on an isolated branch based on merged main `cfa0ff4`. Workspace tests, typecheck, lint, formatting and production build pass; the explicit integration suite and merged-main runtime verification remain pending because no dedicated integration database variables or local runtime are configured. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
 | **Next task** | **5.1 Booking rules and configuration** |
 
 ---
@@ -467,6 +467,9 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D98 | 2026-10-30 | Expose a browser-safe combined machine timeline containing only registration, condition-change, usage-start and usage-end facts; order by event timestamp, explicit kind rank and immutable ID, and freeze subsequent pages at the first database `as_of` cutoff | The contract represents authoritative Phase 4 facts, gives React stable keys and prevents new events from reshuffling page boundaries; booking and service events can be added when those workflows exist | Emit placeholders; transform arbitrary audit rows into events; use unstable live offset pages; remove the Task 4.1 history endpoint |
 | D99 | 2026-10-30 | Resolve a usage-ending actor only from the earliest matching ending audit row and expose actor ID plus the forced flag, with a neutral null actor when historical data has no audit | Usage sessions do not store the ending user, while append-only audit is the existing source; narrow extraction avoids exposing audit snapshots or inventing history | Add a mutable ending-user column; return raw audit payloads; infer the holder ended it; query once per event |
 | D100 | 2026-10-30 | Share one detail-status query/poll across the machine header and tabs, refresh the timeline only after mutations or relevant status/visibility changes, and reuse board usage-action components on detail | This avoids duplicate polling and capability/error drift, preserves cutoff-stable pages, and keeps the API authoritative while caching/realtime remain deferred | Separate tab pollers; duplicate board/detail actions; a second timeline timer; browser-derived permissions |
+| D101 | 2026-10-31 | Resolve effective maximum duration machine override → category default → global setting; resolve buffer machine override → global setting; keep minimum duration, lead time and advance window global-only, approval machine-owned, and bookability tied to enabled state plus the shared condition rule | One authoritative resolver feeds subsequent availability/booking work and keeps policy distinct from live occupancy; NEEDS_SERVICE is permitted only with its explicit machine opt-in | Duplicate API/web precedence; treat an open session as policy; apply `is_bookable` to checkout |
+| D102 | 2026-10-31 | Update global booking settings with optimistic `expectedUpdatedAt`, row locks, cross-field/override validation and a transactional `settings.updated` audit event; serialize machine/category maximum writes against the global minimum setting | Concurrent configuration writes must not commit an impossible minimum/maximum pair, stale managers must reload, and settings mutations need the same audit guarantees as other administration | Last-write-wins; read-then-write without locks; audit outside the transaction |
+| D103 | 2026-10-31 | Allow a 0–240 minute machine buffer and fail the additive migration before constraint replacement if stored buffers are outside range or existing global/machine/category duration limits would conflict | Zero is a valid no-buffer policy, while a migration must not silently rewrite an existing override or install defaults that make current policies unusable | Keep the old positive-only constraint; clamp existing data without operator review; enforce only a UI bound |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -991,6 +994,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Preserve the unverified Task 4.5 evidence gap in Known Issues; start Task 5.1 only after this reconciliation is merged and `origin/main` is updated.
 - **Next task:** 5.1 Booking rules and configuration
 - **Branch / commit:** `docs/reconcile-task-4.5-handoff` / pending
+
+### [2026-10-31 22:41 EAT] — Task(s): 5.1 Booking rules and configuration (implementation pending external verification)
+- **Prompt summary:** Implement authoritative booking policy resolution, booking-window validation, global settings administration, machine/category override rules, tests and documentation on the isolated Task 5.1 branch.
+- **What I did:** Added shared effective-policy/settings contracts and window validation; API policy/settings reads and optimistic, audited updates; machine/category minimum-duration conflict protection; the additive defaults/buffer migration; manager-gated settings UI; machine override inheritance display; six-role route coverage; and focused service/component coverage.
+- **How:** Policy reads are bounded to one machine/category lookup and one settings-key lookup. Settings updates lock configuration rows, reject stale writes and incompatible maxima, and audit changed keys in the transaction. Machine/category maximum writes share-lock the global minimum setting. Soft-deleted machines resolve as `MACHINE_NOT_FOUND`.
+- **Files touched:** Shared booking policy/display status; API booking module and machine/category services/tests; settings and machine web components/API client/navigation/tests; additive Prisma migration; `docs/ARCHITECTURE.md`; this handoff.
+- **Migrations:** Added `20261031200000_booking_policy_settings`. It seeds all seven number defaults without overwriting existing values, rejects incompatible existing duration settings/overrides, and fails before replacing the machine buffer constraint if saved values are outside 0–240.
+- **Verification:** `pnpm test` passed (API 40 suites: 416 passed, 1 skipped; web 38 files: 205 passed). `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `git diff --check`, and full `pnpm build` passed; the build used non-production placeholder URL/key values for required web environment configuration. `pnpm exec tsx scripts/assert-api-production-build.ts` passed. The explicit `pnpm test:integration` suite was not run because no `INTEGRATION_DATABASE_URL` / `INTEGRATION_DATABASE_BRANCH` is configured.
+- **Locally running:** No Redis/API/web instance was started; merged-main readiness/login verification remains pending and must not be inferred from build results.
+- **Result:** Implementation and hermetic validation are ready for delivery review. Task 5.1 remains in progress until the dedicated database migration/default proof, requested Git/CI delivery, and merged-main runtime checks are completed.
+- **Progress after this session:** 33 / 71 (46.5%)
+- **Left undone / follow-ups:** Run the explicit integration suite on an approved disposable Neon branch; deliver through the repository PR/CI workflow; then verify the merged-main Redis/API/web readiness and login path without exposing secrets. Do not mark Task 5.1 complete until these checks pass.
+- **Next task:** Continue Task 5.1 verification and delivery.
+- **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / implementation commit pending.
 
 ## 13. KNOWN ISSUES / TECH DEBT
 

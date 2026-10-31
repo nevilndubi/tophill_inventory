@@ -4,6 +4,7 @@ import type {
   MachineDepartmentReference,
   MachineReference,
 } from './machine-management';
+import { isBookableCondition } from './machine-management';
 
 export const DISPLAY_STATUSES = [
   'RETIRED',
@@ -60,9 +61,7 @@ export const isMachineUsable = (input: {
   condition: MachineCondition;
   hasOpenSession: boolean;
 }): boolean =>
-  !input.hasOpenSession &&
-  (input.condition === 'OPERATIONAL' ||
-    (input.condition === 'NEEDS_SERVICE' && input.allowBookingWhenNeedsService));
+  !input.hasOpenSession && isBookableCondition(input.condition, input.allowBookingWhenNeedsService);
 
 const repeatableDisplayStatus = z.preprocess(
   (value) => (value === undefined ? undefined : Array.isArray(value) ? value : [value]),

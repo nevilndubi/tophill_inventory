@@ -92,6 +92,8 @@ const friendlyError = (error: unknown): string => {
   if (error.code === 'CATEGORY_NAME_TAKEN') return 'A category with this name already exists.';
   if (error.code === 'CATEGORY_IN_USE') return 'This category is still used by machines.';
   if (error.code === 'CATEGORY_NOT_FOUND') return 'This category no longer exists.';
+  if (error.code === 'POLICY_CONFLICT')
+    return 'The maximum booking duration cannot be shorter than the global minimum.';
   return 'The request could not be completed. Try again.';
 };
 

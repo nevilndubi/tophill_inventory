@@ -6,6 +6,7 @@ import {
   MonitorCog,
   QrCode,
   Settings,
+  SlidersHorizontal,
   Tags,
   Stethoscope,
 } from 'lucide-react';
@@ -67,6 +68,13 @@ export const NAVIGATION_ENTRIES = [
     href: '/admin/reference',
     icon: Tags,
     label: 'Reference data',
+    permission: 'reference:manage',
+    status: 'available',
+  },
+  {
+    href: '/admin/booking',
+    icon: SlidersHorizontal,
+    label: 'Booking rules',
     permission: 'reference:manage',
     status: 'available',
   },

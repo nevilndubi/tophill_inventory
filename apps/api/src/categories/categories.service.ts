@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { AuditService } from '../audit/audit.service';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertMaximumMeetsMinimum } from '../booking/booking-policy.validation';
 import {
   CategoryInUseException,
   CategoryNameTakenException,
@@ -105,6 +106,7 @@ export class CategoriesService {
   ): Promise<ManagedCategory> {
     try {
       const id = await this.prisma.$transaction(async (transaction) => {
+        await assertMaximumMeetsMinimum(transaction, input.defaultMaxBookingMinutes ?? null);
         const category = await transaction.machineCategory.create({ data: input });
         await this.audit.record(transaction, {
           action: 'category.created',
@@ -133,6 +135,12 @@ export class CategoriesService {
       await this.prisma.$transaction(async (transaction) => {
         const before = await transaction.machineCategory.findUnique({ where: { id } });
         if (before === null) throw new CategoryNotFoundException();
+        await assertMaximumMeetsMinimum(
+          transaction,
+          input.defaultMaxBookingMinutes === undefined
+            ? before.defaultMaxBookingMinutes
+            : input.defaultMaxBookingMinutes,
+        );
         const after = await transaction.machineCategory.update({ data: input, where: { id } });
         await this.audit.record(transaction, {
           action: 'category.updated',

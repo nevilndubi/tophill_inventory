@@ -15,6 +15,7 @@ import { PermissionDeniedException } from '../authorization/permission-denied.ex
 import { AuditService } from '../audit/audit.service';
 import type { Machine, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertMaximumMeetsMinimum } from '../booking/booking-policy.validation';
 import {
   MachineAlreadyDeletedException,
   MachineCategoryNotFoundException,
@@ -355,6 +356,7 @@ export class MachinesService {
     try {
       const id = await this.prisma.$transaction(async (transaction) => {
         await this.assertRelations(transaction, input);
+        await assertMaximumMeetsMinimum(transaction, input.maxBookingMinutes ?? null);
         const machine = await transaction.machine.create({ data });
         await transaction.machineStatusHistory.create({
           data: {
@@ -401,6 +403,12 @@ export class MachinesService {
           departmentId: input.departmentId ?? before.departmentId,
           locationId: input.locationId ?? before.locationId,
         });
+        await assertMaximumMeetsMinimum(
+          transaction,
+          input.maxBookingMinutes === undefined
+            ? before.maxBookingMinutes
+            : input.maxBookingMinutes,
+        );
 
         const purchaseDate = hasOwn(input, 'purchaseDate')
           ? parseDateOnly(input.purchaseDate ?? null)

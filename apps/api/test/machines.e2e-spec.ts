@@ -432,7 +432,6 @@ describe('Machines API (e2e)', () => {
       { ...validCreate, name: ' ' },
       { ...validCreate, serviceIntervalDays: 3651 },
       { ...validCreate, maxBookingMinutes: 4 },
-      { ...validCreate, bufferMinutes: 0 },
       { ...validCreate, purchaseDate: '10/25/2026' },
       { ...validCreate, purchaseDate: '2999-01-01' },
       { ...validCreate, lastServicedAt: '2026-10-25T12:00:00' },
@@ -443,6 +442,19 @@ describe('Machines API (e2e)', () => {
         .send(body)
         .expect(400);
     }
+  });
+
+  it('accepts a zero-minute machine buffer override', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/machines')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...validCreate, bufferMinutes: 0 })
+      .expect(201);
+    expect(machines.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ bufferMinutes: 0 }),
+      expect.any(String),
+    );
   });
 
   it.each([

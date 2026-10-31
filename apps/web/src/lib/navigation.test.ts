@@ -11,6 +11,7 @@ const expectedLabels = {
     'Service',
     'Reports',
     'Reference data',
+    'Booking rules',
     'Administration',
   ],
   ADMIN: [
@@ -21,6 +22,7 @@ const expectedLabels = {
     'Service',
     'Reports',
     'Reference data',
+    'Booking rules',
     'Administration',
   ],
   BIOMED_TECH: ['Status board', 'Machines', 'Scan asset', 'Bookings', 'Service', 'Reports'],
@@ -42,17 +44,28 @@ describe('role-aware navigation', () => {
     expect(navigationForRole('STAFF').some((entry) => entry.label === 'Administration')).toBe(
       false,
     );
+    expect(navigationForRole('STAFF').some((entry) => entry.label === 'Booking rules')).toBe(false);
   });
 
   it('marks every unbuilt destination as coming soon instead of linking to a missing page', () => {
     expect(
       NAVIGATION_ENTRIES.filter(
         (entry) =>
-          !['/status', '/machines', '/scan', '/admin', '/admin/reference'].includes(entry.href),
+          ![
+            '/status',
+            '/machines',
+            '/scan',
+            '/admin',
+            '/admin/reference',
+            '/admin/booking',
+          ].includes(entry.href),
       ).every((entry) => entry.status === 'coming-soon'),
     ).toBe(true);
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/admin')?.status).toBe('available');
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/admin/reference')?.status).toBe(
+      'available',
+    );
+    expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/admin/booking')?.status).toBe(
       'available',
     );
     expect(NAVIGATION_ENTRIES.find((entry) => entry.href === '/machines')?.status).toBe(
