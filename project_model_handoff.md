@@ -229,7 +229,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 4.2 Usage sessions: check-out / check-in API
 - [x] 4.3 Live status service (derived display status)
 - [x] 4.4 Status board UI (grid/list, filters, colour+icon+text)
-- [ ] 4.5 Machine detail: status panel & timeline
+- [x] 4.5 Machine detail: status panel & timeline
 
 ### Phase 5 — Booking Engine
 - [ ] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 32 / 71 tasks (45.1%) |
-| Current phase | Phase 4 complete through Task 4.4 — responsive live status board and usage quick actions |
-| Last updated | 2026-10-30 08:26 EAT |
+| Overall progress | 33 / 71 tasks (46.5%) |
+| Current phase | Phase 4 complete through Task 4.5 — machine detail status panel and combined timeline |
+| Last updated | 2026-10-31 21:39 EAT |
 | Branch | `main` |
-| Last commit | `741f264 Merge pull request #69 from nevilndubi/phase-4/task-4.4-status-board-ui` |
-| Repo state | Clean synchronized `main`; PR #69 merged after hosted Quality passed, and Redis/API/web are running from the main workspace with safe readiness checks green. The clean Task 4.4 worktree was removed; the two older dirty generated-declaration worktrees remain untouched. |
-| **Next task** | **4.5 Machine detail status panel and timeline** |
+| Last commit | `d95d1b6 Merge pull request #72 from nevilndubi/phase-4/task-4.5-machine-detail-status-timeline` |
+| Repo state | PR #72 is merged on `origin/main`; hosted Quality passed. The handoff reconciliation is being prepared separately before Task 5.1. Existing Task 4.2/4.3 and Task 4.5 worktrees have local changes and remain untouched. No active listeners were found on ports 3000, 3001 or 6379 during this reconciliation. |
+| **Next task** | **5.1 Booking rules and configuration** |
 
 ---
 
@@ -329,7 +329,6 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Tasks 6.2 and 6.3 — service-field ownership:** service-record completion takes ownership of `last_serviced_at`; maintenance scheduling owns schedule rows and due-date progression. Task 3.3 only supports onboarding/editing existing service facts and computes `next_service_due_at` from the two source fields.
 - **Task 7.2 — machine caching:** put cache-aside behind the Task 3.3 service read boundaries; invalidate `machine:{id}:v1`, every future machine-list/status-board key set, every reference-data machine-count key and any future asset-tag lookup key after successful create/update/delete/restore. Condition and usage changes must also invalidate the detail/status keys already documented in Architecture §6.
 - **Task 7.4 — machine registry realtime:** publish delete and restore events after committed registry changes so clients can invalidate active/deleted lists, detail, status-board and reference-count views.
-- **Task 4.5 — machine-detail live usage:** add the holder-safe usage controls and combined condition/usage timeline using Task 4.3's `open_session` payload; do not reconstruct status in the browser.
 - **Node type major:** revisit the ignored `@types/node` semver-major update only when the pinned runtime moves from Node 24; keep runtime and declaration majors aligned and verify the complete workspace during that runtime upgrade.
 - **TypeScript 6:** revisit the ignored TypeScript semver-major update in a dedicated toolchain task after Next.js, NestJS, Prisma, ts-jest, tsup and ESLint support is verified together and the hosted Quality pipeline passes.
 - **Permanent QR origin:** choose and configure a final HTTPS custom domain controlled by the hospital before printing or applying real asset labels. Printed labels are permanent; localhost/default preview-host labels must remain test-only.
@@ -464,6 +463,10 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D95 | 2026-10-30 | Declare Express 5.3.0 as a direct API runtime dependency at the exact version already resolved by Nest's Express platform | `configure-application.ts` imports Express directly, so Node production resolution must not rely on a transitive framework package; pinning the existing version avoids a duplicate copy | Keep relying on the transitive dependency; change the HTTP adapter; install a different Express release |
 | D96 | 2026-10-30 | Make `/status` the authenticated landing page and first typed navigation entry until Phase 8, with one validated URL model for grid/table mode, filters, repeatable status chips, sort and pagination | Every role has `machine:read`; the live board is the most useful current operational screen, and URL state preserves refresh/Back/shared-link behavior without client-side result filtering | Keep the placeholder overview; component-only state; create a separate status administration area |
 | D97 | 2026-10-30 | Poll the authoritative board one request at a time around 30 seconds with jitter, visibility/offline pause, prompt resume and capped backoff; anchor relative time to server `as_of`; derive quick actions only through shared permission/scope helpers and Task 4.2 endpoints | This keeps stale/network failures non-destructive, avoids request overlap and browser-clock trust, supports shared tablets, and preserves Neon/API authority until Tasks 7.2/7.4 replace polling pressure | Browser-clock-only time; fixed overlapping interval; clear rows or sign out after a poll failure; duplicate role names or status logic in the web app |
+
+| D98 | 2026-10-30 | Expose a browser-safe combined machine timeline containing only registration, condition-change, usage-start and usage-end facts; order by event timestamp, explicit kind rank and immutable ID, and freeze subsequent pages at the first database `as_of` cutoff | The contract represents authoritative Phase 4 facts, gives React stable keys and prevents new events from reshuffling page boundaries; booking and service events can be added when those workflows exist | Emit placeholders; transform arbitrary audit rows into events; use unstable live offset pages; remove the Task 4.1 history endpoint |
+| D99 | 2026-10-30 | Resolve a usage-ending actor only from the earliest matching ending audit row and expose actor ID plus the forced flag, with a neutral null actor when historical data has no audit | Usage sessions do not store the ending user, while append-only audit is the existing source; narrow extraction avoids exposing audit snapshots or inventing history | Add a mutable ending-user column; return raw audit payloads; infer the holder ended it; query once per event |
+| D100 | 2026-10-30 | Share one detail-status query/poll across the machine header and tabs, refresh the timeline only after mutations or relevant status/visibility changes, and reuse board usage-action components on detail | This avoids duplicate polling and capability/error drift, preserves cutoff-stable pages, and keeps the API authoritative while caching/realtime remain deferred | Separate tab pollers; duplicate board/detail actions; a second timeline timer; browser-derived permissions |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -973,7 +976,27 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 
 ---
 
+### [2026-10-31 21:39 EAT] — Task(s): Maintenance — reconcile Task 4.5 handoff
+- **Prompt summary:** Reconcile the stale Task 4.5 checklist/status after PR #72 merged, preserve append-only history, review rather than copy the dirty Task 4.5 handoff rewrite, and record a Phase 4 retrospective before starting Task 5.1.
+- **What I did:** Verified PR #72 merged as `d95d1b6` and corrected the task checklist, progress, current phase and next-task metadata. Reviewed the separate dirty Task 4.5 worktree diff and left it untouched; its source deletions were not copied. Added the three Task 4.5 architecture decisions above and recorded a concise Phase 4 retrospective without rewriting earlier log entries.
+- **How:** Git history contains the Task 4.5 implementation commit, controller/service, shared timeline contract, web components, tests and live verifier. GitHub's PR #72 Quality job passed install, format, lint, typecheck, test and build. The focused real-route browser suite was also run locally: `pnpm --filter @app/web test:e2e:machines` passed 31/31 in 2.1 minutes. Source inspection confirms one Prisma raw-SQL call in `TimelineService` for a timeline page; this is a code-level query boundary, not a separately measured live query count.
+- **Files touched:** `project_model_handoff.md` only
+- **Migrations:** none
+- **Verification:** PR #72 merge and Quality success are verified in GitHub; the focused browser command passed 31/31. The prior Task 4.5 rewrite's disposable-Neon measurements, EXPLAIN timings and mutation-proof outcomes were not independently available in Git or hosted CI and are not repeated as verified results here. PR #71's code change fixes the stale shared-package build and location fixture; exact local 0/3 and three consecutive 30/30 run counts are not independently captured in CI. See Known Issues.
+- **Phase 4 retrospective:** Condition and usage remain separate authoritative facts; the shared `isMachineUsable()` predicate and derived `StatusService` keep API behavior aligned; row-lock ordering and after-commit typed events provide safe extension points. The combined timeline reports only existing condition/usage facts. Booking linkage/no-show remains Task 5.5; settings-policy ownership starts in Task 5.1; caching, rate limits, realtime and overdue alerts remain with Tasks 7.x and 9.2.
+- **Session Log housekeeping:** Older work is represented by historical summaries, and all existing entries were preserved. No uncommitted compaction or rewrite was copied into this append-only log.
+- **Locally running:** No listeners were found on ports 3000, 3001 or 6379 during this reconciliation; the prior “running” claim is not current and must be re-established after Task 5.1 is merged.
+- **Result:** Task 4.5 is recorded complete from merged PR #72 and green hosted Quality; detailed disposable-Neon, EXPLAIN and mutation-proof results remain explicitly unverified rather than claimed.
+- **Progress after this session:** 33 / 71 (46.5%)
+- **Left undone / follow-ups:** Preserve the unverified Task 4.5 evidence gap in Known Issues; start Task 5.1 only after this reconciliation is merged and `origin/main` is updated.
+- **Next task:** 5.1 Booking rules and configuration
+- **Branch / commit:** `docs/reconcile-task-4.5-handoff` / pending
+
 ## 13. KNOWN ISSUES / TECH DEBT
+
+- Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
+- PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
+- At the 2026-10-31 Task 4.5 handoff reconciliation, no processes were listening on ports 3000, 3001 or 6379. The next merged-main completion must start and verify Redis/API/web rather than inheriting the older “running” status.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
