@@ -295,8 +295,8 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Current phase | Phase 5 — Task 5.1 implementation and external verification in progress |
 | Last updated | 2026-10-31 22:41 EAT |
 | Branch | `phase-5/task-5.1-booking-rules-config` |
-| Last commit | `cfa0ff4 Merge pull request #73 from nevilndubi/docs/reconcile-task-4.5-handoff` (Task 5.1 changes are not committed yet) |
-| Repo state | Task 5.1 implementation is on an isolated branch based on merged main `cfa0ff4`. Workspace tests, typecheck, lint, formatting and production build pass; the explicit integration suite and merged-main runtime verification remain pending because no dedicated integration database variables or local runtime are configured. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
+| Last commit | `14e5621 feat(booking): add policy rules and admin settings` |
+| Repo state | Task 5.1 PR #74 is open from the isolated branch based on merged main `cfa0ff4`; hosted Quality passed. Workspace tests, typecheck, lint, formatting and production build pass. Explicit integration and merged-main runtime verification remain pending because no dedicated integration database variables or local runtime are configured. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
 | **Next task** | **5.1 Booking rules and configuration** |
 
 ---
@@ -1009,11 +1009,21 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** Continue Task 5.1 verification and delivery.
 - **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / implementation commit pending.
 
+### [2026-10-31 22:41 EAT] — Task(s): 5.1 PR and hosted Quality
+- **Prompt summary:** Publish the Task 5.1 implementation through the repository pull-request workflow and wait for hosted checks.
+- **What I did:** Committed the implementation as `14e5621` and opened PR #74, preserving the repository PR template. Hosted Quality passed; the Supabase Preview check was skipped by its configured conditions.
+- **Verification:** `pnpm build` passed again on the committed tree with non-production placeholder web environment values. PR #74's Quality check passed. The dedicated Neon integration suite and merged-main runtime/login checks are still not run.
+- **Result:** The implementation is committed and reviewable; Task 5.1 remains in progress while live database and runtime acceptance evidence is unavailable.
+- **Left undone / follow-ups:** Configure an approved disposable Neon integration target, run the migration/default proof, and complete post-merge Redis/API/web readiness and login checks before marking Task 5.1 complete.
+- **Next task:** Continue Task 5.1 verification; do not start Task 5.2 yet.
+- **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / `14e5621`; PR #74.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
 - PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
 - At the 2026-10-31 Task 4.5 handoff reconciliation, no processes were listening on ports 3000, 3001 or 6379. The next merged-main completion must start and verify Redis/API/web rather than inheriting the older “running” status.
+- Task 5.1's hermetic suites and hosted Quality pass, but the explicit disposable-Neon migration/default proof and merged-main runtime/login acceptance are pending because the required database branch variables are not configured in this environment.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
