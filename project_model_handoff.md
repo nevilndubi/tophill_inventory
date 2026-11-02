@@ -232,7 +232,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 4.5 Machine detail: status panel & timeline
 
 ### Phase 5 — Booking Engine
-- [ ] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
+- [x] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
 - [ ] 5.2 Availability query API
 - [ ] 5.3 Create booking (DB-enforced no-overlap, error mapping)
 - [ ] 5.4 Modify / cancel / approve / reject
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 33 / 71 tasks (46.5%) |
-| Current phase | Phase 5 — Task 5.1 merged; final hardening and merged-main runtime acceptance in progress |
-| Last updated | 2026-11-02 19:31 EAT |
-| Branch | `maintenance/harden-booking-policy-settings` |
-| Last commit | `635bcf8 Merge pull request #74 from nevilndubi/phase-5/task-5.1-booking-rules-config` |
-| Repo state | Task 5.1 PR #74 is merged and hosted Quality passed. A repeatable verifier has now proved the complete migration chain, all 40 guarded database integration checks, seven setting defaults and a clean Prisma diff on a disposable Neon branch, which it deleted. This hardening branch closes same-millisecond optimistic-version and client cross-field-validation gaps; PR delivery and merged-main local runtime acceptance remain before Task 5.1 can be ticked. The owner’s older Task 4.2/4.3/4.5 worktrees remain untouched. |
-| **Next task** | **5.1 Booking rules and configuration** |
+| Overall progress | 34 / 71 tasks (47.9%) |
+| Current phase | Phase 5 — Task 5.1 complete; ready for Task 5.2 |
+| Last updated | 2026-11-02 19:35 EAT |
+| Branch | `main` (final status recorded through `docs/complete-task-5.1-delivery`) |
+| Last commit | `403c612 Merge pull request #76 from nevilndubi/maintenance/harden-booking-policy-settings` |
+| Repo state | Task 5.1 and its acceptance hardening are merged through PRs #74 and #76 with hosted Quality green. Frozen install, format, lint, typecheck, hermetic tests and the CI-shaped build pass. A deleted disposable branch proved the full chain, 40 guarded integration checks, seven setting defaults and no drift. Redis/API/web now run detached from exact merged code; web/login are HTTP 200, the required readiness retry reports database and Redis `up`, and unauthenticated `/status` redirects to login. The owner’s older Task 4.2/4.3/4.5 worktrees remain untouched. |
+| **Next task** | **5.2 Availability query API** |
 
 ---
 
@@ -347,7 +347,6 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Task 9.2 — overdue usage alerts:** alert when sessions remain open substantially beyond `expected_end_at`; Task 4.2 records the expected time but schedules no jobs.
 - **Task 5.5 — booked-now display state:** surface a currently active CONFIRMED booking whose holder has not checked in only when booking/session linkage and state transitions are authoritative; Task 4.3 deliberately reports only strictly future confirmed starts.
 - **Task 6.5 — condition impact on bookings:** flag and surface affected future bookings whenever a machine leaves OPERATIONAL; Task 4.1 records the transition but deliberately does not mutate bookings.
-- **Task 5.1 — effective bookability:** combine the stored booking-policy flags with the authoritative machine condition; Task 4.1 does not infer availability or alter booking policy.
 - **Tasks 7.2 and 7.4 — condition invalidation/realtime:** invalidate `machine:{id}:v1` and future status-board/list keys after every committed transition, then publish the shared typed condition-transition event through the realtime channel.
 - **Ward wall-display mode:** consider a large-text, action-free view that auto-rotates department filters. It is a useful future mode for `/status`, but needs product and device-security decisions before implementation.
 
@@ -1039,12 +1038,24 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** Finish Task 5.1 delivery gates; do not start Task 5.2 yet.
 - **Branch / commit:** `maintenance/harden-booking-policy-settings` / pending.
 
+### [2026-11-02 19:35 EAT] — Task(s): 5.1 — delivery complete and locally running
+- **Prompt summary:** Push the reviewed Task 5.1 hardening, merge only on green CI, start the exact merged platform locally, and prepare the strengthened next-task prompt.
+- **What I did:** Opened PR #76 for the acceptance hardening, waited for hosted Quality, merged it, synchronized local `main`, started Redis/API/web as detached processes from merge `403c612`, and verified the public and infrastructure behavior without displaying private values.
+- **How:** The API loads its ignored environment normally. The web launch overrides only the public development origin to `http://localhost:3000` because the ignored file's current value does not satisfy the production HTTPS-or-development-localhost validator; no credential was read or changed. Logs and PID files remain under ignored `.artifacts/local-run` directories.
+- **Verification:** Hosted Quality passed in 1m58s. Web/login return HTTP 200; unauthenticated `/status` returns HTTP 307 to `/login?returnTo=%2Fstatus`; the first readiness request timed out while Neon woke, and the required retry returned HTTP 200 with database and Redis both `up`. Ports 3000, 3001 and 6379 are listening. All earlier local, hermetic and disposable-Neon results remain recorded in the preceding entry.
+- **Result:** Task 5.1 is complete at 34 / 71 (47.9%). Booking policy and global administration are ready for the availability engine.
+- **Progress after this session:** 34 / 71 (47.9%).
+- **Left undone / follow-ups:** Correct `NEXT_PUBLIC_APP_ORIGIN` in the ignored web development file to exactly `http://localhost:3000` so future local build/start commands do not need the safe override. Task 5.2 owns read-only availability calculation; no availability or booking mutation was added here.
+- **Next task:** 5.2 Availability query API.
+- **Branch / commit:** merged `main` at `403c612`; final status documentation follows in `docs/complete-task-5.1-delivery`.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
 - PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
-- At the 2026-10-31 Task 4.5 handoff reconciliation, no processes were listening on ports 3000, 3001 or 6379. The next merged-main completion must start and verify Redis/API/web rather than inheriting the older “running” status.
-- **Partially resolved on 2026-11-02:** Task 5.1 PR #74 is merged, hosted Quality is green, and `pnpm verify:booking-policy:live` proved the full migration chain, 40 guarded integration checks, default shapes and no drift on a deleted disposable branch. Merged-main Redis/API/web readiness and login-redirect acceptance remain pending until the hardening PR lands.
+- **Resolved on 2026-11-02:** the prior no-listener state is obsolete. Redis, API and web are running from merged `main`; web and login return HTTP 200, readiness reports database/Redis `up` after the allowed Neon wake retry, and unauthenticated `/status` redirects to login.
+- **Resolved on 2026-11-02:** Task 5.1 PRs #74/#76 are merged with hosted Quality green; `pnpm verify:booking-policy:live` proved the full migration chain, 40 guarded integration checks, default shapes and no drift on a deleted disposable branch; merged-main runtime acceptance now passes.
+- The ignored `apps/web/.env.local` currently supplies a `NEXT_PUBLIC_APP_ORIGIN` that fails the production HTTPS/development-localhost validator. The running development server safely overrides this public value with `http://localhost:3000`; update that one ignored variable locally to remove the workaround. No secret value is affected.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
