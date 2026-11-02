@@ -313,7 +313,7 @@ describe('Machine database integration', () => {
     );
   });
 
-  it('enforces positive category defaults and machine interval and booking-minute overrides', async () => {
+  it('enforces category, duration, service-interval and inclusive buffer bounds', async () => {
     await expectPostgresError(
       sql.query('UPDATE machine_categories SET default_service_interval_days = 0 WHERE id = $1', [
         categoryId,
@@ -330,17 +330,26 @@ describe('Machine database integration', () => {
     );
 
     const machine = await createMachine('positive-checks');
-    const machineChecks = [
+    const positiveMachineChecks = [
       ['max_booking_minutes', 'machines_max_booking_minutes_positive_check'],
-      ['buffer_minutes', 'machines_buffer_minutes_positive_check'],
       ['service_interval_days', 'machines_service_interval_days_positive_check'],
     ] as const;
 
-    for (const [column, constraint] of machineChecks) {
+    for (const [column, constraint] of positiveMachineChecks) {
       await expectPostgresError(
         sql.query(`UPDATE machines SET "${column}" = 0 WHERE id = $1`, [machine.id]),
         '23514',
         constraint,
+      );
+    }
+    await expect(
+      sql.query('UPDATE machines SET buffer_minutes = 0 WHERE id = $1', [machine.id]),
+    ).resolves.toBeDefined();
+    for (const value of [-1, 241]) {
+      await expectPostgresError(
+        sql.query('UPDATE machines SET buffer_minutes = $1 WHERE id = $2', [value, machine.id]),
+        '23514',
+        'machines_buffer_minutes_range_check',
       );
     }
   });

@@ -292,11 +292,11 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 33 / 71 tasks (46.5%) |
-| Current phase | Phase 5 — Task 5.1 implementation and external verification in progress |
-| Last updated | 2026-10-31 23:09 EAT |
-| Branch | `phase-5/task-5.1-booking-rules-config` |
-| Last commit | `4b29377 docs: record Task 5.1 PR verification` |
-| Repo state | Task 5.1 PR #74 is open from the isolated branch based on merged main `cfa0ff4`; hosted Quality passed. Workspace tests, typecheck, lint, formatting and production build pass. Disposable-Neon migration/default and buffer-boundary proofs passed using direct SQL, and the proof branch was deleted. The guarded integration suite and merged-main runtime/login verification remain pending. Other Task 4.2/4.3/4.5 worktrees remain untouched. |
+| Current phase | Phase 5 — Task 5.1 merged; final hardening and merged-main runtime acceptance in progress |
+| Last updated | 2026-11-02 19:31 EAT |
+| Branch | `maintenance/harden-booking-policy-settings` |
+| Last commit | `635bcf8 Merge pull request #74 from nevilndubi/phase-5/task-5.1-booking-rules-config` |
+| Repo state | Task 5.1 PR #74 is merged and hosted Quality passed. A repeatable verifier has now proved the complete migration chain, all 40 guarded database integration checks, seven setting defaults and a clean Prisma diff on a disposable Neon branch, which it deleted. This hardening branch closes same-millisecond optimistic-version and client cross-field-validation gaps; PR delivery and merged-main local runtime acceptance remain before Task 5.1 can be ticked. The owner’s older Task 4.2/4.3/4.5 worktrees remain untouched. |
 | **Next task** | **5.1 Booking rules and configuration** |
 
 ---
@@ -470,6 +470,7 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D101 | 2026-10-31 | Resolve effective maximum duration machine override → category default → global setting; resolve buffer machine override → global setting; keep minimum duration, lead time and advance window global-only, approval machine-owned, and bookability tied to enabled state plus the shared condition rule | One authoritative resolver feeds subsequent availability/booking work and keeps policy distinct from live occupancy; NEEDS_SERVICE is permitted only with its explicit machine opt-in | Duplicate API/web precedence; treat an open session as policy; apply `is_bookable` to checkout |
 | D102 | 2026-10-31 | Update global booking settings with optimistic `expectedUpdatedAt`, row locks, cross-field/override validation and a transactional `settings.updated` audit event; serialize machine/category maximum writes against the global minimum setting | Concurrent configuration writes must not commit an impossible minimum/maximum pair, stale managers must reload, and settings mutations need the same audit guarantees as other administration | Last-write-wins; read-then-write without locks; audit outside the transaction |
 | D103 | 2026-10-31 | Allow a 0–240 minute machine buffer and fail the additive migration before constraint replacement if stored buffers are outside range or existing global/machine/category duration limits would conflict | Zero is a valid no-buffer policy, while a migration must not silently rewrite an existing override or install defaults that make current policies unusable | Keep the old positive-only constraint; clamp existing data without operator review; enforce only a UI bound |
+| D104 | 2026-11-02 | Advance the booking-settings optimistic version by at least one millisecond on every semantic change and reject minimum-duration values above the maximum in the browser before submission while preserving the API as authority | `app_settings.updated_at` is stored at millisecond precision, so two successful same-tick writes could otherwise reuse a token; early form feedback prevents an avoidable rejected request without weakening transactional validation | Rely on wall-clock equality; add a separate version column; validate only in the API |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -1027,12 +1028,23 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** Resolve remaining Task 5.1 delivery gates; do not start Task 5.2 yet.
 - **Branch / commit:** `phase-5/task-5.1-booking-rules-config` / `4b29377`; PR #74.
 
+### [2026-11-02 19:31 EAT] — Maintenance: Task 5.1 booking-policy acceptance hardening
+- **Prompt summary:** Review the merged Copilot delivery, find and strengthen concrete weaknesses, publish the result, run the merged platform locally, and prepare a robust Task 5.2 prompt.
+- **What I did:** Added a monotonic millisecond booking-settings version helper and regression tests, client cross-field validation for minimum versus maximum duration, a permanent credential-safe disposable-Neon verifier, and corrected an outdated integration assertion so the test matches the approved zero-minute buffer policy.
+- **How:** Semantic no-ops still write neither settings nor audit; real changes advance the shared optimistic token despite `timestamptz(3)` clock collisions. `pnpm verify:booking-policy:live` creates a disposable child of `dev`, captures connection material without displaying it, applies the full chain, runs the guarded integration suite, checks drift/default shapes, and deletes the branch in `finally` (D104).
+- **Verification:** Both verifier runs deleted their branches. The first exposed the stale buffer-zero assertion; after correction, all 40 integration checks passed, all seven defaults were JSON numbers, and `prisma migrate diff` reported no pending change. Frozen install, formatting, lint, typecheck and the hermetic suite pass (API 40 suites, 418 passed and one intentional Task 7.2 skip; all web suites passed). The local ignored web origin does not satisfy the production HTTPS validator, so the production build is rerun with the same non-secret CI placeholders rather than changing or revealing private environment values.
+- **Result:** Live database acceptance is complete. PR/hosted CI, merged-main runtime readiness and final Task 5.1 checklist/status reconciliation remain in this turn.
+- **Progress after this session:** 33 / 71 (46.5%) — unchanged until every definition-of-done gate is complete.
+- **Left undone / follow-ups:** Deliver this hardening branch, restart Redis/API/web from its merge commit, then mark Task 5.1 complete and move next to Task 5.2.
+- **Next task:** Finish Task 5.1 delivery gates; do not start Task 5.2 yet.
+- **Branch / commit:** `maintenance/harden-booking-policy-settings` / pending.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
 - PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
 - At the 2026-10-31 Task 4.5 handoff reconciliation, no processes were listening on ports 3000, 3001 or 6379. The next merged-main completion must start and verify Redis/API/web rather than inheriting the older “running” status.
-- Task 5.1's hermetic suites, hosted Quality, and direct-SQL disposable-Neon migration/default/buffer-boundary proofs pass. The guarded `pnpm test:integration` suite remains unrun because its dedicated connection/branch environment is not configured; merged-main Redis/API/web readiness and login acceptance also remain pending until PR #74 is merged.
+- **Partially resolved on 2026-11-02:** Task 5.1 PR #74 is merged, hosted Quality is green, and `pnpm verify:booking-policy:live` proved the full migration chain, 40 guarded integration checks, default shapes and no drift on a deleted disposable branch. Merged-main Redis/API/web readiness and login-redirect acceptance remain pending until the hardening PR lands.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
@@ -1134,6 +1146,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 4.1 transition/concurrency/rollback proof: `NEON_PROJECT_ID=<project-id> pnpm verify:conditions:live`
 - Run the credential-safe Task 4.2 usage/booking-guard/concurrency proof: `NEON_PROJECT_ID=<project-id> pnpm verify:usage:live`
 - Run the credential-safe Task 4.3 status priority/query-plan/performance proof: `NEON_PROJECT_ID=<project-id> pnpm verify:status:live`
+- Run the credential-safe Task 5.1 migration/integration/drift proof: `NEON_PROJECT_ID=<project-id> pnpm verify:booking-policy:live`
 - Configure/verify the private machine-attachment bucket: `pnpm storage:configure`
 - List orphaned private attachment objects older than 24 hours (read-only): `pnpm storage:reconcile`
 - Explicitly delete listed orphaned attachment objects: `pnpm storage:reconcile -- --delete`
@@ -1174,6 +1187,8 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Check out/check in a machine: `POST /api/v1/machines/:id/check-out`, `POST /api/v1/machines/:id/check-in`
 - Read one machine's derived live status: `GET /api/v1/machines/:id/status`
 - Read/filter the derived active-registry status board: `GET /api/v1/status/board`
+- Read one machine's effective booking policy: `GET /api/v1/machines/:id/booking-policy`
+- Read/update global booking settings: `GET /api/v1/settings/booking`, `PATCH /api/v1/settings/booking`
 - List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
 - Confirm an upload: `POST /api/v1/attachments/confirm`
 - Request a five-minute download/delete an attachment: `GET /api/v1/attachments/:id/url`, `DELETE /api/v1/attachments/:id`

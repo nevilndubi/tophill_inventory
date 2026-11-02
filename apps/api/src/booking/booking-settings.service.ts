@@ -95,6 +95,9 @@ export const settingsFromRows = (rows: readonly SettingRow[]): BookingSettings =
   return parsed.data;
 };
 
+export const nextSettingsVersion = (currentUpdatedAt: string, now = new Date()): Date =>
+  new Date(Math.max(now.getTime(), Date.parse(currentUpdatedAt) + 1));
+
 @Injectable()
 export class BookingSettingsService {
   constructor(
@@ -151,6 +154,10 @@ export class BookingSettingsService {
       );
       if (changed.length === 0) return current;
 
+      // app_settings uses millisecond precision. Advancing by at least one millisecond keeps the
+      // optimistic token monotonic even when two successful writes occur inside the same clock tick.
+      const updatedAt = nextSettingsVersion(current.updatedAt);
+
       const before: Record<string, Prisma.InputJsonValue> = {};
       const after: Record<string, Prisma.InputJsonValue> = {};
       for (const [field, value] of changed) {
@@ -160,7 +167,7 @@ export class BookingSettingsService {
         before[key] = previous;
         after[key] = value;
         await transaction.appSetting.update({
-          data: { value },
+          data: { updatedAt, value },
           where: { key },
         });
       }
