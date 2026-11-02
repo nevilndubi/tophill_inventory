@@ -7,6 +7,7 @@ import { BookingPolicyConflictException, BookingSettingsChangedException } from 
 import {
   BOOKING_SETTING_KEYS,
   BookingSettingsService,
+  nextSettingsVersion,
   type SettingRow,
 } from './booking-settings.service';
 
@@ -79,7 +80,7 @@ describe('BookingSettingsService', () => {
     expect(transaction.$queryRaw).toHaveBeenCalledTimes(2);
     expect(transaction.appSetting.update).toHaveBeenCalledTimes(1);
     expect(transaction.appSetting.update).toHaveBeenCalledWith({
-      data: { value: 90 },
+      data: { updatedAt: expect.any(Date), value: 90 },
       where: { key: 'booking.max_advance_days' },
     });
     expect(audit.record).toHaveBeenCalledWith(
@@ -94,6 +95,29 @@ describe('BookingSettingsService', () => {
       }),
     );
     expect(BOOKING_SETTING_KEYS).toContain('booking.max_advance_days');
+  });
+
+  it('advances the optimistic version even inside the same millisecond', () => {
+    const next = nextSettingsVersion(originalUpdatedAt.toISOString(), originalUpdatedAt);
+    expect(next.toISOString()).toBe('2026-01-01T00:00:00.001Z');
+  });
+
+  it('returns an unchanged request without updating rows or writing audit', async () => {
+    transaction.$queryRaw
+      .mockResolvedValueOnce(rows())
+      .mockResolvedValueOnce([{ conflict: false }]);
+    await expect(
+      service.update(
+        actor,
+        {
+          expectedUpdatedAt: originalUpdatedAt.toISOString(),
+          maxAdvanceDays: 60,
+        },
+        'request-id',
+      ),
+    ).resolves.toMatchObject({ maxAdvanceDays: 60 });
+    expect(transaction.appSetting.update).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
   });
 
   it('rejects stale writes before mutation or audit', async () => {

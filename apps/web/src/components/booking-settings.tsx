@@ -110,12 +110,15 @@ export function BookingSettingsManagement() {
     );
 
   const currentValues = values ?? toFormValues(query.data);
-  const hasInvalidInput = SETTING_FIELDS.some(({ key, max, min }) => {
-    const value = Number(currentValues[key]);
-    return (
-      currentValues[key].trim() === '' || !Number.isInteger(value) || value < min || value > max
-    );
-  });
+  const hasDurationConflict =
+    Number(currentValues.minDurationMinutes) > Number(currentValues.maxDurationMinutes);
+  const hasInvalidInput =
+    SETTING_FIELDS.some(({ key, max, min }) => {
+      const value = Number(currentValues[key]);
+      return (
+        currentValues[key].trim() === '' || !Number.isInteger(value) || value < min || value > max
+      );
+    }) || hasDurationConflict;
 
   return (
     <div className="space-y-6">
@@ -168,7 +171,9 @@ export function BookingSettingsManagement() {
                 <p id={`booking-setting-${key}-hint`} className="text-xs text-muted-foreground">
                   Allowed range: {min}–{max} {unit}.
                 </p>
-                {currentValues[key].trim() === '' ? (
+                {key === 'minDurationMinutes' && hasDurationConflict ? (
+                  <FieldError>Minimum duration cannot exceed maximum duration.</FieldError>
+                ) : currentValues[key].trim() === '' ? (
                   <FieldError>Enter a whole number.</FieldError>
                 ) : !Number.isInteger(Number(currentValues[key])) ||
                   Number(currentValues[key]) < min ||

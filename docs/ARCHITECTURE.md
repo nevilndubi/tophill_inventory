@@ -154,7 +154,10 @@ machine/category read and one setting-key read; missing and soft-deleted machine
 JSON numbers with shared bounds and strict shape validation. Updates lock the setting rows, validate
 the complete resulting configuration, reject a global minimum duration that conflicts with any
 saved machine/category maximum, and write changed values plus a `settings.updated` audit row in
-one transaction. Machine/category maximum writes share-lock the minimum setting and reject a
+one transaction. Every successful change advances the shared version timestamp by at least one
+millisecond, even when two writes share the same database clock tick, because the stored
+`timestamptz(3)` precision would otherwise permit a successful update to retain the prior optimistic
+token. Machine/category maximum writes share-lock the minimum setting and reject a
 maximum below it, preventing concurrent policy changes from committing an invalid combination.
 Booking-window validation reports specific codes for malformed windows, too-short/long duration,
 lead-time and advance-window violations, unbookable machines, and invalid stored policy.

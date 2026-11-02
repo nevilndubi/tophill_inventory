@@ -99,4 +99,24 @@ describe('BookingSettingsManagement', () => {
     expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled();
     expect(mocks.updateSettings).not.toHaveBeenCalled();
   });
+
+  it('blocks a minimum duration above the configured maximum', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+    const maximum = await screen.findByRole('spinbutton', {
+      name: 'Maximum booking duration (minutes)',
+    });
+    const minimum = screen.getByRole('spinbutton', {
+      name: 'Minimum booking duration (minutes)',
+    });
+    await user.clear(maximum);
+    await user.type(maximum, '20');
+    await user.clear(minimum);
+    await user.type(minimum, '21');
+    expect(
+      screen.getByText('Minimum duration cannot exceed maximum duration.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+    expect(mocks.updateSettings).not.toHaveBeenCalled();
+  });
 });
