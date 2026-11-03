@@ -233,7 +233,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 ### Phase 5 — Booking Engine
 - [x] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
-- [ ] 5.2 Availability query API
+- [x] 5.2 Availability query API
 - [ ] 5.3 Create booking (DB-enforced no-overlap, error mapping)
 - [ ] 5.4 Modify / cancel / approve / reject
 - [ ] 5.5 Booking ↔ check-in link, no-show handling, ad-hoc checkout conflict rule
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 34 / 71 tasks (47.9%) |
-| Current phase | Phase 5 — Task 5.1 complete; ready for Task 5.2 |
-| Last updated | 2026-11-02 19:35 EAT |
-| Branch | `main` (final status recorded through `docs/complete-task-5.1-delivery`) |
-| Last commit | `403c612 Merge pull request #76 from nevilndubi/maintenance/harden-booking-policy-settings` |
-| Repo state | Task 5.1 and its acceptance hardening are merged through PRs #74 and #76 with hosted Quality green. Frozen install, format, lint, typecheck, hermetic tests and the CI-shaped build pass. A deleted disposable branch proved the full chain, 40 guarded integration checks, seven setting defaults and no drift. Redis/API/web now run detached from exact merged code; web/login are HTTP 200, the required readiness retry reports database and Redis `up`, and unauthenticated `/status` redirects to login. The owner’s older Task 4.2/4.3/4.5 worktrees remain untouched. |
-| **Next task** | **5.2 Availability query API** |
+| Overall progress | 35 / 71 tasks (49.3%) |
+| Current phase | Phase 5 — Task 5.2 complete; ready for Task 5.3 |
+| Last updated | 2026-11-03 09:30 EAT |
+| Branch | `main` (final status recorded through `docs/complete-task-5.2-delivery`) |
+| Last commit | `2271566 Merge pull request #79 from nevilndubi/phase-5/task-5.2-availability-query` |
+| Repo state | Task 5.2 is merged through PR #79 with hosted Quality green. Frozen install, format, lint, typecheck, 41 hermetic suites, the CI-shaped build, explicit guarded integration, a 3,000-machine disposable-Neon proof and clean migration diff all pass. The proof branch was deleted and protected branches contain no proof rows. Redis/API/web run from synchronized merged `main`; login is HTTP 200, readiness is `ok` with database and Redis `up`, and unauthenticated `/status` redirects to login. No migration, booking mutation, UI, cache or speculative index was added. |
+| **Next task** | **5.3 Booking creation** |
 
 ---
 
@@ -1073,13 +1073,27 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** Finish Task 5.2 delivery; do not start Task 5.3 yet.
 - **Branch / commit:** `phase-5/task-5.2-availability-query` / pending.
 
+### [2026-11-03 09:30 EAT] — Task(s): 5.2 — delivery completion
+- **Prompt summary:** Finish the availability query API through every local and disposable-database gate, hosted green CI, merge, synchronized `main`, the mandatory merged-main local platform run, and a robust Task 5.3 handoff.
+- **What I did:** Closed the two legacy route-inventory gaps found by the full suite, embedded the explicit guarded integration suite in the availability verifier, completed PR #79, synchronized `main`, and started Redis/API/web from the merge. Updated the checklist and current status to 35 / 71.
+- **How:** The feature stayed isolated in its worktree through delivery. Hosted Quality was required before the GitHub API merge because the ordinary CLI merge correctly refused to check out `main` already owned by the primary worktree. Private environment values remained in ignored files; only required variable names and safe readiness/status metadata were reported.
+- **Files touched:** this handoff only on the completion branch; the Task 5.2 feature is merge `2271566`; ignored runtime logs remain under `.artifacts/local-run`.
+- **Migrations:** none.
+- **Verification:** PR #79 Quality passed in 2m11s. Local gates passed: frozen install, format, lint, typecheck, 41 hermetic suites (438 passed, one intentional Task 7.2 reminder skipped), CI-shaped build and server-secret browser-bundle scan. A deleted disposable branch passed migrations, guarded integration, seed, boundary/consistency proofs, 3,000-machine plans and clean drift. From synchronized merged `main`, web login returned HTTP 200, unauthenticated `/status` returned 307 to the validated login return path, and readiness returned overall `ok`, database `up`, Redis `up` after the permitted Neon wake retry.
+- **Locally running:** Redis plus managed API/web sessions serve `http://localhost:3001` and `http://localhost:3000`. Working pages remain Live Status, Machines and its detail/Files/Status/History/import/labels/scan flows, Reference Data, Booking Settings and User Administration. Task 5.2 is API-only, so its new availability reads have no screen yet; Bookings and Service remain “Coming soon”. Stop the managed app sessions with Ctrl+C (or the project-scoped process-group commands in README) and Redis with `docker compose stop redis`.
+- **Result:** Task 5.2 is complete at 35 / 71 (49.3%); the repository is ready for Task 5.3 Booking creation.
+- **Progress after this session:** 35 / 71 (49.3%).
+- **Left undone / follow-ups:** Task 5.3 must revalidate under the machine lock and exclusion constraint, use the shared candidate range and open-session estimate, and tolerate `BOOKING_CONFLICT` after a positive advisory read. The availability screen remains Task 5.6; caching/rate limiting/realtime remain Tasks 7.2–7.4.
+- **Next task:** 5.3 Booking creation.
+- **Branch / commit:** `main` at `2271566`; final status documentation follows in `docs/complete-task-5.2-delivery`.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
 - PR #71's merged code changes address the missing shared-package prebuild and stale location fixture, and hosted Quality passed. The reported local pre-fix 0/3 and post-fix 3×30/30 rates are not captured in CI logs and were not rerun here; treat those counts as historical handoff/PR-description evidence rather than independently verified measurements.
 - **Resolved on 2026-11-02:** the prior no-listener state is obsolete. Redis, API and web are running from merged `main`; web and login return HTTP 200, readiness reports database/Redis `up` after the allowed Neon wake retry, and unauthenticated `/status` redirects to login.
 - **Resolved on 2026-11-02:** Task 5.1 PRs #74/#76 are merged with hosted Quality green; `pnpm verify:booking-policy:live` proved the full migration chain, 40 guarded integration checks, default shapes and no drift on a deleted disposable branch; merged-main runtime acceptance now passes.
-- The ignored `apps/web/.env.local` currently supplies a `NEXT_PUBLIC_APP_ORIGIN` that fails the production HTTPS/development-localhost validator. The running development server safely overrides this public value with `http://localhost:3000`; update that one ignored variable locally to remove the workaround. No secret value is affected.
+- **Resolved on 2026-11-03:** the ignored web environment now supplies a valid local `NEXT_PUBLIC_APP_ORIGIN`; the merged Task 5.2 web server starts without an origin override.
 
 - **Resolved in 2026-10-30 maintenance:** the API now declares exact `express@5.3.0`, matching the framework-resolved runtime. The compiled `node dist/main.js` process starts independently and serves root health without relying on Nest's transitive package layout.
 - **Resolved in 2026-10-30 maintenance:** the legacy Machines Playwright command now builds `@app/shared` before Next starts and its location mock follows the D94 paginated response contract. The former compile/workspace failures disappeared without retries or weakened assertions; the complete 30-test command passed three consecutive runs.
