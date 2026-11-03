@@ -234,7 +234,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 ### Phase 5 — Booking Engine
 - [x] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
 - [x] 5.2 Availability query API
-- [ ] 5.3 Create booking (DB-enforced no-overlap, error mapping)
+- [x] 5.3 Create booking (DB-enforced no-overlap, error mapping)
 - [ ] 5.4 Modify / cancel / approve / reject
 - [ ] 5.5 Booking ↔ check-in link, no-show handling, ad-hoc checkout conflict rule
 - [ ] 5.6 Booking UI (calendar per machine, my bookings, approvals queue)
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 35 / 71 tasks (49.3%) |
-| Current phase | Phase 5 — Task 5.2 complete; ready for Task 5.3 |
-| Last updated | 2026-11-03 14:49 EAT |
-| Branch | `phase-5/task-5.3-booking-creation` |
-| Last commit | `90ef6ca Merge pull request #80 from nevilndubi/docs/complete-task-5.2-delivery` (task changes not committed yet) |
-| Repo state | Task 5.3 implementation and acceptance are complete in the isolated worktree but remain unticked until hosted Quality, merge, synchronized `main` and the required merged-main local run finish. Frozen install, format, lint, typecheck, 43 API suites (457 passed plus the intentional Task 7.2 skip), 38 web files (207 passed), the CI-shaped production build, route/permission mutation proofs, reviewed additive migration, guarded integration and a deleted disposable-Neon concurrency/idempotency proof all pass. The migration is already deployed to Neon `dev` before any new API restart; protected branches contain no proof booking rows. |
-| **Next task** | **Finish Task 5.3 delivery; do not start 5.4 yet** |
+| Overall progress | 36 / 71 tasks (50.7%) |
+| Current phase | Phase 5 — Task 5.3 complete; ready for Task 5.4 |
+| Last updated | 2026-11-03 19:42 EAT |
+| Branch | `docs/complete-task-5.3-delivery` (completion record after merged PR #81) |
+| Last commit | `27a1748 Merge pull request #81 from nevilndubi/phase-5/task-5.3-booking-creation` |
+| Repo state | Task 5.3 is merged through PR #81 with hosted Quality green. Frozen install, format, lint, typecheck, 43 API suites (457 passed plus the intentional Task 7.2 skip), 38 web files (207 passed), CI-shaped production build, mutation proofs, reviewed/deployed additive migration, guarded integration and a deleted disposable-Neon concurrency/idempotency proof all pass. Protected branches contain no proof rows. Redis/API/web run from synchronized merged `main`; login is HTTP 200, readiness is `ok` with database and Redis `up`, and unauthenticated `/status` redirects to login. |
+| **Next task** | **5.4 Modify / cancel / approve / reject, including booking list/detail reads** |
 
 ---
 
@@ -1109,6 +1109,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Finish feature delivery. Task 5.4 owns booking reads and lifecycle mutations; Task 5.5 links sessions/no-shows; Task 5.6 adds the UI; Tasks 7.2–7.5 and 9.2 own invalidation, rate limits, realtime, Redis replay acceleration and jobs.
 - **Next task:** Finish Task 5.3 delivery; do not start Task 5.4 yet.
 - **Branch / commit:** `phase-5/task-5.3-booking-creation` / pending.
+
+### [2026-11-03 19:42 EAT] — Task(s): 5.3 — delivery complete and locally running
+- **Prompt summary:** Complete Task 5.3 through hosted green CI, merge, synchronized main, merged-main local readiness and an exact Task 5.4 handoff.
+- **What I did:** Pushed feature commit `d263e3a`, opened PR #81, waited for required Quality, merged it as `27a1748`, fast-forwarded the primary workspace, recreated Redis from the primary Compose file and started API/web in persistent managed sessions from synchronized main. Closed the checklist at 36 / 71.
+- **How:** GitHub merge occurred only after the required check passed. Private values remained in mode-600 ignored files and were verified by variable name only. The `dev` migration had been deployed before starting the new API, following D112. The primary workspace's ignored Prisma client was stale after the fast-forward; `pnpm prisma:generate` brought it to the merged schema and the watch process then compiled cleanly.
+- **Files touched:** this completion handoff and README local-run clarification only; feature files are in PR #81.
+- **Migrations:** `20261103100000_booking_creation_idempotency` is applied on Neon `dev`; deployment order remains migrate before API.
+- **Verification:** PR #81 Quality passed in 1m36s. Login returns HTTP 200; unauthenticated `/status` returns HTTP 307 to `/login`; `/health/ready` returns HTTP 200 with overall `ok`, database `up` and Redis `up`. Ports 3000 and 3001 are owned by processes whose working directories are the synchronized primary workspace; Redis is healthy on 6379. The complete local and disposable acceptance evidence remains in the preceding entry.
+- **Locally running:** Web is `http://localhost:3000`; API is `http://localhost:3001`. Working areas are Live Status and usage quick actions, Machines and its Overview/Files/Status/History/import/labels/scan flows, Reference Data, Booking Settings (now including active bookings per person), and User Administration. Booking creation is API-only in 5.3; Bookings and Service screens remain “Coming soon”. Stop API/web by sending Ctrl+C to managed sessions 80691 and 20430 (or stop their project-scoped process groups), then run `docker compose stop redis`.
+- **Result:** Task 5.3 is complete at 36 / 71 (50.7%).
+- **Progress after this session:** 36 / 71 (50.7%).
+- **Left undone / follow-ups:** Task 5.4 owns booking list/detail and lifecycle mutations; Task 5.5 links sessions/no-shows; Task 5.6 builds the UI; Tasks 7.2–7.5 and 9.2 own invalidation, throttling, realtime, Redis replay acceleration and jobs.
+- **Next task:** 5.4 Modify / cancel / approve / reject, including booking list/detail reads.
+- **Branch / commit:** `main` at `27a1748`; final status documentation follows in `docs/complete-task-5.3-delivery`.
 
 ## 13. KNOWN ISSUES / TECH DEBT
 

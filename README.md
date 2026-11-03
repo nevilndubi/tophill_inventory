@@ -76,9 +76,14 @@ database URLs must target the Neon `dev` branch; local Redis uses the Docker ser
 
 ```bash
 docker compose up -d redis
+pnpm prisma:generate
 pnpm prisma:migrate:deploy
 pnpm dev
 ```
+
+Run Prisma generation after pulling a commit that changes `prisma/schema.prisma`; the generated
+client is intentionally ignored, and an already-open workspace can otherwise retain stale types.
+Production builds, tests and typechecks generate it automatically.
 
 Open `http://localhost:3000` and sign in with a confirmed, administrator-provisioned Supabase
 account. The API listens on `http://localhost:3001`; its readiness probe is
@@ -86,9 +91,10 @@ account. The API listens on `http://localhost:3001`; its readiness probe is
 active role can filter the current equipment board and permitted roles can check machines out, check
 their own sessions in, or force-end scoped sessions. The other working areas are Machines, Reference
 data and Administration. The machine detail Files, Status and History tabs support private files,
-condition transitions and condition history. Bookings and Service remain labelled “Coming soon”
-until their scheduled tasks; the combined usage timeline and detail-level usage controls arrive in
-Task 4.5.
+condition transitions, usage controls and the combined condition/usage timeline. Booking creation is
+available through the Task 5.3 API but has no web workflow yet; Bookings and Service remain labelled
+“Coming soon” until their scheduled UI tasks. Administrators can manage the global booking policy,
+including the active-bookings-per-person limit, under **Booking rules**.
 
 Administrators can open **Machines → Import CSV** to download the versioned blank template or a
 separate three-row example, preview row-level validation, and then choose an atomic full import or
