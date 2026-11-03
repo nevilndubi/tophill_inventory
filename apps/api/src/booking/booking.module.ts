@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
-import { BookingPolicyController, BookingSettingsController } from './booking.controller';
+import {
+  AvailabilityController,
+  BookingPolicyController,
+  BookingSettingsController,
+} from './booking.controller';
 import { BookingPolicyService } from './booking-policy.service';
 import { BookingSettingsService } from './booking-settings.service';
+import { AvailabilityService } from './availability.service';
 
 @Module({
-  controllers: [BookingPolicyController, BookingSettingsController],
+  controllers: [AvailabilityController, BookingPolicyController, BookingSettingsController],
   imports: [AuditModule],
-  providers: [BookingPolicyService, BookingSettingsService],
-  exports: [BookingPolicyService, BookingSettingsService],
+  providers: [AvailabilityService, BookingPolicyService, BookingSettingsService],
+  exports: [AvailabilityService, BookingPolicyService, BookingSettingsService],
 })
 export class BookingModule {}

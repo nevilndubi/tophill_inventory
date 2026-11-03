@@ -54,6 +54,7 @@ pnpm storage:configure
 pnpm storage:reconcile
 NEON_PROJECT_ID=<project-id> pnpm verify:attachments:live
 NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live
+NEON_PROJECT_ID=<project-id> pnpm verify:availability:live
 pnpm users:reconcile-auth
 NEON_PROJECT_ID=<project-id> pnpm verify:users:live
 ```
@@ -153,6 +154,25 @@ rollback without writing to `dev`, `staging` or `main`:
 
 ```bash
 NEON_PROJECT_ID=<project-id> pnpm verify:machine-import:live
+```
+
+### Availability API
+
+Task 5.2 provides authenticated, read-only availability through
+`GET /api/v1/machines/:id/availability?from&to` and
+`GET /api/v1/availability/search?start&end&category_id&department_id`. Inputs are offset-bearing
+ISO-8601 timestamps; ranges use half-open `[start,end)` semantics. Search tests the requested end
+plus each machine's effective buffer, and both endpoints are advisory: Task 5.3 revalidates policy,
+usage and overlap under the machine lock, so clients must still handle a later `BOOKING_CONFLICT`.
+No endpoint exposes another person's identity or purpose. An open session without a future expected
+end is shown as an estimated block through the machine's effective maximum booking duration.
+
+The credential-safe live verifier creates an expiring child of protected `main`, applies migrations
+and the guarded seed, measures the queries on a 3,000-machine fixture, checks drift and deletes the
+branch in `finally`:
+
+```bash
+NEON_PROJECT_ID=<project-id> pnpm verify:availability:live
 ```
 
 ## Local Redis

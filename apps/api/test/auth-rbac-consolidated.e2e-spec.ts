@@ -45,6 +45,7 @@ import { StatusService } from '../src/status/status.service';
 import { TimelineService } from '../src/machines/timeline.service';
 import { BookingPolicyService } from '../src/booking/booking-policy.service';
 import { BookingSettingsService } from '../src/booking/booking-settings.service';
+import { AvailabilityService } from '../src/booking/availability.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -109,6 +110,24 @@ const bookingSettingsService = {
     minLeadMinutes: 15,
     noShowGraceMinutes: 15,
     updatedAt: '2026-01-01T00:00:00.000Z',
+  })),
+};
+const availabilityService = {
+  detail: jest.fn(async () => ({
+    as_of: '2026-11-02T06:00:00.000Z',
+    available_for_entire_range: true,
+    blocks: [],
+    free_windows: [],
+    machine: {},
+    policy: {},
+    range: {},
+    reasons: [],
+  })),
+  search: jest.fn(async () => ({
+    as_of: '2026-11-02T06:00:00.000Z',
+    items: [],
+    meta: { page: 1, page_size: 25, total: 0 },
+    range: {},
   })),
 };
 
@@ -767,6 +786,38 @@ const EXPECTED_ACCESS_TABLE = [
       STAFF: 'ALLOW',
       VIEWER: 'ALLOW',
     },
+    route: '/api/v1/machines/:id/availability',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/availability/search',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:machine:read',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
     route: '/api/v1/settings/booking',
     successStatus: 200,
     unauthenticated: 'DENY',
@@ -1194,6 +1245,18 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
   switch (method) {
     case 'GET':
       builder = client.get(path);
+      if (route === '/api/v1/machines/:id/availability') {
+        builder = builder.query({
+          from: '2026-11-02T06:15:00.000Z',
+          to: '2026-11-02T07:15:00.000Z',
+        });
+      }
+      if (route === '/api/v1/availability/search') {
+        builder = builder.query({
+          start: '2026-11-02T06:15:00.000Z',
+          end: '2026-11-02T07:15:00.000Z',
+        });
+      }
       break;
     case 'DELETE':
       builder = client.delete(path);
@@ -1397,6 +1460,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(bookingPolicyService)
         .overrideProvider(BookingSettingsService)
         .useValue(bookingSettingsService)
+        .overrideProvider(AvailabilityService)
+        .useValue(availabilityService)
         .compile();
 
     const productionModule = await createModule(false);

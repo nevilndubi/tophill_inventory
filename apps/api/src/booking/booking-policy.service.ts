@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
   resolveEffectivePolicy,
+  type BookingPolicyCategory,
   type BookingPolicyMachine,
+  type BookingSettings,
   type EffectiveBookingPolicy,
 } from '@app/shared';
+import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingMachineNotFoundException } from './booking.errors';
 import { BOOKING_SETTING_KEYS, settingsFromRows } from './booking-settings.service';
@@ -28,11 +31,7 @@ export class BookingPolicyService {
     });
     if (machine === null) throw new BookingMachineNotFoundException();
 
-    const settingRows = await this.prisma.appSetting.findMany({
-      select: { key: true, updatedAt: true, value: true },
-      where: { key: { in: BOOKING_SETTING_KEYS } },
-    });
-    const settings = settingsFromRows(settingRows);
+    const settings = await this.readSettings();
     const policyMachine: BookingPolicyMachine = {
       allowBookingWhenNeedsService: machine.allowBookingWhenNeedsService,
       bufferMinutes: machine.bufferMinutes,
@@ -41,6 +40,24 @@ export class BookingPolicyService {
       maxBookingMinutes: machine.maxBookingMinutes,
       requiresApproval: machine.requiresApproval,
     };
-    return resolveEffectivePolicy(policyMachine, machine.category, settings);
+    return this.resolve(policyMachine, machine.category, settings);
+  }
+
+  resolve(
+    machine: BookingPolicyMachine,
+    category: BookingPolicyCategory,
+    settings: BookingSettings,
+  ): EffectiveBookingPolicy {
+    return resolveEffectivePolicy(machine, category, settings);
+  }
+
+  async readSettings(
+    client: Pick<Prisma.TransactionClient, 'appSetting'> | PrismaService = this.prisma,
+  ): Promise<BookingSettings> {
+    const rows = await client.appSetting.findMany({
+      select: { key: true, updatedAt: true, value: true },
+      where: { key: { in: BOOKING_SETTING_KEYS } },
+    });
+    return settingsFromRows(rows);
   }
 }
