@@ -24,6 +24,7 @@ const settings: BookingSettings = {
   minDurationMinutes: 15,
   minLeadMinutes: 15,
   noShowGraceMinutes: 15,
+  maxActivePerUser: 10,
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 

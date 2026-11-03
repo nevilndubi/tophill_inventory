@@ -54,6 +54,13 @@ const SETTING_FIELDS = [
     unit: 'minutes',
   },
   { key: 'noShowGraceMinutes', label: 'No-show grace period', max: 120, min: 0, unit: 'minutes' },
+  {
+    key: 'maxActivePerUser',
+    label: 'Active bookings per person',
+    max: 100,
+    min: 1,
+    unit: 'bookings',
+  },
   { key: 'adhocGuardMinutes', label: 'Ad-hoc checkout guard', max: 240, min: 0, unit: 'minutes' },
 ] as const;
 type SettingKey = (typeof SETTING_FIELDS)[number]['key'];

@@ -175,6 +175,34 @@ branch in `finally`:
 NEON_PROJECT_ID=<project-id> pnpm verify:availability:live
 ```
 
+### Booking creation API
+
+Task 5.3 adds authenticated `POST /api/v1/bookings`. Clients send machine, offset-bearing whole-minute
+start/end timestamps and a generic purpose with no patient identifiers. The API revalidates policy
+and current usage after locking the machine, snapshots the effective buffer in `blocked_until`, and
+may return `BOOKING_CONFLICT` even after a positive availability read. Optional `Idempotency-Key`
+values are durable per requester: retry the same normalized request with the same key to receive the
+same current booking; use a new key for a genuinely new attempt, including after cancellation or
+rejection. A retryable `MACHINE_BUSY` may be retried with the same key.
+
+The `20261103100000_booking_creation_idempotency` migration must be deployed before restarting the
+new API because the strict settings reader requires `booking.max_active_per_user`. The release order
+is always expand/migrate first, then route traffic to the new API:
+
+```bash
+pnpm prisma:migrate:deploy
+pnpm --filter @app/api build
+pnpm --filter @app/api start
+```
+
+The live verifier creates an empty disposable Neon branch, applies the complete migration chain,
+runs booking creation/idempotency/concurrency proofs, checks drift, and deletes the branch in
+`finally`:
+
+```bash
+NEON_PROJECT_ID=<project-id> pnpm verify:booking-creation:live
+```
+
 ## Local Redis
 
 Start the local Redis service before running the API:

@@ -189,7 +189,7 @@ start more than one minute before database `as_of`, applies optional category an
 UUID filters, and returns active-registry machines available for the complete candidate range.
 The pure shared `candidateBlockedRange(start,end,bufferMinutes)` defines that range as
 `[start,end + effective buffer)`, and Task 5.3 must use the same helper when storing
-`blocked_until`. Search resolves the seven global settings once, evaluates machine/category policy
+`blocked_until`. Search resolves the eight global settings once, evaluates machine/category policy
 and booking/usage overlap set-wise in SQL, computes total in the same statement, and sorts by asset
 tag then ID with page size 25 by default and 100 maximum. The old `category` and `department`
 parameter names are intentionally rejected.
@@ -200,6 +200,30 @@ must handle `BOOKING_CONFLICT` after a positive read. Existing due-service times
 invented into downtime windows. Stable availability failures use `AVAILABILITY_RANGE_INVALID`,
 `BOOKING_POLICY_INVALID`, `MACHINE_NOT_FOUND`, or the standard strict-validation envelope without
 exposing setting values or database metadata.
+
+Task 5.3 creates bookings only through `BookingService`. `POST /api/v1/bookings` requires
+`booking:create`, takes the authenticated Neon user as requester, accepts only machine, start/end
+and a generic non-PHI purpose, and returns a minimized booking. The transaction lock order is
+machine row `FOR UPDATE`, requester row `FOR NO KEY UPDATE`, then booking/session reads and insert;
+Tasks 5.4 and 5.5 must never take these locks in reverse order. One `clock_timestamp()` is read
+after both locks and supplies lead/advance checks, the open-session estimate and active-count
+boundary. The stored `blocked_until` comes from shared `candidateBlockedRange()`. Approval-required
+machines start PENDING; other eligible machines start CONFIRMED. `booking.created` is atomic with
+the insert and excludes purpose and idempotency material.
+
+The active limit is the strict `booking.max_active_per_user` setting (default 10, bounds 1–100).
+It counts future-ended PENDING/CONFIRMED rows plus every IN_PROGRESS row. A stale past booking does
+not lock out its requester while Tasks 5.5/9.2 own no-show transition. Creation uses Task 5.2's
+open-session estimate and maps the exclusion constraint to `BOOKING_CONFLICT`; availability remains
+advisory.
+
+Optional `Idempotency-Key` is printable ASCII, 8–128 bytes, and is stored only in the booking row.
+The partial unique requester/key index is the durable authority. The same normalized request returns
+the booking in its current state with HTTP 200 and `Idempotency-Replayed: true`, without a second
+audit; a changed request returns `IDEMPOTENCY_KEY_REUSED`. A key remains consumed after cancellation
+or rejection, so a genuinely new attempt needs a new key. Request logs redact the header and the key
+never appears in DTOs, errors or audits. Task 7.5 may add a 24-hour Redis response cache, but the
+database key remains the correctness backstop.
 
 Registration relies on the database asset-tag default, so concurrent writers are safe and rolled
 back inserts may leave harmless sequence gaps. It atomically creates the first SYSTEM history row
@@ -251,8 +275,9 @@ must expose inserts only; the history model intentionally has no `updated_at`.
 - `usage_sessions_one_per_booking`: partial unique index on `booking_id WHERE booking_id IS NOT NULL`
 - Named checks: `usage_sessions_ended_at_not_before_started_at_check`, `usage_sessions_expected_end_after_started_at_check`, and `usage_sessions_purpose_length_check`
 
-**bookings** — `id`, `machine_id`, `requested_by_user_id`, `starts_at`, `ends_at`, `blocked_until`, `status` enum (`PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | REJECTED | NO_SHOW`), `purpose`, `approved_by_user_id`, `decision_note`, `cancelled_reason`
-- Named checks: `bookings_ends_after_starts_check`, `bookings_blocked_until_not_before_ends_check`, and `bookings_purpose_length_check`
+**bookings** — `id`, `machine_id`, `requested_by_user_id`, `starts_at`, `ends_at`, `blocked_until`, `status` enum (`PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | REJECTED | NO_SHOW`), `purpose`, `approved_by_user_id`, `decision_note`, `cancelled_reason`, nullable `idempotency_key`
+- Named checks: `bookings_ends_after_starts_check`, `bookings_blocked_until_not_before_ends_check`, `bookings_purpose_length_check`, and `bookings_idempotency_key_format_check`
+- `bookings_requested_by_user_id_idempotency_key_key` is a partial unique index on requester/key where the key is non-null. It prevents duplicate durable requests without exposing the opaque key.
 - **Overlap guard (raw SQL migration; requires `btree_gist`):**
   ```sql
   CREATE EXTENSION IF NOT EXISTS btree_gist;
@@ -303,14 +328,14 @@ deleted.
 - Stable indexes are `audit_logs_entity_type_entity_id_created_at_idx`, `audit_logs_actor_user_id_created_at_idx`, and `audit_logs_created_at_idx`, all with newest-first timestamps.
 
 **app_settings** — `key` (string PK), `value` (jsonb), timestamps
-- The migration idempotently inserts plain JSON-number defaults with `ON CONFLICT (key) DO NOTHING`: `booking.max_duration_minutes = 240`, `booking.min_duration_minutes = 15`, `booking.min_lead_minutes = 15`, `booking.max_advance_days = 60`, `booking.default_buffer_minutes = 0`, `booking.no_show_grace_minutes = 15`, and `checkout.adhoc_guard_minutes = 30`. Existing values are preserved on migration/reseed.
-- Shared settings validation bounds maximum duration to 5–1,440 minutes, minimum duration to 5–120, minimum lead to 0–1,440, advance window to 1–365 days, global buffer to 0–240, no-show grace to 0–120 and checkout guard to 0–240. The stable namespaced-key format remains database-enforced; JSON shape and cross-field business rules are application-enforced.
+- The migration idempotently inserts plain JSON-number defaults with `ON CONFLICT (key) DO NOTHING`: `booking.max_duration_minutes = 240`, `booking.min_duration_minutes = 15`, `booking.min_lead_minutes = 15`, `booking.max_advance_days = 60`, `booking.default_buffer_minutes = 0`, `booking.no_show_grace_minutes = 15`, `booking.max_active_per_user = 10`, and `checkout.adhoc_guard_minutes = 30`. Existing values are preserved on migration/reseed.
+- Shared settings validation bounds maximum duration to 5–1,440 minutes, minimum duration to 5–120, minimum lead to 0–1,440, advance window to 1–365 days, global buffer to 0–240, no-show grace to 0–120, active bookings per person to 1–100 and checkout guard to 0–240. The stable namespaced-key format remains database-enforced; JSON shape and cross-field business rules are application-enforced.
 - The policy migration preflights existing global duration values, machine/category maximums and stored buffers before changing the buffer constraint. It aborts with a clear error if the defaults would create an invalid policy or existing buffers exceed 0–240; it does not silently rewrite saved policy. The replacement check accepts zero and caps stored values at 240.
 
 ### 3.2 Key indexes
 - `machines (department_id)`, `machines (category_id)`, `machines (condition)`, `machines (next_service_due_at)`; `pg_trgm` GIN indexes with `gin_trgm_ops` on `name`, `asset_tag`, `serial_number`
 - `machine_status_history_machine_id_created_at_idx` on `machine_status_history (machine_id, created_at DESC)`; `machine_status_history_ticket_id_idx` on `(ticket_id)`
-- `bookings_machine_id_starts_at_idx` on `bookings (machine_id, starts_at)`; `bookings_requested_by_user_id_starts_at_idx` on `(requested_by_user_id, starts_at)`; `bookings_status_starts_at_idx` on `(status, starts_at)`
+- `bookings_machine_id_starts_at_idx` on `bookings (machine_id, starts_at)`; `bookings_requested_by_user_id_starts_at_idx` on `(requested_by_user_id, starts_at)`; `bookings_status_starts_at_idx` on `(status, starts_at)`; partial unique `bookings_requested_by_user_id_idempotency_key_key` on `(requested_by_user_id, idempotency_key)` where the key is non-null
 - `usage_sessions_one_open_per_machine` on `usage_sessions (machine_id) WHERE ended_at IS NULL` (unique); `usage_sessions_one_per_booking` on `(booking_id) WHERE booking_id IS NOT NULL` (unique); `usage_sessions_user_id_started_at_idx` on `(user_id, started_at)`
 - `service_tickets_machine_id_status_idx` on `service_tickets (machine_id, status)`; `service_tickets_assigned_to_user_id_status_idx` on `(assigned_to_user_id, status)`; `service_tickets_status_severity_idx` on `(status, severity)`; `service_tickets_machine_id_opened_at_idx` on `(machine_id, opened_at DESC)`
 - `service_records_ticket_id_performed_at_idx` on `service_records (ticket_id, performed_at)`
@@ -407,9 +432,11 @@ remains valid in any condition, while Task 4.2 rejects new check-outs for an ine
   `OPERATIONAL`, or `NEEDS_SERVICE` with `allow_booking_when_needs_service`; every other condition
   is unavailable. A soft-deleted machine is indistinguishable from a missing machine.
 - Check-out and check-in lock the machine row first with a three-second PostgreSQL `lock_timeout`,
-  then read deleted/condition/session state. Lock timeout returns retryable `MACHINE_BUSY`. Task 5.3
-  must use the same order: machine row, then bookings/sessions. A single transaction-scoped
-  PostgreSQL `now()` supplies session timestamps, expected-end validation and booking-guard time.
+  then read deleted/condition/session state. Lock timeout returns retryable `MACHINE_BUSY`. The
+  global Tasks 5.3–5.5 order is machine row, requester row, then booking/session rows, never the
+  reverse. Booking creation uses `FOR NO KEY UPDATE` on the requester so compatible foreign-key
+  key-share work, such as check-in on another machine, is not blocked. Usage uses one transaction
+  clock; booking creation reads one `clock_timestamp()` only after both locks.
 - `expected_end_at`, when supplied, is 1 minute–24 hours after that database time. An omitted
   purpose persists the non-PHI default `General equipment use`; supplied purpose is normalized and
   limited to 200 characters. No booking is linked or transitioned in Task 4.2; Task 5.5 owns that
@@ -510,7 +537,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
   { "error": { "code": "BOOKING_CONFLICT", "message": "…", "details": { }, "requestId": "…" } }
   ```
 - **Pagination:** cursor or `page`/`pageSize` (max 100) with `total`; **filtering/sorting** via query params; consistent envelope `{ data, meta }`.
-- **Idempotency:** `POST /bookings` accepts `Idempotency-Key` header (stored in Redis 24h) to survive double-taps on flaky hospital Wi-Fi.
+- **Idempotency:** `POST /bookings` accepts a redacted `Idempotency-Key` header. A partial unique requester/key index and normalized payload comparison provide durable replay now; Task 7.5 may cache the response in Redis for 24 hours without replacing the database correctness backstop.
 - **Time:** ISO-8601 UTC in/out.
 
 ### 5.1 Main endpoints (summary)
@@ -616,7 +643,7 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 | Availability grid/search | `avail:v1:{machineId}:{rangeHash}` / `avail-search:v1:{filterHash}` | 30s | Task 7.2 invalidates after booking, usage, condition, registry or booking-policy changes; no cache exists before then |
 | User + role lookup | `user:{supabaseId}` | 60s | Deleted on role/active change |
 | Rate limiting | `rl:{route}:{userOrIp}` | window | Via Nest throttler Redis storage; stricter limits on auth-adjacent and booking endpoints |
-| Idempotency keys | `idem:{userId}:{key}` | 24h | Stores response for replay |
+| Idempotency response cache | `idem:{userId}:{key}` | 24h | Task 7.5 optimization; database requester/key uniqueness remains authoritative |
 | Booking contention lock | `lock:booking:{machineId}` | 5s | Optional short lock to reduce DB conflict storms. **Never a correctness mechanism — the DB constraint is** |
 | Pub/Sub channel | `events:machine`, `events:booking`, `events:ticket` | n/a | API instances publish; every instance subscribes and forwards to its SSE clients |
 | BullMQ queues | `bull:*` | n/a | Notifications, reminders, sweeps |
@@ -800,7 +827,7 @@ All jobs are idempotent and safe to retry. Schedulers use repeatable jobs with a
 | Production | Vercel production | Azure App Service (+ worker) | `main` | Production instance |
 | CI | build only | hermetic by default; explicit integration path uses real services | ephemeral branch for explicit integration only | service container for explicit integration only |
 
-**Migrations:** `prisma migrate deploy` runs as a pipeline step *before* the new API version receives traffic; migrations must be backward-compatible with the previous release (expand → migrate → contract).
+**Migrations:** `prisma migrate deploy` runs as a pipeline step *before* the new API version receives traffic; migrations must be backward-compatible with the previous release (expand → migrate → contract). The Task 5.3 API reads `booking.max_active_per_user` strictly, so its additive migration must be deployed before that API version is restarted or receives traffic in every environment.
 
 **Health:** unversioned `GET /health` (liveness) and `GET /health/ready` (Neon + Redis) stay at the root so host probes and uptime monitoring do not depend on an application API version. Both checks are bounded to about one second. Database failure or timeout returns HTTP 503 with overall status `down` because Neon is the system of record. Redis failure alone returns HTTP 200 with overall status `degraded`; liveness remains independent of both services.
 

@@ -9,6 +9,7 @@ export const BOOKING_POLICY_BOUNDS = {
   bufferMinutes: { max: 240, min: 0 },
   noShowGraceMinutes: { max: 120, min: 0 },
   adhocGuardMinutes: { max: 240, min: 0 },
+  maxActivePerUser: { max: 100, min: 1 },
 } as const;
 
 export const BOOKING_SETTINGS_DEFAULTS = {
@@ -19,6 +20,7 @@ export const BOOKING_SETTINGS_DEFAULTS = {
   minDurationMinutes: 15,
   minLeadMinutes: 15,
   noShowGraceMinutes: 15,
+  maxActivePerUser: 10,
 } as const;
 
 export const BOOKING_SETTING_DEFAULTS = {
@@ -28,6 +30,7 @@ export const BOOKING_SETTING_DEFAULTS = {
   'booking.max_advance_days': BOOKING_SETTINGS_DEFAULTS.maxAdvanceDays,
   'booking.default_buffer_minutes': BOOKING_SETTINGS_DEFAULTS.defaultBufferMinutes,
   'booking.no_show_grace_minutes': BOOKING_SETTINGS_DEFAULTS.noShowGraceMinutes,
+  'booking.max_active_per_user': BOOKING_SETTINGS_DEFAULTS.maxActivePerUser,
   'checkout.adhoc_guard_minutes': BOOKING_SETTINGS_DEFAULTS.adhocGuardMinutes,
 } as const;
 
@@ -39,6 +42,7 @@ export const bookingSettingsSchema = z
     maxAdvanceDays: z.number().int().min(1).max(365),
     defaultBufferMinutes: z.number().int().min(0).max(240),
     noShowGraceMinutes: z.number().int().min(0).max(120),
+    maxActivePerUser: z.number().int().min(1).max(100),
     adhocGuardMinutes: z.number().int().min(0).max(240),
     updatedAt: z.iso.datetime({ offset: true }),
   })
@@ -57,6 +61,7 @@ export const updateBookingSettingsSchema = z
     maxAdvanceDays: bookingSettingsSchema.shape.maxAdvanceDays.optional(),
     defaultBufferMinutes: bookingSettingsSchema.shape.defaultBufferMinutes.optional(),
     noShowGraceMinutes: bookingSettingsSchema.shape.noShowGraceMinutes.optional(),
+    maxActivePerUser: bookingSettingsSchema.shape.maxActivePerUser.optional(),
     adhocGuardMinutes: bookingSettingsSchema.shape.adhocGuardMinutes.optional(),
   })
   .strict()

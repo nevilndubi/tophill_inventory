@@ -477,11 +477,12 @@ describe('Support tables database integration', () => {
       ['booking.max_advance_days', 60],
       ['booking.min_duration_minutes', 15],
       ['booking.default_buffer_minutes', 0],
+      ['booking.max_active_per_user', 10],
     ]);
     const defaults = await prisma.appSetting.findMany({
       where: { key: { in: [...expected.keys()] } },
     });
-    expect(defaults).toHaveLength(7);
+    expect(defaults).toHaveLength(8);
     for (const setting of defaults) {
       expect(setting.value).toBe(expected.get(setting.key));
     }
@@ -501,7 +502,7 @@ describe('Support tables database integration', () => {
         [[...expected.keys()]],
       );
       expect(customized.rows[0]?.value).toBe(999);
-      expect(count.rows[0]?.count).toBe('7');
+      expect(count.rows[0]?.count).toBe('8');
     } finally {
       await client.query('ROLLBACK');
       client.release();

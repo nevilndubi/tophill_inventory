@@ -34,6 +34,7 @@ const FIELD_TO_KEY = {
   maxAdvanceDays: 'booking.max_advance_days',
   defaultBufferMinutes: 'booking.default_buffer_minutes',
   noShowGraceMinutes: 'booking.no_show_grace_minutes',
+  maxActivePerUser: 'booking.max_active_per_user',
   adhocGuardMinutes: 'checkout.adhoc_guard_minutes',
 } as const;
 
@@ -79,6 +80,10 @@ export const settingsFromRows = (rows: readonly SettingRow[]): BookingSettings =
     noShowGraceMinutes: numberFrom(
       byKey.get(FIELD_TO_KEY.noShowGraceMinutes),
       FIELD_TO_KEY.noShowGraceMinutes,
+    ),
+    maxActivePerUser: numberFrom(
+      byKey.get(FIELD_TO_KEY.maxActivePerUser),
+      FIELD_TO_KEY.maxActivePerUser,
     ),
     updatedAt: latest.toISOString(),
   };

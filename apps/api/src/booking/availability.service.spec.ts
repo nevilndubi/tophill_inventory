@@ -31,6 +31,7 @@ const settings: BookingSettings = {
   minDurationMinutes: 15,
   minLeadMinutes: 15,
   noShowGraceMinutes: 15,
+  maxActivePerUser: 10,
   updatedAt: '2026-11-02T06:00:00.000Z',
 };
 
@@ -319,7 +320,7 @@ describe(AvailabilityService.name, () => {
     }
   });
 
-  it('loads exactly the seven settings once per request', async () => {
+  it('loads exactly the eight settings once per request', async () => {
     raw.mockResolvedValueOnce([
       { asOf: new Date('2026-11-02T06:00:00.000Z'), invalidPolicyCount: 0, items: [], total: 0 },
     ]);
@@ -330,6 +331,6 @@ describe(AvailabilityService.name, () => {
       start: '2026-11-02T06:15:00.000Z',
     });
     expect(policies.readSettings).toHaveBeenCalledTimes(1);
-    expect(Object.keys(BOOKING_SETTING_DEFAULTS)).toHaveLength(7);
+    expect(Object.keys(BOOKING_SETTING_DEFAULTS)).toHaveLength(8);
   });
 });

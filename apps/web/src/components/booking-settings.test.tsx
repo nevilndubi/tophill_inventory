@@ -21,6 +21,7 @@ const settings = {
   minDurationMinutes: 15,
   minLeadMinutes: 15,
   noShowGraceMinutes: 15,
+  maxActivePerUser: 10,
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -61,6 +62,7 @@ describe('BookingSettingsManagement', () => {
         defaultBufferMinutes: 0,
         expectedUpdatedAt: settings.updatedAt,
         maxAdvanceDays: 60,
+        maxActivePerUser: 10,
         maxDurationMinutes: 240,
         minDurationMinutes: 20,
         minLeadMinutes: 15,
@@ -98,6 +100,21 @@ describe('BookingSettingsManagement', () => {
     expect(await screen.findByText('Enter a whole number from 5 to 120.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled();
     expect(mocks.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('edits active bookings per person within its 1 to 100 bounds', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+    const limit = await screen.findByRole('spinbutton', {
+      name: 'Active bookings per person (bookings)',
+    });
+    await user.clear(limit);
+    await user.type(limit, '100');
+    expect(screen.getByRole('button', { name: 'Save settings' })).toBeEnabled();
+    await user.clear(limit);
+    await user.type(limit, '101');
+    expect(await screen.findByText('Enter a whole number from 1 to 100.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled();
   });
 
   it('blocks a minimum duration above the configured maximum', async () => {

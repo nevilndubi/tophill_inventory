@@ -10,6 +10,8 @@ export const configureApplication = (app: INestApplication): void => {
 
   app.use(json({ limit: '16kb' }));
   app.enableCors({
+    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id'],
+    exposedHeaders: ['Idempotency-Replayed', 'X-Request-Id'],
     origin: (
       requestOrigin: string | undefined,
       callback: (error: Error | null, allow?: boolean) => void,
