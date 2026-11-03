@@ -21,7 +21,7 @@ const rows = (): SettingRow[] =>
   }));
 const actor = {
   department: null,
-  email: 'admin@example.test',
+  email: 'redacted-for-test',
   fullName: 'Admin',
   id: 'user-id',
   isActive: true,
@@ -95,6 +95,7 @@ describe('BookingSettingsService', () => {
       }),
     );
     expect(BOOKING_SETTING_KEYS).toContain('booking.max_advance_days');
+    expect(BOOKING_SETTING_KEYS).toContain('booking.max_active_per_user');
   });
 
   it('advances the optimistic version even inside the same millisecond', () => {
@@ -146,5 +147,16 @@ describe('BookingSettingsService', () => {
     ).rejects.toBeInstanceOf(BookingPolicyConflictException);
     expect(transaction.appSetting.update).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('fails closed with only the missing active-limit key named', async () => {
+    const missing = rows().filter((row) => row.key !== 'booking.max_active_per_user');
+    prisma.appSetting.findMany.mockResolvedValueOnce(missing);
+    await expect(service.read()).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'SETTINGS_INVALID',
+        details: { key: 'booking.max_active_per_user', retryable: true },
+      }),
+    });
   });
 });

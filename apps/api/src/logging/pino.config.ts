@@ -13,6 +13,11 @@ export const pinoHttpOptions: Options = {
   },
   redact: {
     censor: '[REDACTED]',
-    paths: ['req.headers.authorization', 'req.headers.cookie'],
+    paths: [
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'req.headers.idempotency-key',
+      'req.headers["idempotency-key"]',
+    ],
   },
 };

@@ -46,6 +46,7 @@ import { TimelineService } from '../src/machines/timeline.service';
 import { BookingPolicyService } from '../src/booking/booking-policy.service';
 import { BookingSettingsService } from '../src/booking/booking-settings.service';
 import { AvailabilityService } from '../src/booking/availability.service';
+import { BookingService } from '../src/booking/booking.service';
 import { RbacTestOnlyController } from './rbac-test-only.controller';
 
 jest.setTimeout(30_000);
@@ -99,6 +100,7 @@ const bookingSettingsService = {
     minDurationMinutes: 15,
     minLeadMinutes: 15,
     noShowGraceMinutes: 15,
+    maxActivePerUser: 10,
     updatedAt: '2026-01-01T00:00:00.000Z',
   })),
   update: jest.fn(async () => ({
@@ -109,7 +111,25 @@ const bookingSettingsService = {
     minDurationMinutes: 15,
     minLeadMinutes: 15,
     noShowGraceMinutes: 15,
+    maxActivePerUser: 10,
     updatedAt: '2026-01-01T00:00:00.000Z',
+  })),
+};
+const bookingService = {
+  create: jest.fn(async () => ({
+    booking: {
+      blocked_until: '2026-11-02T07:15:00.000Z',
+      created_at: '2026-11-02T05:00:00.000Z',
+      effective_buffer_minutes: 0,
+      ends_at: '2026-11-02T07:15:00.000Z',
+      id: TARGET_USER_ID,
+      machine: { asset_tag: 'HM-000061', id: TARGET_USER_ID, name: 'Ventilator' },
+      purpose: 'Ward round',
+      requires_approval: false,
+      starts_at: '2026-11-02T06:15:00.000Z',
+      status: 'CONFIRMED',
+    },
+    replayed: false,
   })),
 };
 const availabilityService = {
@@ -134,6 +154,22 @@ const availabilityService = {
 // This is deliberately hand-transcribed from Architecture §§5 and 7. Do not derive it from
 // @app/shared or from controller permission metadata: it is the independent oracle for this suite.
 const EXPECTED_ACCESS_TABLE = [
+  {
+    declaration: 'permission:booking:create',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/bookings',
+    successStatus: 201,
+    unauthenticated: 'DENY',
+  },
   {
     declaration: 'public',
     inactive: 'ALLOW',
@@ -1303,6 +1339,13 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
           name: 'Ventilator',
           serialNumber: 'SN-1',
         });
+      if (route === '/api/v1/bookings')
+        builder = builder.send({
+          ends_at: '2026-11-02T07:15:00.000Z',
+          machine_id: TARGET_USER_ID,
+          purpose: 'Ward round',
+          starts_at: '2026-11-02T06:15:00.000Z',
+        });
       if (route === '/api/v1/machines/:id/condition')
         builder = builder.send({
           fromCondition: 'OPERATIONAL',
@@ -1462,6 +1505,8 @@ describe('Consolidated API authentication and RBAC (e2e)', () => {
         .useValue(bookingSettingsService)
         .overrideProvider(AvailabilityService)
         .useValue(availabilityService)
+        .overrideProvider(BookingService)
+        .useValue(bookingService)
         .compile();
 
     const productionModule = await createModule(false);

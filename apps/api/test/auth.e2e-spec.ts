@@ -368,6 +368,7 @@ describe('API authentication (e2e)', () => {
       'PATCH /settings/booking permission:reference:manage',
       'PATCH /users/:id permission:user:manage',
       'POST /attachments/confirm permission:attachment:upload',
+      'POST /bookings permission:booking:create',
       'POST /categories permission:reference:manage',
       'POST /departments permission:reference:manage',
       'POST /locations permission:reference:manage',

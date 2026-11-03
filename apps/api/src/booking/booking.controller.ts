@@ -1,6 +1,20 @@
-import { Body, Controller, Get, Header, Param, Patch, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AvailabilitySearchResult, BookingSettings, MachineAvailability } from '@app/shared';
+import type { CreatedBooking } from '@app/shared';
+import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedRequest, AuthenticatedUser } from '../auth/auth.types';
 import { RequirePermission } from '../authorization/require-permission.decorator';
@@ -11,6 +25,42 @@ import { MachineIdParamsDto } from '../machines/machines.dto';
 import { UpdateBookingSettingsDto } from './booking-settings.dto';
 import { AvailabilityService } from './availability.service';
 import { AvailabilitySearchQueryDto, MachineAvailabilityQueryDto } from './availability.dto';
+import { CreateBookingDto } from './booking-creation.dto';
+import { BookingService } from './booking.service';
+
+@ApiBearerAuth('supabase')
+@ApiTags('bookings')
+@Controller('bookings')
+export class BookingController {
+  constructor(private readonly bookings: BookingService) {}
+
+  @Post()
+  @RequirePermission('booking:create')
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({
+    description:
+      'Creates one booking after authoritative policy and conflict revalidation. Purpose must be generic and contain no patient names or identifiers.',
+    summary: 'Create a booking',
+  })
+  async create(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() input: CreateBookingDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<CreatedBooking> {
+    const outcome = await this.bookings.create(
+      actor,
+      input,
+      getOrCreateRequestId(request),
+      idempotencyKey,
+    );
+    response.status(outcome.replayed ? 200 : 201);
+    if (outcome.replayed) response.setHeader('Idempotency-Replayed', 'true');
+    return outcome.booking;
+  }
+}
 
 @ApiBearerAuth('supabase')
 @ApiTags('booking policy')
