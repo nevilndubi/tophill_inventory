@@ -162,6 +162,45 @@ maximum below it, preventing concurrent policy changes from committing an invali
 Booking-window validation reports specific codes for malformed windows, too-short/long duration,
 lead-time and advance-window violations, unbookable machines, and invalid stored policy.
 
+Task 5.2 keeps availability as an advisory, read-only snapshot behind `AvailabilityService`; it
+never persists an availability/busy flag and never locks a machine merely to answer a read. Both
+availability endpoints require `machine:read`, return `Cache-Control: no-store` plus
+`Vary: Authorization`, use one PostgreSQL statement timestamp inside a repeatable-read snapshot,
+and hide missing or soft-deleted machines as `MACHINE_NOT_FOUND`. All intervals use UTC,
+offset-bearing input and half-open `[start,end)` overlap:
+`block_start < requested_end AND block_end > requested_start`.
+
+`GET /api/v1/machines/:id/availability?from&to` accepts a 1-minute to 62-day descriptive window.
+It returns minimized machine/relation data, effective policy values and their sources, safe booking
+and usage blocks, policy/condition blocks, coalesced free windows, `as_of`, and
+`available_for_entire_range`. PENDING, CONFIRMED and IN_PROGRESS bookings block through their
+persisted `blocked_until`; inactive booking statuses never block. Booking metadata contains status,
+times, persisted buffer length and an actor-relative `own` flag only. Open usage blocks from
+`as_of` to a future expected end; a missing or elapsed expected end uses
+`as_of + effective maximum booking duration` and is marked `estimated`. It never exposes session,
+holder, purpose or note data. BEFORE_LEAD_TIME and BEYOND_ADVANCE_WINDOW make policy boundaries
+explicit. The current machine condition applies to the whole query range: current repair state
+cannot support speculative post-repair booking because there is no authoritative future
+maintenance window.
+
+`GET /api/v1/availability/search?start&end&category_id&department_id&page&page_size` is an
+actionable exact-window query. It accepts the global minimum duration through 24 hours, rejects a
+start more than one minute before database `as_of`, applies optional category and owning-department
+UUID filters, and returns active-registry machines available for the complete candidate range.
+The pure shared `candidateBlockedRange(start,end,bufferMinutes)` defines that range as
+`[start,end + effective buffer)`, and Task 5.3 must use the same helper when storing
+`blocked_until`. Search resolves the seven global settings once, evaluates machine/category policy
+and booking/usage overlap set-wise in SQL, computes total in the same statement, and sorts by asset
+tag then ID with page size 25 by default and 100 maximum. The old `category` and `department`
+parameter names are intentionally rejected.
+
+Availability remains advisory: Task 5.3 must lock the machine first, re-resolve policy, apply the
+same open-session estimate and candidate-range helper, and rely on `bookings_no_overlap`; callers
+must handle `BOOKING_CONFLICT` after a positive read. Existing due-service timestamps are not
+invented into downtime windows. Stable availability failures use `AVAILABILITY_RANGE_INVALID`,
+`BOOKING_POLICY_INVALID`, `MACHINE_NOT_FOUND`, or the standard strict-validation envelope without
+exposing setting values or database metadata.
+
 Registration relies on the database asset-tag default, so concurrent writers are safe and rolled
 back inserts may leave harmless sequence gaps. It atomically creates the first SYSTEM history row
 (`NULL -> OPERATIONAL`, reason `Machine registered`) and the `machine.created` audit event.
@@ -482,7 +521,7 @@ Machines with `requires_approval = false` create bookings directly as `CONFIRMED
 | Machines | `GET/POST /machines`, `GET/PATCH/DELETE /machines/:id`, `POST /machines/:id/restore`, `GET /machines/by-tag/:assetTag`, `POST /machines/import`, `POST /machines/:id/condition`, `GET /machines/:id/history`, `GET /machines/:id/timeline` |
 | Status | `GET /status/board` (filters), `GET /machines/:id/status`, `POST /machines/:id/condition` |
 | Usage | `POST /machines/:id/check-out`, `POST /machines/:id/check-in` |
-| Booking | `GET /machines/:id/availability?from&to`, `GET/POST /bookings`, `PATCH /bookings/:id`, `POST /bookings/:id/{cancel,approve,reject}` |
+| Booking | `GET /machines/:id/availability?from&to`, `GET /availability/search?start&end&category_id&department_id`, `GET/POST /bookings`, `PATCH /bookings/:id`, `POST /bookings/:id/{cancel,approve,reject}` |
 | Service | `POST /machines/:id/faults`, `GET/PATCH /service/tickets`, `POST /service/tickets/:id/{assign,start,resolve,close}`, `/service/schedules` |
 | Dashboard | `GET /dashboard/summary`, `GET /reports/:type` |
 | Realtime | `GET /stream` (SSE) |
@@ -574,7 +613,7 @@ delete file rows or objects so Task 3.8 can restore them with the machine.
 | Machine timeline | `timeline:{id}:v1:{until}:{page}` | short, Task 7.2 to choose | Invalidate after registration, condition, usage-start/end and future service/booking timeline events; preserve cutoff-stable page semantics |
 | Machine status (single) | `status:{id}` | 30s | Same triggers as board |
 | Reference data (categories, departments, locations) | `ref:{type}:v1` (`ref:departments:v1`, `ref:locations:v1`) | 10 min | Deleted on every successful write when Task 7.2 adds cache-aside behavior |
-| Availability grid | `avail:{machineId}:{date}` | 30s | Deleted on booking change for that machine |
+| Availability grid/search | `avail:v1:{machineId}:{rangeHash}` / `avail-search:v1:{filterHash}` | 30s | Task 7.2 invalidates after booking, usage, condition, registry or booking-policy changes; no cache exists before then |
 | User + role lookup | `user:{supabaseId}` | 60s | Deleted on role/active change |
 | Rate limiting | `rl:{route}:{userOrIp}` | window | Via Nest throttler Redis storage; stricter limits on auth-adjacent and booking endpoints |
 | Idempotency keys | `idem:{userId}:{key}` | 24h | Stores response for replay |

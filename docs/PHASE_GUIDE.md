@@ -222,7 +222,7 @@ The agent already knows the scope and rules from the handoff file. Short prompts
 
 ### 5.2 Availability query
 - **Depends on:** 5.1
-- **Do:** `GET /machines/:id/availability?from&to` returns busy blocks (confirmed/pending/in-progress incl. buffers), free windows, and maintenance/out-of-service blocks; `GET /availability/search?start&end&category&department` to find free machines for a window.
+- **Do:** `GET /machines/:id/availability?from&to` returns busy blocks (confirmed/pending/in-progress incl. buffers), free windows, and condition/policy blocks; `GET /availability/search?start&end&category_id&department_id` finds active-registry machines available for an exact candidate window including each machine's effective buffer. Department is the owning department, not the location's department.
 - **Done when:** results are correct at boundaries (adjacent bookings, buffers, timezone/DST-free Nairobi but UTC-stored), tested with fixtures.
 
 ### 5.3 Create booking
