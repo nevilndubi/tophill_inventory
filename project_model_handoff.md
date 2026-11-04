@@ -235,7 +235,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
 - [x] 5.2 Availability query API
 - [x] 5.3 Create booking (DB-enforced no-overlap, error mapping)
-- [~] 5.4 Modify / cancel / approve / reject
+- [x] 5.4 Modify / cancel / approve / reject
 - [ ] 5.5 Booking ↔ check-in link, no-show handling, ad-hoc checkout conflict rule
 - [ ] 5.6 Booking UI (calendar per machine, my bookings, approvals queue)
 - [ ] 5.7 Concurrency & edge-case test suite
@@ -291,13 +291,13 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 
 | Item | Value |
 |---|---|
-| Overall progress | 36 / 71 tasks (50.7%) |
-| Current phase | Phase 5 — Task 5.4 implementation verified; delivery in progress |
-| Last updated | 2026-11-04 05:59 EAT |
-| Branch | `phase-5/task-5.4-booking-lifecycle` |
-| Last commit | `9e0c25f Merge pull request #82 from nevilndubi/docs/complete-task-5.3-delivery` (branch base; feature commit pending) |
-| Repo state | Task 5.4 ownership-safe booking reads and lifecycle mutations are implemented and locally verified, including independent authorization inventories, mutation proofs, atomic audits, concurrency, strict DTOs and a deleted disposable-Neon proof. No migration was needed. The checklist remains partial and progress stays 36 / 71 until commit, hosted green CI, merge, synchronized `main` and the required merged-main local runtime proof complete. |
-| **Next task** | **Finish Task 5.4 delivery; do not start Task 5.5 yet** |
+| Overall progress | 37 / 71 tasks (52.1%) |
+| Current phase | Phase 5 — Task 5.4 complete; ready for Task 5.5 |
+| Last updated | 2026-11-04 06:08 EAT |
+| Branch | `docs/complete-task-5.4-delivery` (completion record after merged PR #84) |
+| Last commit | `5c1cc29 Merge pull request #84 from nevilndubi/phase-5/task-5.4-booking-lifecycle` |
+| Repo state | Task 5.4 is merged through PR #84 with hosted Quality green. Frozen install, format, lint, typecheck, 45 API suites (484 passed plus the intentional Task 7.2 skip), the web suite, CI-shaped production build, both mutation proofs, guarded integration and a deleted disposable-Neon lifecycle/concurrency/query-plan proof all pass. Protected branches contain no proof rows. Redis/API/web run from synchronized merged `main`; login is HTTP 200, readiness is `ok` with database and Redis `up`, and unauthenticated `/status` redirects to login. |
+| **Next task** | **5.5 Booking ↔ check-in link, no-show handling and ad-hoc checkout lifecycle** |
 
 ---
 
@@ -1144,6 +1144,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Left undone / follow-ups:** Commit, push, open and merge the green PR, synchronize `main`, restart the platform and add the completion record. Task 5.5 owns booking/session linkage and lifecycle automation; Task 5.6 owns all booking screens.
 - **Next task:** Finish Task 5.4 delivery; do not start Task 5.5 yet.
 - **Branch / commit:** `phase-5/task-5.4-booking-lifecycle` / pending.
+
+### [2026-11-04 06:08 EAT] — Task(s): 5.4 — delivery complete and locally running
+- **Prompt summary:** Complete Task 5.4 through conventional commit, hosted green CI, merge, synchronized `main`, exact-merged-main runtime proof and a robust Task 5.5 handoff.
+- **What I did:** Pushed feature commit `79083a1`, opened PR #84, waited for hosted Quality, merged it as `5c1cc29`, fast-forwarded the primary workspace, regenerated the ignored Prisma client/shared build and restarted Redis, API and web from merged `main`. Closed the checklist at 37 / 71.
+- **How:** GitHub's API performed the merge only after Quality passed because the ordinary CLI correctly refused to check out `main` already owned by the primary worktree. Required ignored environment files and variable names were verified without reading values. Port ownership was checked before termination; only older processes whose working directories belonged to this repository were stopped.
+- **Files touched:** this completion handoff only; feature files are in PR #84 and no migration was added.
+- **Migrations:** none.
+- **Verification:** PR #84 Quality passed in 2m16s. The final feature-tree frozen install, format, lint, typecheck, full hermetic test suite and CI-shaped build passed. From synchronized merged `main`, `/login` returns HTTP 200, unauthenticated `/status` returns HTTP 307 to `/login`, and `/health/ready` returns HTTP 200 with overall `ok`, database `up` and Redis `up`. Ports 3000/3001 are owned by fresh processes whose working directories are the synchronized primary workspace. Full lifecycle, mutation, disposable-Neon and query-plan evidence remains in the preceding entry.
+- **Locally running:** Web is `http://localhost:3000`; API is `http://localhost:3001`. Working areas remain Live Status and usage quick actions, Machines and its Overview/Files/Status/History/import/labels/scan flows, Reference Data, Booking Settings and User Administration. Task 5.4 is API-only, so no booking screen is visible yet; Bookings and Service remain “Coming soon”. Stop API/web with the project-scoped process groups documented in README (or the recorded launcher processes) and stop Redis with `docker compose stop redis`.
+- **Result:** Task 5.4 is complete at 37 / 71 (52.1%); the repository is ready for Task 5.5.
+- **Progress after this session:** 37 / 71 (52.1%).
+- **Left undone / follow-ups:** Task 5.5 links bookings to usage and owns IN_PROGRESS/COMPLETED/NO_SHOW transitions; Task 5.6 builds the booking UI; Tasks 6.5, 7.2–7.4 and 9.2 own affected-booking handling, caching, throttling, realtime and scheduled execution.
+- **Next task:** 5.5 Booking ↔ check-in link, no-show handling and ad-hoc checkout lifecycle.
+- **Branch / commit:** `main` at `5c1cc29`; final status documentation follows in `docs/complete-task-5.4-delivery`.
 
 ## 13. KNOWN ISSUES / TECH DEBT
 
