@@ -115,22 +115,29 @@ const bookingSettingsService = {
     updatedAt: '2026-01-01T00:00:00.000Z',
   })),
 };
+const bookingFixture = {
+  blocked_until: '2026-11-02T07:15:00.000Z',
+  created_at: '2026-11-02T05:00:00.000Z',
+  effective_buffer_minutes: 0,
+  ends_at: '2026-11-02T07:15:00.000Z',
+  id: TARGET_USER_ID,
+  machine: { asset_tag: 'HM-000061', id: TARGET_USER_ID, name: 'Ventilator' },
+  purpose: 'Ward round',
+  requires_approval: false,
+  starts_at: '2026-11-02T06:15:00.000Z',
+  status: 'CONFIRMED',
+};
 const bookingService = {
+  approve: jest.fn(async () => bookingFixture),
+  cancel: jest.fn(async () => bookingFixture),
   create: jest.fn(async () => ({
-    booking: {
-      blocked_until: '2026-11-02T07:15:00.000Z',
-      created_at: '2026-11-02T05:00:00.000Z',
-      effective_buffer_minutes: 0,
-      ends_at: '2026-11-02T07:15:00.000Z',
-      id: TARGET_USER_ID,
-      machine: { asset_tag: 'HM-000061', id: TARGET_USER_ID, name: 'Ventilator' },
-      purpose: 'Ward round',
-      requires_approval: false,
-      starts_at: '2026-11-02T06:15:00.000Z',
-      status: 'CONFIRMED',
-    },
+    booking: bookingFixture,
     replayed: false,
   })),
+  get: jest.fn(async () => bookingFixture),
+  list: jest.fn(async () => ({ items: [], page: 1, page_size: 25, total: 0 })),
+  reject: jest.fn(async () => bookingFixture),
+  update: jest.fn(async () => bookingFixture),
 };
 const availabilityService = {
   detail: jest.fn(async () => ({
@@ -154,6 +161,102 @@ const availabilityService = {
 // This is deliberately hand-transcribed from Architecture §§5 and 7. Do not derive it from
 // @app/shared or from controller permission metadata: it is the independent oracle for this suite.
 const EXPECTED_ACCESS_TABLE = [
+  {
+    declaration: 'authenticated-only',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/bookings',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'authenticated-only',
+    inactive: 'DENY',
+    method: 'GET',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/bookings/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:booking:create',
+    inactive: 'DENY',
+    method: 'PATCH',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/bookings/:id',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'authenticated-only',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'ALLOW',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'ALLOW',
+      VIEWER: 'ALLOW',
+    },
+    route: '/api/v1/bookings/:id/cancel',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:booking:approve',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/bookings/:id/approve',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
+  {
+    declaration: 'permission:booking:approve',
+    inactive: 'DENY',
+    method: 'POST',
+    roles: {
+      SUPER_ADMIN: 'ALLOW',
+      ADMIN: 'ALLOW',
+      BIOMED_TECH: 'DENY',
+      DEPT_MANAGER: 'ALLOW',
+      STAFF: 'DENY',
+      VIEWER: 'DENY',
+    },
+    route: '/api/v1/bookings/:id/reject',
+    successStatus: 200,
+    unauthenticated: 'DENY',
+  },
   {
     declaration: 'permission:booking:create',
     inactive: 'DENY',
@@ -1299,18 +1402,20 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
       break;
     case 'PATCH':
       builder = client.patch(path).send(
-        route === '/api/v1/settings/booking'
-          ? {
-              expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
-              maxDurationMinutes: 240,
-            }
-          : route.startsWith('/api/v1/categories') ||
-              route.startsWith('/api/v1/departments') ||
-              route.startsWith('/api/v1/locations')
-            ? { name: 'Updated reference' }
-            : route.startsWith('/api/v1/machines')
-              ? { name: 'Updated machine' }
-              : { fullName: 'Updated User' },
+        route === '/api/v1/bookings/:id'
+          ? { expected_updated_at: '2026-11-02T05:00:00.000Z', purpose: 'Ward round updated' }
+          : route === '/api/v1/settings/booking'
+            ? {
+                expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+                maxDurationMinutes: 240,
+              }
+            : route.startsWith('/api/v1/categories') ||
+                route.startsWith('/api/v1/departments') ||
+                route.startsWith('/api/v1/locations')
+              ? { name: 'Updated reference' }
+              : route.startsWith('/api/v1/machines')
+                ? { name: 'Updated machine' }
+                : { fullName: 'Updated User' },
       );
       break;
     case 'POST':
@@ -1346,6 +1451,11 @@ const requestFor = (app: INestApplication, method: HttpMethod, route: string): S
           purpose: 'Ward round',
           starts_at: '2026-11-02T06:15:00.000Z',
         });
+      if (route === '/api/v1/bookings/:id/cancel')
+        builder = builder.send({ reason: 'Plans changed' });
+      if (route === '/api/v1/bookings/:id/approve') builder = builder.send({ note: 'Approved' });
+      if (route === '/api/v1/bookings/:id/reject')
+        builder = builder.send({ note: 'Machine reserved for urgent work' });
       if (route === '/api/v1/machines/:id/condition')
         builder = builder.send({
           fromCondition: 'OPERATIONAL',

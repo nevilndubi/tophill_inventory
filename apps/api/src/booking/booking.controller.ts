@@ -4,6 +4,7 @@ import {
   Get,
   Header,
   Headers,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -12,12 +13,19 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AvailabilitySearchResult, BookingSettings, MachineAvailability } from '@app/shared';
+import type {
+  AvailabilitySearchResult,
+  BookingSettings,
+  MachineAvailability,
+  ManagedBooking,
+  ManagedBookingPage,
+} from '@app/shared';
 import type { CreatedBooking } from '@app/shared';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedRequest, AuthenticatedUser } from '../auth/auth.types';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { AuthenticatedOnly } from '../authorization/authenticated-only.decorator';
 import { getOrCreateRequestId } from '../common/http/request-id';
 import { BookingPolicyService } from './booking-policy.service';
 import { BookingSettingsService } from './booking-settings.service';
@@ -27,12 +35,106 @@ import { AvailabilityService } from './availability.service';
 import { AvailabilitySearchQueryDto, MachineAvailabilityQueryDto } from './availability.dto';
 import { CreateBookingDto } from './booking-creation.dto';
 import { BookingService } from './booking.service';
+import {
+  ApproveBookingDto,
+  BookingIdParamsDto,
+  CancelBookingDto,
+  ListBookingsQueryDto,
+  RejectBookingDto,
+  UpdateBookingDto,
+} from './booking-lifecycle.dto';
 
 @ApiBearerAuth('supabase')
 @ApiTags('bookings')
 @Controller('bookings')
 export class BookingController {
   constructor(private readonly bookings: BookingService) {}
+
+  @Get()
+  @AuthenticatedOnly()
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'List bookings visible to the current user' })
+  list(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query() query: ListBookingsQueryDto,
+  ): Promise<ManagedBookingPage> {
+    return this.bookings.list(actor, query);
+  }
+
+  @Get(':id')
+  @AuthenticatedOnly()
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'Read one visible booking' })
+  get(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: BookingIdParamsDto,
+  ): Promise<ManagedBooking> {
+    return this.bookings.get(actor, params.id);
+  }
+
+  @Patch(':id')
+  @RequirePermission('booking:create')
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'Reschedule or update a booking purpose' })
+  update(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: BookingIdParamsDto,
+    @Body() input: UpdateBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ManagedBooking> {
+    return this.bookings.update(actor, params.id, input, getOrCreateRequestId(request));
+  }
+
+  @Post(':id/cancel')
+  @AuthenticatedOnly()
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({
+    description: 'Reason must be generic and contain no patient names or identifiers.',
+    summary: 'Cancel a booking',
+  })
+  cancel(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: BookingIdParamsDto,
+    @Body() input: CancelBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ManagedBooking> {
+    return this.bookings.cancel(actor, params.id, input, getOrCreateRequestId(request));
+  }
+
+  @Post(':id/approve')
+  @RequirePermission('booking:approve')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'Approve a pending booking' })
+  approve(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: BookingIdParamsDto,
+    @Body() input: ApproveBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ManagedBooking> {
+    return this.bookings.approve(actor, params.id, input, getOrCreateRequestId(request));
+  }
+
+  @Post(':id/reject')
+  @RequirePermission('booking:approve')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @Header('Vary', 'Authorization')
+  @ApiOperation({ summary: 'Reject a pending booking' })
+  reject(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param() params: BookingIdParamsDto,
+    @Body() input: RejectBookingDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ManagedBooking> {
+    return this.bookings.reject(actor, params.id, input, getOrCreateRequestId(request));
+  }
 
   @Post()
   @RequirePermission('booking:create')

@@ -232,7 +232,7 @@ The agent already knows the scope and rules from the handoff file. Short prompts
 
 ### 5.4 Modify / cancel / approve / reject
 - **Depends on:** 5.3
-- **Do:** Add `GET /bookings` and `GET /bookings/:id` with minimized DTOs and ownership-safe reads: requesters can read their own bookings, SUPER_ADMIN/ADMIN can read globally, and DEPT_MANAGER can read their department's pending requests. Add reschedule (re-validate + constraint), cancel (requester or manager/admin; reason; late-cancel flagged), approve/reject (DEPT_MANAGER for own department machines, ADMIN) with notes; all transitions via a booking state machine with tests. Decide whether a DEPT_MANAGER may approve their own request (recommended default: never; SUPER_ADMIN/ADMIN are fallback approvers).
+- **Do:** Add `GET /bookings` and `GET /bookings/:id` with minimized DTOs and ownership-safe reads: every requester can read their own bookings (including VIEWER), SUPER_ADMIN/ADMIN can read globally, and DEPT_MANAGER can read every booking for machines owned by their department while `view=managed` defaults to the department's pending queue. Add optimistic reschedule with policy/conflict revalidation, requester-or-scoped-manager cancellation with a reason and late-cancel flag, and scoped approve/reject with notes. An actor may never approve or reject their own booking; another eligible manager or SUPER_ADMIN/ADMIN is the fallback. All transitions use the shared booking state machine, uniform machine → requester → booking locking and atomic audits.
 - **Done when:** illegal transitions rejected; permissions enforced; rescheduling into a conflict leaves the original booking intact.
 
 ### 5.5 Booking ↔ check-in link, no-show, ad-hoc rule

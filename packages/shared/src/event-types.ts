@@ -12,6 +12,7 @@ export const AUDIT_ACTIONS = [
   'booking.cancelled',
   'booking.created',
   'booking.rejected',
+  'booking.rescheduled',
   'booking.updated',
   'category.created',
   'category.deleted',
