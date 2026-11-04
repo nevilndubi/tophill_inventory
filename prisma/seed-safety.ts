@@ -45,14 +45,20 @@ export const assertSafeSeedEnvironment = (
     environment.SEED_PROTECTED_HOSTS,
     'SEED_PROTECTED_HOSTS',
   );
+  const stagingDemoApproved =
+    branch === 'staging' && environment.SEED_ALLOW_STAGING_DEMO?.trim() === 'true';
+  const stagingHost = stagingDemoApproved
+    ? requireValue(environment.SEED_STAGING_HOST, 'SEED_STAGING_HOST').toLowerCase()
+    : undefined;
 
   if (
-    PROTECTED_BRANCHES.has(branch) ||
-    (!ALLOWED_BRANCHES.has(branch) &&
+    (PROTECTED_BRANCHES.has(branch) && !stagingDemoApproved) ||
+    (!stagingDemoApproved &&
+      !ALLOWED_BRANCHES.has(branch) &&
       !ALLOWED_BRANCH_PREFIXES.some((prefix) => branch.startsWith(prefix)))
   ) {
     throw new Error(
-      'SEED_ALLOWED_BRANCH must be dev or a dedicated ci/, test/, ephemeral/, or demo/ branch; main and staging are forbidden',
+      'SEED_ALLOWED_BRANCH must be dev or a dedicated ci/, test/, ephemeral/, or demo/ branch; main is forbidden and staging requires SEED_ALLOW_STAGING_DEMO=true',
     );
   }
 
@@ -72,7 +78,11 @@ export const assertSafeSeedEnvironment = (
     throw new Error('SEED_ALLOWED_HOST does not match the DATABASE_URL host');
   }
 
-  if (protectedHosts.has(parsedUrl.hostname.toLowerCase())) {
+  if (stagingHost !== undefined && parsedUrl.hostname.toLowerCase() !== stagingHost) {
+    throw new Error('SEED_STAGING_HOST does not match the approved staging DATABASE_URL host');
+  }
+
+  if (protectedHosts.has(parsedUrl.hostname.toLowerCase()) && !stagingDemoApproved) {
     throw new Error('Refusing to seed a protected main or staging database host');
   }
 

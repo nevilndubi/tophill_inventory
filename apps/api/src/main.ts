@@ -13,10 +13,11 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get<ConfigService<ApiEnvironment, true>>(ConfigService);
   const port = config.get('PORT', { infer: true });
+  const host = '0.0.0.0';
   const logger = app.get(Logger);
 
-  await app.listen(port);
-  logger.log(`${APP_NAME} API listening on port ${port}`, 'Bootstrap');
+  await app.listen(port, host);
+  logger.log(`${APP_NAME} API listening on ${host}:${port}`, 'Bootstrap');
 }
 
 void bootstrap();
