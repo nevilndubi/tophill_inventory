@@ -2,6 +2,8 @@
 
 Hospital equipment tracking and booking system.
 
+Deployment operations are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Workspaces
 
 - `apps/web` — Next.js App Router frontend
