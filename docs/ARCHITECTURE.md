@@ -225,6 +225,54 @@ or rejection, so a genuinely new attempt needs a new key. Request logs redact th
 never appears in DTOs, errors or audits. Task 7.5 may add a 24-hour Redis response cache, but the
 database key remains the correctness backstop.
 
+Task 5.4 extends `BookingService` with ownership-safe list/detail reads and the booking lifecycle
+mutations. Reads use `@AuthenticatedOnly()` because every active requester, including a VIEWER,
+may read their own bookings. SUPER_ADMIN/ADMIN read globally; a DEPT_MANAGER reads any booking for
+a machine owned by their Neon-authoritative department and uses `view=managed` as a pending queue
+by default. `view=all` remains global-only. Authorization predicates are applied in the database
+query before pagination and totals. Inaccessible detail or mutation targets return
+`BOOKING_NOT_FOUND` so callers cannot probe another department's bookings.
+
+All four lifecycle mutations use one lock order: locate immutable IDs without deciding, lock the
+machine `FOR UPDATE`, lock the requester `FOR NO KEY UPDATE`, lock the booking `FOR UPDATE`, re-read
+authoritative state, then read one `clock_timestamp()`. They use a three-second local lock timeout
+mapped to retryable `MACHINE_BUSY`. This order is also mandatory for Tasks 5.5 and later lifecycle
+work; no service may lock booking/session rows before the machine and requester. Real changes set
+`updated_at = GREATEST(clock_timestamp(), previous + 1 millisecond)` so the millisecond optimistic
+token always advances. A stale `expected_updated_at` returns `BOOKING_CHANGED` without booking data.
+
+Rescheduling is limited to future PENDING/CONFIRMED bookings. A purpose-only change skips time,
+policy, usage and overlap checks and preserves status/decision state. A time change reuses the
+authoritative policy, candidate range and open-session rules. Shrinking wholly inside an approved
+window without extending its persisted buffer keeps CONFIRMED and its approval; any other time
+change on a machine requiring approval returns to PENDING and clears decision fields. If approval
+is no longer required, a time change confirms a PENDING booking. The exclusion constraint remains
+the race authority and failed reschedules leave the original row unchanged.
+
+Cancellation is available to the requester regardless of their current role, or to an actor whose
+`booking:approve` scope covers the machine department. It needs a normalized generic reason,
+changes only PENDING/CONFIRMED to CANCELLED and derives late cancellation from the post-lock clock.
+A repeated CANCELLED request is idempotent with no second audit. Cancellation and rejection remain
+available after registry removal and skip machine policy; their history DTO exposes only the
+machine ID plus `is_removed`, not removed-machine display data. Approval requires an active
+requester, a future start and a current non-removed/bookable machine. Rejecting an elapsed PENDING
+request is allowed until Task 9.2 automates stale-state handling.
+
+Approval/rejection requires `booking:approve` with GLOBAL or matching own-department scope. An
+actor may never approve or reject their own booking, including SUPER_ADMIN, ADMIN and
+DEPT_MANAGER; the stable response is `BOOKING_SELF_APPROVAL_DENIED`. Another eligible department
+manager or SUPER_ADMIN/ADMIN is the fallback. The shared state machine permits PENDING to
+CONFIRMED/REJECTED/CANCELLED and CONFIRMED to PENDING only through approval-requiring reschedule,
+or to CANCELLED. IN_PROGRESS, COMPLETED, CANCELLED, REJECTED and NO_SHOW are immutable here; Task
+5.5 owns usage-linked transitions.
+
+Booking DTOs contain server-computed capabilities, `stale`, `as_of`, safe actor names and audit-
+derived `cancelled_at`/`decided_at`; the earliest matching lifecycle audit is authoritative when
+present, while seeded historical rows return null. Narrow bounded audit joins select only actor,
+timestamp and the late-cancel context flag. Purpose, notes and reasons are returned only to the
+authorized requester/manager reading that booking and never copied into audit snapshots. List and
+detail responses are `no-store` and vary on Authorization.
+
 Registration relies on the database asset-tag default, so concurrent writers are safe and rolled
 back inserts may leave harmless sequence gaps. It atomically creates the first SYSTEM history row
 (`NULL -> OPERATIONAL`, reason `Machine registered`) and the `machine.created` audit event.
@@ -521,6 +569,11 @@ CONFIRMED ──grace period passes without check-in──► NO_SHOW   (worker 
 ```
 Machines with `requires_approval = false` create bookings directly as `CONFIRMED`.
 
+Task 5.4 adds explicit mutation semantics: a confirmed booking may return to PENDING only when a
+non-shrinking reschedule is evaluated against a policy that requires approval. PENDING may be
+approved, rejected or cancelled; CONFIRMED may be cancelled. Every other lifecycle mutation is
+closed in Task 5.4. Self-approval and self-rejection are forbidden for every role.
+
 ### 4.5 Service ticket
 `OPEN → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED` (+ `CANCELLED`). Coupling to machine condition is performed by `ServiceService` calling `ConditionService.transition()`; it never writes `machines.condition` directly.
 
@@ -587,6 +640,15 @@ Usage errors are `MACHINE_NOT_FOUND`, `MACHINE_NOT_AVAILABLE`, `MACHINE_IN_USE`,
 `MACHINE_IN_USE` identifies the current caller's own session with a boolean and otherwise returns
 only holder ID/full name plus safe timing metadata. Booking conflicts return only the earliest start
 and whether it already began. Responses never contain addresses or authentication fields.
+
+Booking lifecycle errors are `BOOKING_NOT_FOUND` (404), `BOOKING_CHANGED` (409),
+`BOOKING_NOT_MODIFIABLE` (409), `BOOKING_NOT_PENDING` (409), `BOOKING_START_PASSED` (409),
+`BOOKING_REQUESTER_INACTIVE` (409), `BOOKING_SELF_APPROVAL_DENIED` (403),
+`BOOKING_CONFLICT` (409), `MACHINE_IN_USE` (409), `MACHINE_NOT_BOOKABLE` (422) and retryable
+`MACHINE_BUSY` (503), plus the existing strict validation and booking-policy errors. Scope failures
+that must not disclose a booking use `BOOKING_NOT_FOUND`; decorator permission failures use the
+standard `PERMISSION_DENIED`. No response exposes roles, SQL, constraint names, identity addresses,
+idempotency material or raw settings.
 
 Task 3.7 adds `GET /machines/import/template` and `POST /machines/import`, both protected by
 `machine:create` (SUPER_ADMIN and ADMIN only). Version `v1` is comma-delimited UTF-8 with an exact

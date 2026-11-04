@@ -8,6 +8,26 @@ export {
 } from './booking-creation';
 
 export {
+  approveBookingSchema,
+  bookingIdParamsSchema,
+  BOOKING_STATUSES,
+  cancelBookingSchema,
+  canBookingTransition,
+  listBookingsQuerySchema,
+  rejectBookingSchema,
+  updateBookingSchema,
+  type ApproveBookingInput,
+  type BookingCapabilities,
+  type BookingStatusValue,
+  type CancelBookingInput,
+  type ListBookingsQuery,
+  type ManagedBooking,
+  type ManagedBookingPage,
+  type RejectBookingInput,
+  type UpdateBookingInput,
+} from './booking-lifecycle';
+
+export {
   AVAILABILITY_DETAIL_DAYS_MAX,
   AVAILABILITY_DETAIL_MINUTES_MIN,
   AVAILABILITY_SEARCH_HOURS_MAX,

@@ -235,7 +235,7 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 - [x] 5.1 Booking rules/config (max duration, lead time, buffer, approval flag)
 - [x] 5.2 Availability query API
 - [x] 5.3 Create booking (DB-enforced no-overlap, error mapping)
-- [ ] 5.4 Modify / cancel / approve / reject
+- [~] 5.4 Modify / cancel / approve / reject
 - [ ] 5.5 Booking ↔ check-in link, no-show handling, ad-hoc checkout conflict rule
 - [ ] 5.6 Booking UI (calendar per machine, my bookings, approvals queue)
 - [ ] 5.7 Concurrency & edge-case test suite
@@ -292,12 +292,12 @@ Legend: `[ ]` not started · `[~]` partial · `[x]` done and verified. Full deta
 | Item | Value |
 |---|---|
 | Overall progress | 36 / 71 tasks (50.7%) |
-| Current phase | Phase 5 — Task 5.3 complete; ready for Task 5.4 |
-| Last updated | 2026-11-03 19:42 EAT |
-| Branch | `docs/complete-task-5.3-delivery` (completion record after merged PR #81) |
-| Last commit | `27a1748 Merge pull request #81 from nevilndubi/phase-5/task-5.3-booking-creation` |
-| Repo state | Task 5.3 is merged through PR #81 with hosted Quality green. Frozen install, format, lint, typecheck, 43 API suites (457 passed plus the intentional Task 7.2 skip), 38 web files (207 passed), CI-shaped production build, mutation proofs, reviewed/deployed additive migration, guarded integration and a deleted disposable-Neon concurrency/idempotency proof all pass. Protected branches contain no proof rows. Redis/API/web run from synchronized merged `main`; login is HTTP 200, readiness is `ok` with database and Redis `up`, and unauthenticated `/status` redirects to login. |
-| **Next task** | **5.4 Modify / cancel / approve / reject, including booking list/detail reads** |
+| Current phase | Phase 5 — Task 5.4 implementation verified; delivery in progress |
+| Last updated | 2026-11-04 05:59 EAT |
+| Branch | `phase-5/task-5.4-booking-lifecycle` |
+| Last commit | `9e0c25f Merge pull request #82 from nevilndubi/docs/complete-task-5.3-delivery` (branch base; feature commit pending) |
+| Repo state | Task 5.4 ownership-safe booking reads and lifecycle mutations are implemented and locally verified, including independent authorization inventories, mutation proofs, atomic audits, concurrency, strict DTOs and a deleted disposable-Neon proof. No migration was needed. The checklist remains partial and progress stays 36 / 71 until commit, hosted green CI, merge, synchronized `main` and the required merged-main local runtime proof complete. |
+| **Next task** | **Finish Task 5.4 delivery; do not start Task 5.5 yet** |
 
 ---
 
@@ -317,8 +317,6 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Hospital shared-device security:** decide the idle/inactivity sign-out policy before production hardening (candidate owner: Task 10.2). Task 2.4 deliberately implements explicit and cross-tab logout only.
 - **Task 7.3 — login rate limiting:** add the application-owned Redis control when the rate-limiting task lands; Supabase's hosted Auth limits are the only login throttle until then.
 - **Task 7.3 — invitation rate limiting:** add an application-owned Redis limit for `POST /api/v1/users`; until then, the endpoint is permission-gated, uses a 16 KiB JSON body limit and inherits Supabase's service limits.
-- **Task 5.4 — cancel own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`; administrative or department cancellation remains a separate decision for that service.
-- **Task 5.4 — edit own booking:** proposed ownership rule layered on `booking:create` with `isOwner = true`, subject to booking-state and overlap checks.
 - **Task 9.3 — read own notifications:** proposed new `notification:read-own` permission for every authenticated application role, enforced with ownership rather than a global notification-read grant.
 - **Task 7.3 — attachment upload rate limiting:** apply a per-user Redis limit to signed-upload issuance; Task 3.5 already enforces authentication, permission, per-file validation and a 20-file machine cap.
 - **Task 9.2 — orphaned attachment reconciliation:** schedule `pnpm storage:reconcile` and alert on private Storage objects older than 24 hours without a Neon attachment row; deletion remains an explicit operator action (`--delete`) until the job policy is approved.
@@ -335,14 +333,18 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 - **Physical print calibration:** verify both presets on the actual label printer/stock at 100% scale with “Fit to page” disabled, no browser margins, the test-sheet outlines measured with a ruler, and a phone scan before attaching labels.
 - **Task 7.3 — CSV import rate limiting:** apply Redis-backed limits to both the machine import and template-download endpoints; Task 3.7 keeps them authenticated and restricted to `machine:create` in the meantime.
 - **Machine import permission mapping:** `machine:create` is the approved working capability for template access and all import modes, so SUPER_ADMIN and ADMIN may import while BIOMED_TECH remains edit-only. Revisit only through a deliberate permission-matrix decision.
-- **Task 5.4 — booking reads and mutation state machine:** add owner-scoped list/detail reads, the department manager's pending view, modification/cancellation/approval/rejection endpoints, refuse approval after a PENDING booking's start time, and decide the owner question of whether a DEPT_MANAGER may approve their own request (recommendation: never self-approve; SUPER_ADMIN/ADMIN are fallback approvers).
 - **Task 5.5 — booking/session linkage and stale lifecycle:** link checkout to the caller's applicable booking, transition booking lifecycle, and own no-show state changes; Task 5.3 deliberately counts only future-ended PENDING/CONFIRMED plus every IN_PROGRESS booking toward the active limit.
-- **Task 5.6 — booking user interface:** build booking creation, list/detail, calendar, My Bookings and approval screens over the completed Task 5.2/5.3 APIs. Task 5.3 adds no booking-creation screen.
+- **Task 5.6 — booking user interface:** build booking creation, list/detail, calendar, My Bookings and approval screens over the completed Task 5.2–5.4 APIs. Task 5.4 remains API-only and exposes server-computed capabilities so the browser does not reconstruct lifecycle rules.
 - **Task 7.2 — booking creation invalidation:** invalidate availability, machine detail/list and future booking-query cache keys after committed creation.
 - **Task 7.3 — booking-create rate limiting:** apply an authenticated per-user Redis limit without changing DB lock/exclusion authority.
 - **Task 7.4 — booking realtime invalidation:** publish committed creation events without streaming purpose or identity data.
 - **Task 7.5 — idempotency response acceleration:** retain the database-backed per-user booking idempotency key as durable authority and layer the documented 24-hour Redis response mechanism over it; never let Redis become creation authority.
 - **Task 9.2 — booking reminders and no-show processing:** schedule reminders and transition stale bookings so historical pending/confirmed rows do not remain active indefinitely.
+- **Task 5.5 / 9.2 — stale pending requests:** Task 5.4 refuses approval after start but permits rejection/cancellation so operators can resolve stale rows; Task 5.5 owns booking-linked progress/completion and Task 9.2 owns automated NO_SHOW transition.
+- **Task 6.5 — booking impact handling:** when machine condition changes make future work unsafe, flag affected bookings without silently cancelling them; Task 5.4 approval rechecks only the machine's current bookability.
+- **Task 7.2 — booking lifecycle caching:** invalidate booking list/detail, availability, machine and future calendar keys after reschedule, cancellation, approval or rejection while preserving ownership-safe cache partitioning.
+- **Task 7.3 — booking lifecycle rate limiting:** bound lifecycle mutation traffic per authenticated actor without weakening database lock/exclusion authority.
+- **Task 7.4 — booking lifecycle realtime:** publish committed booking state changes by ID only so authorized clients refetch through normal endpoints.
 - **Task 5.6 — availability calendar contract:** consume actor-relative `own` flags, typed lead/advance/condition blocks and effective policy facts; a candidate's start, end and buffer must all fit one free window.
 - **Task 6.5 — future maintenance availability:** decide how authoritative scheduled downtime affects future slots. Task 5.2 uses current condition only and cannot pre-book a currently repaired machine after an estimated repair date.
 - **Task 7.2 — availability caching:** add versioned detail/search keys and invalidate after every booking, usage, condition, registry or booking-policy write while preserving the one-`as_of` snapshot contract.
@@ -489,6 +491,11 @@ Everything in §8 not yet ticked. Do not duplicate it here — only list *extra*
 | D110 | 2026-11-03 | Count future-ended PENDING and CONFIRMED bookings plus every IN_PROGRESS booking toward `booking.max_active_per_user`, default 10 with bounds 1–100 | A past unstarted booking is awaiting the later no-show sweep and must not lock the requester out, while every live in-progress use remains active regardless of its planned end | Count every historical active-status row; omit IN_PROGRESS; add lifecycle work prematurely |
 | D111 | 2026-11-03 | Provide durable booking idempotency with an optional normalized 8–128 printable-ASCII key unique per requester in Neon; replay returns the booking's current state, never writes a second audit, and a key remains consumed after cancellation/rejection | Database uniqueness closes concurrent retry races and survives API/Redis restarts; Redis can accelerate response replay in Task 7.5 but cannot be creation authority | Redis-only idempotency; separate idempotency table; allow key reuse after lifecycle changes; log/return the key |
 | D112 | 2026-11-03 | Deploy the additive setting/idempotency migration before the new API receives traffic, and fail closed with `SETTINGS_INVALID` naming only the missing setting key | The strict eight-setting reader must never run against an older schema/default set; expand-then-deploy keeps rolling releases safe without exposing stored configuration | Start API before migration; silently fall back in application code; expose raw setting values |
+| D113 | 2026-11-04 | Forbid every actor, including DEPT_MANAGER, ADMIN and SUPER_ADMIN, from approving or rejecting their own booking; another eligible manager or a global administrator is the fallback | Approval must remain a genuine second-person decision and role elevation must not erase separation of duties | Allow administrators to self-approve; forbid only department managers; permit self-rejection |
+| D114 | 2026-11-04 | Make booking reads ownership-safe and database-scoped: every active user reads their own history, global administrators read all, and department managers read every status on machines owned by their department while the managed queue defaults to PENDING | The UI needs trustworthy totals and capabilities without leaking inaccessible booking existence or deriving department authority from request/JWT data | Permission-only global reads; pending-only detail; filter after pagination; return 403 with existence clues |
+| D115 | 2026-11-04 | Use one lifecycle lock order—machine `FOR UPDATE`, requester `FOR NO KEY UPDATE`, booking `FOR UPDATE`, then one `clock_timestamp()`—and advance every real optimistic version by at least one millisecond | This preserves the established deadlock order, avoids blocking unrelated requester foreign-key work, prevents stale clock decisions after lock waits and makes millisecond tokens unambiguous | Booking-first locks; full user update lock; transaction-start `now()`; add a version column |
+| D116 | 2026-11-04 | Purpose-only edits preserve policy/approval state; approved-window shrinkage keeps confirmation; other time changes re-evaluate policy and may return CONFIRMED to PENDING or auto-confirm a formerly pending booking | Text correction must not unexpectedly invalidate approval, while any expanded/moved reservation must use current policy and immutable database overlap authority | Revalidate every edit; always reset approval; never re-evaluate changed policy |
+| D117 | 2026-11-04 | Allow requester/scoped cancellation and scoped rejection after registry removal without policy checks, make repeated cancellation idempotent, but require a current active/bookable machine and active requester for approval | Removing or breaking a machine must never trap a request that needs cancellation/rejection, while approval must not authorize unusable work; idempotent cancellation is retry-friendly | Block every mutation on removed machines; re-run policy for cancellation; make repeated cancellation conflict |
 
 *(Append new rows; do not rewrite old ones. If a decision is reversed, add a new row referencing the old one.)*
 
@@ -1124,6 +1131,20 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - **Next task:** 5.4 Modify / cancel / approve / reject, including booking list/detail reads.
 - **Branch / commit:** `main` at `27a1748`; final status documentation follows in `docs/complete-task-5.3-delivery`.
 
+### [2026-11-04 05:59 EAT] — Task(s): 5.4 — booking lifecycle implementation and live acceptance
+- **Prompt summary:** Add ownership-safe booking reads plus optimistic reschedule, cancellation, approval and rejection with scoped authorization, no self-decision, uniform locks, atomic audit history, concurrency proof and full delivery workflow.
+- **What I did:** Added shared strict lifecycle/list contracts and the explicit state helper; six API handlers; minimized actor-relative DTOs with `meta.total`, capabilities, stale/as-of and narrow audit-derived decision/cancellation facts; uniform locked mutations; stable errors; atomic lifecycle audits; the complete route/access inventories; table-driven unit/e2e coverage; Architecture/phase-guide decisions; and a safe disposable-Neon verifier. No booking UI or Task 5.5 behavior was added.
+- **How:** Every mutation locates immutable IDs, locks machine → requester → booking, reads one post-lock database clock and rechecks authority/state. Time edits reuse policy/candidate-range/usage/constraint rules; purpose-only edits skip time policy; approved-window shrinkage preserves confirmation. Cancellation/rejection remain possible after registry removal, repeated cancellation is idempotent, and every role is barred from deciding its own request.
+- **Files touched:** shared booking lifecycle/event exports; booking controller/service/errors/DTOs/tests; both authorization inventories; the live verifier and package command; Architecture, phase guide and this handoff.
+- **Migrations:** none; the Task 5.3 schema represents the complete lifecycle contract and disposable-branch drift is clean.
+- **Verification:** Task 5.3 housekeeping is DONE: the unrelated-check-in requester-lock proof (`booking.service.spec.ts`), post-lock clock boundary (`booking.service.spec.ts`), 20-way live invariant/retry counts (`verify-booking-creation-live.ts`), idempotency CORS exposure (`bookings.e2e-spec.ts`), request-log redaction (`logging.spec.ts`), deployment-order README note and the full Task 5.2 evidence list all remain present. Frozen install, format, lint and typecheck pass. Hermetic tests pass: 45 API suites/484 tests plus one intentional Task 7.2 skip and the web suite; focused lifecycle/consolidated authorization tests pass 45/45. The exact metadata inventory initially failed on all six new routes, was corrected and passes. Temporary unclassified-route and widened-BIOMED permission mutations failed with the expected named route/role and were reverted. Disposable Neon proved ownership/scope, self-decision denial, fallback approval, elapsed rejection, viewer/manager cancellation, exact adjacency and one-millisecond overlap rollback, approval/mixed races, audit rollback, response minimization and clean drift. Query plans used the requester, machine-department and audit-entity indexes in 0.056/0.155/0.056 ms; the small global fixture plan used a bounded scan in 0.280 ms. Remote end-to-end list/detail calls used four/three queries and measured 1408.06/687.04 ms, dominated by hosted round trips rather than database execution. The proof branch was deleted and `main`, `staging` and `dev` each contain zero proof rows (empty protected branches are treated as zero, not as schema failures).
+- **Locally running:** Pending hosted green merge and the mandatory exact-merged-main §6.4 restart.
+- **Result:** Implementation and acceptance are complete; Task 5.4 remains partial at 36 / 71 until GitHub delivery and merged-main runtime acceptance complete.
+- **Progress after this session:** 36 / 71 (50.7%).
+- **Left undone / follow-ups:** Commit, push, open and merge the green PR, synchronize `main`, restart the platform and add the completion record. Task 5.5 owns booking/session linkage and lifecycle automation; Task 5.6 owns all booking screens.
+- **Next task:** Finish Task 5.4 delivery; do not start Task 5.5 yet.
+- **Branch / commit:** `phase-5/task-5.4-booking-lifecycle` / pending.
+
 ## 13. KNOWN ISSUES / TECH DEBT
 
 - Task 4.5's merged PR and hosted Quality are verified, and its machine browser suite passed locally in this reconciliation. The detailed disposable-Neon event count, pagination/query-count proof, EXPLAIN measurements and route/permission mutation outcomes exist only in the dirty Task 4.5 handoff rewrite, not in Git or hosted CI evidence inspected here; do not rely on its specific figures until the original proof artifacts or reproducible live run are available.
@@ -1235,6 +1256,7 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Run the credential-safe Task 5.1 migration/integration/drift proof: `NEON_PROJECT_ID=<project-id> pnpm verify:booking-policy:live`
 - Run the credential-safe Task 5.2 availability/boundary/performance/drift proof: `NEON_PROJECT_ID=<project-id> pnpm verify:availability:live`
 - Run the credential-safe Task 5.3 booking-creation/idempotency/concurrency/drift proof: `NEON_PROJECT_ID=<project-id> pnpm verify:booking-creation:live`
+- Run the credential-safe Task 5.4 booking lifecycle/scope/concurrency/query-plan/drift proof: `NEON_PROJECT_ID=<project-id> pnpm verify:booking-lifecycle:live`
 - Configure/verify the private machine-attachment bucket: `pnpm storage:configure`
 - List orphaned private attachment objects older than 24 hours (read-only): `pnpm storage:reconcile`
 - Explicitly delete listed orphaned attachment objects: `pnpm storage:reconcile -- --delete`
@@ -1277,6 +1299,8 @@ Task 3.1 added shared category validation/audit contracts, permission-correct Ne
 - Read/filter the derived active-registry status board: `GET /api/v1/status/board`
 - Read one machine's effective booking policy: `GET /api/v1/machines/:id/booking-policy`
 - Read/update global booking settings: `GET /api/v1/settings/booking`, `PATCH /api/v1/settings/booking`
+- List/read visible bookings: `GET /api/v1/bookings`, `GET /api/v1/bookings/:id`
+- Reschedule/cancel/approve/reject a booking: `PATCH /api/v1/bookings/:id`, `POST /api/v1/bookings/:id/cancel`, `POST /api/v1/bookings/:id/approve`, `POST /api/v1/bookings/:id/reject`
 - List/request-upload machine attachments: `GET /api/v1/machines/:machineId/attachments`, `POST /api/v1/machines/:machineId/attachments/sign-upload`
 - Confirm an upload: `POST /api/v1/attachments/confirm`
 - Request a five-minute download/delete an attachment: `GET /api/v1/attachments/:id/url`, `DELETE /api/v1/attachments/:id`

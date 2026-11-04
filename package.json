@@ -40,6 +40,7 @@
     "verify:booking-policy:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-booking-policy-live.ts",
     "verify:availability:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-availability-live.ts",
     "verify:booking-creation:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-booking-creation-live.ts",
+    "verify:booking-lifecycle:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-booking-lifecycle-live.ts",
     "verify:machine-import:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-machine-import-live.ts",
     "verify:attachments:live": "TSX_TSCONFIG_PATH=apps/api/tsconfig.json tsx scripts/verify-attachments-live.ts",
     "storage:configure": "tsx scripts/configure-supabase-storage.ts",

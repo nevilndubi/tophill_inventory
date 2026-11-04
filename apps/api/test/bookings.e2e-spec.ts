@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { jest } from '@jest/globals';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import type { CreatedBooking } from '@app/shared';
+import type { CreatedBooking, ManagedBooking } from '@app/shared';
 import { UserInactiveException } from '../src/auth/auth.errors';
 import type { AuthenticatedUser } from '../src/auth/auth.types';
 import { JwtVerifierService } from '../src/auth/jwt-verifier.service';
@@ -36,6 +36,44 @@ const booking: CreatedBooking = {
   starts_at: '2026-11-04T10:00:00.000Z',
   status: 'CONFIRMED' as const,
 };
+const managedBooking: ManagedBooking = {
+  approved_or_decided_by: null,
+  as_of: '2026-11-03T10:00:00.000Z',
+  blocked_until: booking.blocked_until,
+  cancelled_at: null,
+  cancellation_reason: null,
+  capabilities: {
+    can_approve: false,
+    can_cancel: true,
+    can_reject: false,
+    can_reschedule: true,
+  },
+  created_at: booking.created_at,
+  decided_at: null,
+  decision_note: null,
+  effective_buffer_minutes: booking.effective_buffer_minutes,
+  ends_at: booking.ends_at,
+  id: booking.id,
+  late_cancelled: false,
+  machine: {
+    asset_tag: booking.machine.asset_tag,
+    id: booking.machine.id,
+    is_removed: false,
+    name: booking.machine.name,
+    owning_department: {
+      code: 'ICU',
+      id: '44444444-4444-4444-8444-444444444444',
+      name: 'Intensive Care',
+    },
+  },
+  purpose: booking.purpose,
+  requester: { full_name: 'Test User', id: userId },
+  requires_approval: booking.requires_approval,
+  stale: false,
+  starts_at: booking.starts_at,
+  status: booking.status,
+  updated_at: booking.created_at,
+};
 
 const user = (role: AuthenticatedUser['role'], isActive = true): AuthenticatedUser => ({
   department: null,
@@ -46,11 +84,20 @@ const user = (role: AuthenticatedUser['role'], isActive = true): AuthenticatedUs
   role,
 });
 
-describe('Booking creation API (e2e)', () => {
+describe('Booking API (e2e)', () => {
   let app: INestApplication;
   let currentUser = user('STAFF');
   const bookings = {
+    approve: jest.fn(async () => managedBooking),
+    cancel: jest.fn(async () => managedBooking),
     create: jest.fn(async () => ({ booking, replayed: false })),
+    get: jest.fn(async () => managedBooking),
+    list: jest.fn(async () => ({
+      items: [managedBooking],
+      meta: { page: 1, page_size: 25, total: 1 },
+    })),
+    reject: jest.fn(async () => managedBooking),
+    update: jest.fn(async () => managedBooking),
   };
 
   beforeAll(async () => {
@@ -83,6 +130,110 @@ describe('Booking creation API (e2e)', () => {
     currentUser = user('STAFF');
     jest.clearAllMocks();
     bookings.create.mockImplementation(async () => ({ booking, replayed: false }));
+  });
+
+  it('lists and reads only minimized bookings with no-store headers', async () => {
+    for (const path of ['/api/v1/bookings', `/api/v1/bookings/${bookingId}`]) {
+      const response = await request(app.getHttpServer())
+        .get(path)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(response.headers.vary).toContain('Authorization');
+      expect(JSON.stringify(response.body)).not.toMatch(/email|supabase|idempotency|seed/i);
+      if (path === '/api/v1/bookings') {
+        expect(response.body.data.meta).toEqual({ page: 1, page_size: 25, total: 1 });
+      }
+    }
+  });
+
+  it('rejects hostile list/detail parameters without reaching the service', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/bookings?unknown=true')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/v1/bookings/not-a-uuid')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+    expect(bookings.list).not.toHaveBeenCalled();
+    expect(bookings.get).not.toHaveBeenCalled();
+  });
+
+  it('normalizes lifecycle text and rejects empty or unknown PATCH fields', async () => {
+    const expectedUpdatedAt = managedBooking.updated_at;
+    await request(app.getHttpServer())
+      .patch(`/api/v1/bookings/${bookingId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ expected_updated_at: expectedUpdatedAt, purpose: '  Ward   round  ' })
+      .expect(200);
+    expect(bookings.update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: userId }),
+      bookingId,
+      { expected_updated_at: expectedUpdatedAt, purpose: 'Ward round' },
+      expect.any(String),
+    );
+
+    for (const invalid of [
+      { expected_updated_at: expectedUpdatedAt },
+      { expected_updated_at: expectedUpdatedAt, unknown: true },
+    ]) {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/bookings/${bookingId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(invalid)
+        .expect(400);
+    }
+  });
+
+  it('allows every active role to cancel their own booking while approval remains permission-gated', async () => {
+    currentUser = user('VIEWER');
+    await request(app.getHttpServer())
+      .post(`/api/v1/bookings/${bookingId}/cancel`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: '  Plans   changed  ' })
+      .expect(200);
+    expect(bookings.cancel).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'VIEWER' }),
+      bookingId,
+      { reason: 'Plans changed' },
+      expect.any(String),
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/bookings/${bookingId}/approve`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+      .expect(403);
+    expect(bookings.approve).not.toHaveBeenCalled();
+
+    currentUser = user('DEPT_MANAGER');
+    await request(app.getHttpServer())
+      .post(`/api/v1/bookings/${bookingId}/reject`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ note: '  Capacity   unavailable  ' })
+      .expect(200);
+    expect(bookings.reject).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'DEPT_MANAGER' }),
+      bookingId,
+      { note: 'Capacity unavailable' },
+      expect.any(String),
+    );
+  });
+
+  it('applies authentication and inactive-user ordering before lifecycle validation', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/bookings/${bookingId}/cancel`)
+      .send({ unknown: true })
+      .expect(401);
+    currentUser = user('STAFF', false);
+    const response = await request(app.getHttpServer())
+      .post(`/api/v1/bookings/${bookingId}/cancel`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ unknown: true })
+      .expect(403);
+    expect(response.body.error.code).toBe('USER_INACTIVE');
+    expect(bookings.cancel).not.toHaveBeenCalled();
   });
 
   it('creates a minimized booking, normalizes purpose and returns no-store headers', async () => {
